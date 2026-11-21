@@ -101,6 +101,12 @@ public sealed partial class CompiledActivation
     /// <returns><see langword="false"/> when the interpreter runs the statement, as <see cref="TrySet"/>.</returns>
     public bool TrySetResult(int offset, object? source, bool nothing)
     {
+        // an activation without a frame holds its result in a cell of its own, which its frame is given once it has one (GiveResult).
+        if (_frame is null && _body.ResultIsObject)
+        {
+            return !FailsAccessAtRandom() && TrySetOwnResult(offset, source, nothing);
+        }
+
         if (FailsAccessAtRandom() || Frame is not { Procedure: ITypedSymbol function } frame
             || ValueOf(source, nothing) is not { } value
             || Coerced(offset, value, function.ResolvedType) is not { } coerced
@@ -140,15 +146,15 @@ public sealed partial class CompiledActivation
     }
 
     // whether an object that loses its last reference goes without running any code, so that compiled code lets go of it, and the session counts and
-    // destroys it as it does for the interpreter (RuntimeSession.ReleaseReference). Its class is one of the workspace's (a library's, such as a Collection,
-    // lets go of what it holds), is not a form, and has no Terminate handler. None of its variables or Static locals can hold an object, which would be let go
-    // of with it. Nothing outside the workspace holds it.
+    // destroys it as it does for the interpreter (RuntimeSession.ReleaseReference). Its class is VBA code, of the workspace or of a source project it
+    // references (a library project's, such as a Collection, lets go of what it holds), is not a form, and has no Terminate handler. None of its variables or
+    // Static locals can hold an object, which would be let go of with it. Nothing outside the workspace holds it.
     private bool DestroysWithoutCode(VBRuntimeObjectId instance)
-        => _session.Symbols.TryGetInstance(instance, out var live) && live is ObjectInstance created
-            && created.ClassModule.GetProperty(SymbolProperties.Library) is null && created.ClassModule.GetProperty(SymbolProperties.ExternalTarget) is null
-            && (_session.Lifecycle is null or ClassLifecycle) && !ClassLifecycle.HandlesTerminate(created)
+        => _session.Symbols.TryGetInstance(instance, out var live)
+            && !SymbolProperties.IsOfALibraryProject(live.ClassModule) && live.ClassModule.GetProperty(SymbolProperties.ExternalTarget) is null
+            && (_session.Lifecycle is null or ClassLifecycle) && !ClassLifecycle.HandlesTerminate(live)
             && !_session.ExternalObjects.TryGet(instance, out _, out _)
-            && created.Fields.All(HoldsNoObject) && created.StaticLocals.All(HoldsNoObject);
+            && live.Fields.All(HoldsNoObject) && live.StaticLocals.All(HoldsNoObject);
 
     private static bool HoldsNoObject(Symbol variable) => variable is ITypedSymbol { ResolvedType: { } type } && HoldsNoObject(type);
 

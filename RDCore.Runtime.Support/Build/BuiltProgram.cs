@@ -48,8 +48,8 @@ internal sealed record class BuiltModule(string RelativeUri, string Name, Module
 
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
 // runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
-// symbols are relative to. NativeDialogs: whether the program shows the machine's own dialogs where it has them, as the settings said when it was built
-// (ProgramDialogs); an image that does not say asks at the console.
+// symbols are relative to. NativeDialogs: whether the settings asked for the machine's own dialogs when the program was built, which it shows where the
+// machine has them (ProgramDialogs); an image that does not say shows RDForms' dialogs, or asks at the console for a console application.
 internal sealed record class BuiltProgramImage(
     RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions,
     IReadOnlyList<BuiltModule> Modules, bool NativeDialogs = false)
@@ -75,13 +75,18 @@ public static class BuiltProgram
     {
         ArgumentNullException.ThrowIfNull(program);
 
-        // the process's entry point: nothing awaits it, and the main thread has no context a continuation would wait for.
-#pragma warning disable VSTHRD002
+        // the process's main thread is served while the program runs on another, as rdc's is: on macOS, the RDForms windows of its external host run their
+        // loop on it.
+        return ProcessMainThread.Serve(() => EntryAsync(program, args));
+    }
+
+    private static async Task<int> EntryAsync(Assembly program, string[] args)
+    {
         // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
         if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
         {
             using var host = new MachineExternalHost(logFileName: null, hostsRDForms: File.Exists(Path.Combine(AppContext.BaseDirectory, $"{FormsAssembly}.dll")));
-            return host.RunAsync(args).GetAwaiter().GetResult();
+            return await host.RunAsync(args);
         }
 
         if (ExecutableOf(program) is { } executable)
@@ -91,13 +96,12 @@ public static class BuiltProgram
 
         try
         {
-            return RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None).GetAwaiter().GetResult();
+            return await RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None);
         }
         finally
         {
             MachineExternal.Shutdown();
         }
-#pragma warning restore VSTHRD002
     }
 
     // the program's executable beside its assembly, which is its external host too; none when the program was built without one (and is run with dotnet).
@@ -141,7 +145,9 @@ public static class BuiltProgram
         var fileSystem = new FileSystem();
         using var provider = new EnvironmentSessionProvider(image.Environment.Profile, fileSystem, NullLogger<EnvironmentSessionProvider>.Instance,
             libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
-            DialogsOf(image.NativeDialogs, keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
+            ProgramDialogs.DialogsOf(image.Project.Build, image.NativeDialogs, () => ConsoleDialogsOf(keys, output)) is { } dialogs
+                ? MachineExternal.World with { Interaction = dialogs }
+                : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
         // App is the program's executable, or its assembly when it runs with dotnet; it is another instance when one of the same executable holds its name.
         var executable = ExecutableOf(program) ?? Path.Combine(AppContext.BaseDirectory, program.GetName().Name!);
@@ -170,12 +176,10 @@ public static class BuiltProgram
         return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended, token);
     }
 
-    // the dialogs of the program: asked at the console, as rdc run and the shell ask them, on every operating system; the machine's own where it has them,
-    // when the program was built to show them (native). A terminal that is not redirected, and whose TERM names a terminal other than "dumb", understands
-    // ANSI escape sequences.
-    private static ConsoleUserInteraction? DialogsOf(bool native, IConsoleKeys? keys, TextWriter output)
-        => ProgramDialogs.ShowsNative(native) ? null
-            : keys is not null ? new ConsoleUserInteraction(keys, output)
+    // the dialogs of the program asked at the console, as rdc run and the shell ask them. A terminal that is not redirected, and whose TERM names a terminal
+    // other than "dumb", understands ANSI escape sequences.
+    private static ConsoleUserInteraction ConsoleDialogsOf(IConsoleKeys? keys, TextWriter output)
+        => keys is not null ? new ConsoleUserInteraction(keys, output)
             : ConsoleUserInteraction.OfTheConsole(new SystemConsoleKeys(),
                 ansi: !global::System.Console.IsOutputRedirected && Environment.GetEnvironmentVariable("TERM") is { Length: > 0 } and not "dumb");
 

@@ -72,19 +72,39 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
             return Fail(error);
         }
 
+        return Added(session, interval.Value, number.Value, start, out var result) switch
+        {
+            DateAdded.Date => Succeed(ToDateValue(result)),
+            DateAdded.NoInterval => InvalidInterval(nameof(DateAdd), interval),
+            _ => OutOfRange(nameof(DateAdd)),
+        };
+    }
+
+    // what DateAdd makes of a date read to the nearest second, which it and its typed form (DateAddedOf) return: the date Number intervals after it, or why
+    // it makes none.
+    private enum DateAdded
+    {
+        Date,
+        NoInterval,
+        OutOfRange,
+    }
+
+    private static DateAdded Added(IRuntimeSession session, string? interval, double number, DateTime start, out DateTime result)
+    {
+        result = default;
+
         // "If it is not a integer value, it is rounded to the nearest whole number": to even, as the language rounds.
-        var rounded = Math.Round(number.Value, MidpointRounding.ToEven);
+        var rounded = Math.Round(number, MidpointRounding.ToEven);
         if (rounded is < int.MinValue or > int.MaxValue)
         {
-            return OutOfRange(nameof(DateAdd));
+            return DateAdded.OutOfRange;
         }
 
         var count = (int)rounded;
-        var calendar = CurrentCalendar;
-        DateTime result;
+        var calendar = CalendarOf(session);
         try
         {
-            result = (interval.Value ?? string.Empty).ToLowerInvariant() switch
+            result = (interval ?? string.Empty).ToLowerInvariant() switch
             {
                 Intervals.Year => calendar.AddYears(start, count),
                 Intervals.Quarter => calendar.AddMonths(start, checked(count * 3)),
@@ -100,15 +120,15 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
         }
         catch (FormatException)
         {
-            return InvalidInterval(nameof(DateAdd), interval);
+            return DateAdded.NoInterval;
         }
         catch (Exception exception) when (exception is ArgumentException or OverflowException)
         {
             // "If the calculated date would precede the year 100 ... an error 5 is raised", and one after the year 9999 is out of the range of dates the same way.
-            return OutOfRange(nameof(DateAdd));
+            return DateAdded.OutOfRange;
         }
 
-        return IsInRange(result) ? Succeed(ToDateValue(result)) : OutOfRange(nameof(DateAdd));
+        return IsInRange(result) ? DateAdded.Date : DateAdded.OutOfRange;
     }
 
     /// <inheritdoc/>
@@ -321,6 +341,31 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
     #endregion
 
     #region Typed forms of the public functions
+
+    /// <summary>
+    /// <c>DateAdd</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.1</strong>): the serial of the <c>Date</c> <see cref="DateAdd"/> returns for it, a year,
+    /// a quarter or a month being of the session's calendar. Compiled code calls it in place of <see cref="DateAdd"/>
+    /// (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="session">The session, whose calendar a year, a quarter and a month are of.</param>
+    /// <param name="interval">The interval added.</param>
+    /// <param name="number">How many intervals are added, rounded to the nearest whole number.</param>
+    /// <param name="date">The serial of the <c>Date</c>.</param>
+    /// <param name="added">The serial of the <c>Date</c> made.</param>
+    /// <returns><see langword="false"/> for a <c>Date</c> that is not a day, an interval that is none, and a <c>Date</c> made out of the range of dates, which
+    /// <see cref="DateAdd"/> raises error 5 for.</returns>
+    [StdLibIntrinsic(typeof(IStdDateTimeModule), nameof(DateAdd))]
+    public static bool DateAddedOf(IRuntimeSession session, string? interval, double number, [StdLibDate] double date, [StdLibDate] out double added)
+    {
+        if (TryMomentToTheSecond(date, out var start) && Added(session, interval, number, start, out var result) is DateAdded.Date)
+        {
+            added = result.ToOADate();
+            return true;
+        }
+
+        added = 0;
+        return false;
+    }
 
     /// <summary>
     /// <c>Year</c> of a <c>Date</c> (<strong>MS-VBAL §6.1.2.4.1.14</strong>): the Integer <see cref="Year"/> returns for it, in the session's calendar.

@@ -81,7 +81,9 @@ program, then says `BREAK IN`, the module and its line. A stop at an error in a 
 ---
 ## Commands
 
-Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder.
+Each command takes a workspace as a folder, with or without a `.rdproj`, or as a single module file. Without one, it works on the current folder. A folder
+without a `.rdproj` is read as an editor reads it: every module file under it, at any depth, is a module, and a single `.vbp` in it makes it a VB6 project (see
+[**RD-VBAL §2.2.3**](specs/rd-vbal.2.2.3.projectfile.md)).
 
 |Command|Alias|What it does|
 |---|---|---|
@@ -108,7 +110,7 @@ On a console, a command starts with the platform's splash. Output redirected to 
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
 A project with no entry point ([RDC30001](diagnostics/rdc30001.md)), or with a `Sub Main` in more than one standard module ([RDC30002](diagnostics/rdc30002.md)), does not run. Neither does a library (`"build": { "outputType": "Library" }`),
-nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system. The `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, on Windows. The setting does not change how a form is shown: it opens a window of its own.
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. In a console application (`"build": { "outputType": "ConsoleApplication" }`), a `MsgBox` or an `InputBox` is drawn in the console and answered there, as in the shell, on every operating system. In any other program, they are RDForms dialogs, shown over its forms, on every operating system. On Windows, the `CLI.NativeDialogs` setting shows them as Windows dialog boxes instead, in either kind of program; on any other operating system it changes nothing. A form opens a window of its own in either.
 
 |Option|What it does|
 |---|---|

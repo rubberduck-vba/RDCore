@@ -191,7 +191,8 @@ internal sealed partial class ProcedureEmitter
 
             // what the Variant element holds decides what its Let is, as a Variant variable's does (VariantLetStep): one the evaluation on payloads declines
             // (of a String, over an object) the interpreter runs alone, and compiled code goes on after it. The value and the element are evaluated in the
-            // order of an element of a scalar type.
+            // order of an element of a scalar type. Of the array a Variant holds, a Let whose subscripts call, as its value does, is the interpreter's
+            // (ProcedureAnalysis.CallsAsAVariantAccessor).
             case VariantElementLetStep let:
             {
                 var failure = RecoverAt(let.Offset);
@@ -227,7 +228,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Ldc_I4, statement.Offset);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RunArrayStatement))!);
-                _il.Emit(OpCodes.Brfalse, CallFailedAt(statement.Offset));
+                _il.Emit(OpCodes.Brfalse, CallFailedAfterSpillAt(statement.Offset));
                 if (statement.Releases)
                 {
                     EmitReadBackAfterStatement(statement.Offset);

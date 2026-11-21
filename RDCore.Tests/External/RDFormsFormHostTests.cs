@@ -111,6 +111,88 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    private const string Document =
+        "<Form xmlns=\"https://rubberduckvba.ca/schemas/rdforms\" FormatVersion=\"1\" Name=\"Form1\" Caption=\"Ported\">\n" +
+        "  <TextBox Name=\"Text1\" Left=\"8\" Top=\"8\" Width=\"81\" Height=\"19\" Text=\"Text1\" TabIndex=\"0\" />\n" +
+        "</Form>\n";
+
+    // a form ported to RDForms: its code is a .rdform module, and its document the .xaml beside it.
+    private static FormDefinition PortedForm(string document = Document)
+        => new("Form1", ReadOnlyMemory<byte>.Empty) { Kind = FormDesignerKind.RDForms, Caption = "Form1", DesignerText = document };
+
+    [TestMethod]
+    public void AnRDFormsForm_IsReadFromItsDocument_AndItsComponentsAreOfRDFormsClasses()
+    {
+        var host = Host();
+        var ported = host.Create(PortedForm());
+        var unported = host.Create(VisualBasicForm());
+        try
+        {
+            var text = Get(host, ported, "Text1")!;
+            var legacy = Get(host, unported, "Text1")!;
+
+            Assert.AreEqual("Ported", host.GetCaption(ported));
+            Assert.AreEqual("Text1", Get(host, text, "Text"));
+            Assert.AreEqual("RDForms.TextBox", host.Server.ClassNameOf(text));
+            Assert.AreEqual("RDForms.Form", host.Server.ClassNameOf(ported));
+            Assert.IsTrue(host.Server.IsInstanceOf(text, "RDForms", "TextBox"));
+            Assert.IsFalse(host.Server.IsInstanceOf(text, "RDForms", "Label"));
+            Assert.IsNull(host.Server.IsInstanceOf(text, "VB", "TextBox"), "a ported form's control is no VB class's");
+            Assert.AreEqual("VB.TextBox", host.Server.ClassNameOf(legacy), "a VB6 form of the same program keeps VB's");
+            Assert.IsNull(host.Server.IsInstanceOf(legacy, "RDForms", "TextBox"));
+        }
+        finally
+        {
+            host.Destroy(ported);
+            host.Destroy(unported);
+        }
+    }
+
+    [TestMethod]
+    public void AnRDFormsControlsPositionAndSize_AreInPixels_AsItsDocumentHoldsThem()
+    {
+        var host = Host();
+        var form = host.Create(PortedForm());
+        try
+        {
+            var text = Get(host, form, "Text1")!;
+
+            Assert.AreEqual(8d, Get(host, text, "Left"));
+            Assert.AreEqual(81d, Get(host, text, "Width"));
+            Let(host, text, "Left", 24);
+            Assert.AreEqual(24d, Get(host, text, "Left"));
+        }
+        finally
+        {
+            host.Destroy(form);
+        }
+    }
+
+    [TestMethod]
+    public void AnRDFormsDocumentThatHoldsNoForm_IsNotCreated_AndTheFailureNamesTheForm()
+    {
+        var failure = Assert.ThrowsExactly<AutomationException>(() => Host().Create(PortedForm("<Form")));
+
+        Assert.AreEqual(unchecked((int)0x80004005), failure.HResult, "E_FAIL");
+        StringAssert.StartsWith(failure.Message, "Form1: its document cannot be read.");
+    }
+
+    [TestMethod]
+    public void AnExternalHost_HostsRDFormsFormsWithRDForms()
+    {
+        var (_, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { Headless = true });
+
+        var form = forms.Create(PortedForm());
+        try
+        {
+            Assert.AreEqual("Ported", forms.GetCaption(form));
+        }
+        finally
+        {
+            forms.Destroy(form);
+        }
+    }
+
     [TestMethod]
     public void AVisualBasicControlsPositionAndSize_AreInTwips_AsItsDesignerWritesThem()
     {
@@ -233,6 +315,101 @@ public sealed class RDFormsFormHostTests
         }
     }
 
+    // two programs in one process, whose forms share the process's one UI thread: an event of the second program's form, raised while the thread makes a
+    // call of the first, is no answer to a call of the second, which is waiting on none; the first program's form's event is the answer to the first's
+    // call. It runs alone: a window another test shows meanwhile can take the activation, and the focus events of the second form's Text1 are no part of this.
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnEventRaisedDuringACallOfAnotherProgram_IsNotTheAnswerToACall()
+    {
+        var first = Host();
+        var second = Host();
+        var mine = first.Create(VisualBasicForm());
+        var theirs = second.Create(VisualBasicForm());
+        try
+        {
+            first.Show(mine, modal: false);
+            second.Show(theirs, modal: false);
+            first.DoEvents();
+            second.DoEvents();
+            var myText = Get(first, mine, "Text1")!;
+            var theirText = Get(second, theirs, "Text1")!;
+            var myEvents = new Recorder();
+            var theirEvents = new Recorder();
+            first.Server.Advise(myText, myEvents);
+            second.Server.Advise(theirText, theirEvents);
+
+            RDFormsUI.Run(first.Server.Program, () =>
+            {
+                RDFormsAutomationServer.HandleOf(theirText).Component.Set(RDCore.Forms.Model.Properties.Text, "theirs");
+                RDFormsAutomationServer.HandleOf(myText).Component.Set(RDCore.Forms.Model.Properties.Text, "mine");
+            });
+
+            first.DoEvents();
+            second.DoEvents();
+            Assert.AreEqual(("Change", true), Assert.ContainsSingle(myEvents.Raised, $"heard: {myEvents}"),
+                "raised during its own program's call, the event is its answer");
+            Assert.AreEqual(("Change", false), Assert.ContainsSingle(theirEvents.Raised, $"heard: {theirEvents}"),
+                "raised during another program's call, the event is no answer");
+        }
+        finally
+        {
+            first.Destroy(mine);
+            second.Destroy(theirs);
+        }
+    }
+
+    // two programs in one process, whose forms share its one UI thread: as in VB6, each program has its own active form, and the second program's form taking
+    // the activation and the focus raises nothing on the first's (no Deactivate, no LostFocus). It runs alone: another test's window shown meanwhile is of no
+    // program of this test, and would take the activation from both.
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnotherProgramsFormTakingTheActivation_RaisesNothingOnThisProgramsForm()
+    {
+        var first = Host();
+        var second = Host();
+        var mine = first.Create(VisualBasicForm());
+        var theirs = second.Create(VisualBasicForm());
+        try
+        {
+            using var myFocus = new ManualResetEventSlim();
+            using var theirFocus = new ManualResetEventSlim();
+            var myText = Get(first, mine, "Text1")!;
+            var theirText = Get(second, theirs, "Text1")!;
+            var myForm = new Recorder();
+            var myTextEvents = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { myFocus.Set(); } } };
+            var theirTextEvents = new Recorder { Handler = raised => { if (raised.Name == "GotFocus") { theirFocus.Set(); } } };
+            first.Server.Advise(mine, myForm);
+            first.Server.Advise(myText, myTextEvents);
+            second.Server.Advise(theirText, theirTextEvents);
+            first.Show(mine, modal: false);
+            Assert.IsTrue(myFocus.Wait(TimeSpan.FromMinutes(1)), $"my Text1 did not take the focus; heard: {myTextEvents}");
+            first.DoEvents();
+            lock (myForm.Raised)
+            {
+                myForm.Raised.Clear();
+            }
+
+            lock (myTextEvents.Raised)
+            {
+                myTextEvents.Raised.Clear();
+            }
+
+            second.Show(theirs, modal: false);
+            Assert.IsTrue(theirFocus.Wait(TimeSpan.FromMinutes(1)), $"their Text1 did not take the focus; heard: {theirTextEvents}");
+            first.DoEvents();
+            second.DoEvents();
+
+            Assert.IsEmpty(myForm.Raised, $"my form heard: {myForm}");
+            Assert.IsEmpty(myTextEvents.Raised, $"my Text1 heard: {myTextEvents}");
+        }
+        finally
+        {
+            first.Destroy(mine);
+            second.Destroy(theirs);
+        }
+    }
+
     [TestMethod]
     public void AValueAPropertyCannotTake_IsError380_AndOneOfTheWrongType_Error13()
     {
@@ -320,7 +497,7 @@ public sealed class RDFormsFormHostTests
             // focus, as the user's click would after it.
             var control = RDFormsAutomationServer.HandleOf(text);
             var window = control.Form.Window;
-            var focused = RDFormsUI.Run(() =>
+            var focused = RDFormsUI.Run(host.Server.Program, () =>
             {
                 window.Activate();
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -370,7 +547,7 @@ public sealed class RDFormsFormHostTests
             host.Show(form, modal: false, owner);
 
             var ownerWindow = RDFormsAutomationServer.HandleOf(owner).Form.Window;
-            var actual = RDFormsUI.Run(() => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
+            var actual = RDFormsUI.Run(host.Server.Program, () => RDFormsAutomationServer.HandleOf(form).Form.Window.Owner);
             Assert.AreEqual(owned, ReferenceEquals(ownerWindow, actual));
             Assert.IsTrue(owned || actual is null, "a form not owned has no owner");
         }
@@ -656,7 +833,11 @@ public sealed class RDFormsFormHostTests
     }
 
     // whether the window of a form of the host follows the application's theme, as the window says on the UI thread.
-    private static bool KeepsSystemTheme(object form) => RDFormsUI.Run(() => ((RDFormsObject)form).Form.Window.KeepSystemTheme);
+    private static bool KeepsSystemTheme(object form)
+    {
+        var hosted = ((RDFormsObject)form).Form;
+        return RDFormsUI.Run(hosted.Program, () => hosted.Window.KeepSystemTheme);
+    }
 
     // the value said before the host makes its first form is that form's window's before anything shows it, and one said after is every window's.
     [TestMethod]
@@ -759,5 +940,33 @@ public sealed class RDFormsFormHostTests
 
         Assert.AreEqual(hosts, forms.HostsVisualBasic6Forms);
         Assert.AreEqual(hosts, status.HostsVisualBasic6Forms);
+    }
+
+    // a process's windows are the first platform it starts them on, headless here: a host of desktop windows in the same process makes no form, and says
+    // what to do, in the language of the user.
+    [TestMethod]
+    [DataRow("en-US", "The forms of this session are loaded with no screen to show them, as those of a program run unattended are, and a form cannot be shown on "
+        + "the desktop as well. Run the program in a new session.", DisplayName = "en-US")]
+    [DataRow("fr-CA", "Les formulaires de cette session sont chargés sans écran pour les afficher, comme ceux d'un programme exécuté sans surveillance, et un "
+        + "formulaire ne peut pas aussi être affiché sur le bureau. Exécutez le programme dans une nouvelle session.", DisplayName = "fr-CA")]
+    public void AFormOfADesktopHost_InAProcessWhoseWindowsAreHeadless_FailsWithWhatToDo(string culture, string expected)
+    {
+        var (_, headless) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { Headless = true });
+        headless.Destroy(headless.Create(VisualBasicForm()));
+        var (_, desktop) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, new FormsOptions { Headless = false });
+
+        var language = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo(culture);
+        try
+        {
+            var failure = Assert.ThrowsExactly<AutomationException>(() => desktop.Create(VisualBasicForm()));
+
+            Assert.AreEqual(unchecked((int)0x80004005), failure.HResult);
+            Assert.AreEqual(expected, failure.Message);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = language;
+        }
     }
 }

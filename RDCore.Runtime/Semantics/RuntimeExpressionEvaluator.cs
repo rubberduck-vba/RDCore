@@ -44,6 +44,7 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Semantics;
 
@@ -370,6 +371,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         VBTypeMemberSymbol? member = null;
+        ImmutableArray<LateBoundCandidate>? candidates = null;
         if (declared is VBVariantType or VBObjectType)
         {
             flags |= MemberAccessOperationSemanticFlags.LateBound;
@@ -386,11 +388,39 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             {
                 flags |= MemberAccessOperationSemanticFlags.DefaultMember;
             }
+
+            // a member an extensible class does not declare is bound where the code runs, to a member of the object's class that has the name (MS-VBAL
+            // §5.6.12), as an Object's is. The standard library's classes are the platform's, whose objects have the members their classes declare and no
+            // other: none can answer the access, and it raises 438. A host's object can have members its library does not declare, which are not known.
+            // A library's class is the interface the code is compiled against, which does not declare the member; a control's object is also its
+            // extender's, whose members its class does not declare.
+            if (member is null && memberName is not null && declared is VBClassType { Symbol: var declaredModule }
+                && (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, declaredModule) ?? declaredModule) is var extensible
+                && extensible.GetProperty(SymbolProperties.Extensible))
+            {
+                var library = extensible.GetProperty(SymbolProperties.Library);
+                flags |= MemberAccessOperationSemanticFlags.LateBound;
+                candidates = library == SDK.Runtime.StdLib.StandardLibrary.LibraryName ? [] : null;
+                if (library is not null && !IsControl(session, context, ownerExpression ?? context.EnclosingWithTargetExpression))
+                {
+                    flags |= MemberAccessOperationSemanticFlags.NotOnDeclaredInterface;
+                }
+            }
         }
 
         // the error is the access's when the object it is accessed on is known, and nothing it took to access the member was assumed.
         var isKnown = owner is { IsIndeterminate: false };
         var error = isKnown && observation.Assumptions == assumedBefore ? StatedErrors.Of(result.ErrorInfo) : null;
+
+        // the default members an argument list or the name of a dictionary access given to the object goes through, of the class it is declared as
+        // (MS-VBAL §5.6.13, §5.6.14). A dictionary access is the index of what the owner's default member returns, when that takes no parameters.
+        const MemberAccessOperationSemanticFlags implied = MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember;
+        var defaultMembers = memberName is null && (kind & implied) == implied
+            && (kind & (MemberAccessOperationSemanticFlags.ArgumentList | MemberAccessOperationSemanticFlags.DictionaryAccess)) != 0
+            ? DefaultMemberChain.Of(session.Symbols.Resolver, declared, kind.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess)
+                || access is DictionaryAccessExpressionNode
+                || access is IndexExpressionNode { Arguments: var arguments } && !IndexExpressionNode.IsEmptyArgumentList(arguments))
+            : null;
 
         observation.OnOperation(new MemberAccessFact(
             access.Identity,
@@ -400,7 +430,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             isKnown,
             error,
             memberName ?? member?.Name,
-            flags));
+            flags)
+        {
+            LateBoundCandidates = candidates,
+            DefaultMembers = defaultMembers,
+        });
     }
 
     /// <summary>
@@ -463,7 +497,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => false,
     };
 
-    private static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
+    internal static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
 
     private static bool IsRecord(VBTypedValue? value) => value is VBUserDefinedTypeValue or VBVariantValue { TypedValue: VBUserDefinedTypeValue };
 
@@ -480,6 +514,18 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
         return ExpressionStaticSemanticsEvaluator.Evaluate(new StaticEvaluationContext(session.Symbols.Resolver, scope), ownerExpression).Result;
+    }
+
+    // whether an expression names a control of a form, as the static semantics read it.
+    private static bool IsControl(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression)
+    {
+        if (ownerExpression is null)
+        {
+            return false;
+        }
+
+        var scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
+        return ObjectValueStaticSemantics.DesignerControlOf(new StaticEvaluationContext(session.Symbols.Resolver, scope), ownerExpression) is not null;
     }
 
     // a variable declared As New is made by a New, which a form's class refuses where no host can make its form; a default instance is the form's own, made by
@@ -891,7 +937,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var result = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
+        var result = VBProjectSymbol.ResolveQualifiedType(
+            session.Symbols.Resolver, qualifier, typeName, context.Scope,
+            ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
         return result.Symbol is VBClassModuleSymbol classModule
             ? CreateObject(session, expression, classModule)
             : RuntimeSemanticsEvaluationResult.InternalError();
@@ -956,16 +1004,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return result;
     }
 
+    // isRecursive: the arguments went to the default member of an object a default member returned (MS-VBAL §5.6.13), and not to the first one.
     private RuntimeSemanticsEvaluationResult CallDefaultMember(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, VBObjectValue indexed)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, VBObjectValue indexed,
+        out bool isRecursive)
     {
+        isRecursive = false;
         if (indexed.IsNothing())
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
         }
 
-        if (TryResolveDefaultMember(session, indexed) is not { } defaultMember)
+        if (TryResolveDefaultMember(session, context, indexExpression.Callee, indexed) is not { } defaultMember)
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
@@ -990,6 +1041,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     expression.Location, "The default member takes no arguments, and what it returned is not an object to give them to."));
             }
 
+            isRecursive = returned.IsSuccess && held is VBObjectValue;
             return IndexValue(session, context, expression, indexExpression, returned);
         }
 
@@ -1008,7 +1060,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         if (TryResolveInvocableMember(session, context, qualified.Owner, owner, qualified.Member.IdentifierName) is not { } found)
         {
-            return (EvaluateInstanceField(session, qualified, owner, qualified.Member.IdentifierName), false);
+            return (EvaluateInstanceField(session, context, qualified, owner, qualified.Member.IdentifierName), false);
         }
 
         var returnsToBeIndexed = ReturnsToBeIndexed(found.Member, indexExpression.Arguments);
@@ -1035,7 +1087,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
             ? PropertyCalledByAStatement(session, memberAccess, owner, found.Member, argumentsIndexWhatItReturns: false)
                 ?? InvokeProcedure(session, context, found.Member, [], found.Receiver, call: memberAccess)
-            : EvaluateInstanceField(session, memberAccess, owner, memberName);
+            : EvaluateInstanceField(session, context, memberAccess, owner, memberName);
     }
 
     // a member of an object variable that holds no object - never set, or set to Nothing - is error 91: there is no
@@ -1096,7 +1148,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (objectValue.RuntimeValue, implementation);
         }
 
-        if (InvocableMemberOf(instance.ClassModule, memberName) is { } member)
+        if (InvocableMemberOf(session, context, instance.ClassModule, memberName) is { } member)
         {
             return (objectValue.RuntimeValue, member);
         }
@@ -1122,13 +1174,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && classModule.DefaultInterfaceMembers.Any(candidate => candidate is VBPropertyGetMemberSymbol
                 && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
+    // MS-VBAL §5.3.1.1, §5.6.3: the members of an object's class that the code in the scope reaches by name, as it reaches them early-bound:
+    // a Friend member from the class's own project only; from another, its name is unknown, error 438.
+    internal static IEnumerable<VBTypeMemberSymbol> InterfaceSeenFrom(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBClassModuleSymbol classModule)
+        => ProjectVisibility.MembersSeenFrom(classModule.DefaultInterfaceMembers, classModule, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
+
     // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
     // reading the property is its Get.
     // A late-bound object's class declares nothing, and every name reaches the member of that name, which the object answers to or not when it is called.
+    private static VBTypeMemberSymbol? InvocableMemberOf(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBClassModuleSymbol classModule, string memberName)
+        => InvocableMemberOf(classModule, InterfaceSeenFrom(session, context, classModule), memberName);
+
+    // the same, of the whole interface: for an access bound early, whose name the static semantics found accessible where it is written.
     private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, string memberName)
+        => InvocableMemberOf(classModule, classModule.DefaultInterfaceMembers, memberName);
+
+    private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, IEnumerable<VBTypeMemberSymbol> members, string memberName)
         => Execution.External.Automation.LateBinding.IsLateBound(classModule)
             ? Execution.External.Automation.LateBinding.MemberOf(classModule, memberName, RDCore.External.Automation.AutomationInvocation.Get)
-            : classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            : members.FirstOrDefault(candidate =>
                 candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
                 && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
@@ -1138,8 +1204,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// </summary>
     /// <remarks>
     /// The library's classes mark theirs the same way (<c>Collection.Item</c>), so one that is a class of the workspace's and one that is the library's are found alike.
+    /// An object reached through an expression declared as a class its own class implements as an interface invokes the member implementing the default
+    /// member of that class (<strong>MS-VBAL §5.3.1.9</strong>), as it does any member of it reached that way.
     /// </remarks>
-    private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveDefaultMember(IRuntimeSession session, VBObjectValue objectValue)
+    private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveDefaultMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? reachedThrough, VBObjectValue objectValue)
     {
         if (objectValue.IsNothing() || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
         {
@@ -1153,12 +1222,26 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 instance.ClassModule, Execution.External.Automation.LateBinding.DefaultMemberName, RDCore.External.Automation.AutomationInvocation.Get));
         }
 
-        var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
-            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
-            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
+        // the index expression (MS-VBAL §5.6.13), or the dictionary access (§5.6.14), references the default member of the class the expression is declared
+        // as; an object of a class that implements that class as an interface invokes the member implementing it.
+        if (DeclaredInterfaceOf(session, context, reachedThrough, instance.ClassModule) is { } implementedInterface)
+        {
+            return DefaultMemberIn(implementedInterface) is { } interfaceMember
+                && instance.ClassModule.FindImplementation(implementedInterface, interfaceMember) is { } implementation
+                    ? (objectValue.RuntimeValue, implementation)
+                    : null;
+        }
 
+        var member = DefaultMemberIn(instance.ClassModule);
         return member is null ? null : (objectValue.RuntimeValue, member);
     }
+
+    // the member of a class marked VB_UserMemId = 0: a Property Get, a function or a subroutine, not a Property Let or Set.
+    private static VBTypeMemberSymbol? DefaultMemberIn(VBClassModuleSymbol classModule)
+        => classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol
+                or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
 
     /// <summary>
     /// Whether the class of <paramref name="owner"/> has an enumeration member: a public property or function marked <c>VB_UserMemId = -4</c>
@@ -1382,7 +1465,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
         }
 
-        var candidates = actual.DefaultInterfaceMembers
+        var candidates = InterfaceSeenFrom(session, context, actual)
             .Where(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)).ToArray();
 
         if (candidates.FirstOrDefault(candidate => isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol) is { } accessor)
@@ -1516,7 +1599,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
     // invocations, not reads - only a Field/Variable-kind member is readable this way.
-    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
+    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
     {
         // a UDT field is not reached through an instance the session knows about: a UDT has location identity
         // but no instance record, and its fields live on the value itself (MS-VBAL §2.1 - a UDT data value is
@@ -1544,7 +1628,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var member = instance.ClassModule.DefaultInterfaceMembers
+        var member = InterfaceSeenFrom(session, context, instance.ClassModule)
             .FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
         // an object whose class has no member of the name - late-bound, or reached through a Variant - does not support it: error 438 (MS-VBA).
@@ -1681,10 +1765,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var unknown = RuntimeSemanticsEvaluationResult.Success(VBVariantType.TypeInfo.CreateIndeterminateValue());
 
             // what is not known is still declared: an object that is indexed is a call of its default member, whichever object it is.
-            if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBClassType or VBObjectType)
+            if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is { } declared && declared is VBClassType or VBObjectType)
             {
                 ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList
+                        | (IndexesThroughMoreThanOneDefaultMember(session, declared, indexExpression.Arguments) ? MemberAccessOperationSemanticFlags.Recursive : 0),
                     assumedBefore, unknown);
             }
 
@@ -1695,9 +1780,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (calleeValue is VBObjectValue indexed)
         {
             var assumedBefore = AssumedSoFar;
-            var called = CallDefaultMember(session, context, expression, indexExpression, indexed);
+            var called = CallDefaultMember(session, context, expression, indexExpression, indexed, out var isRecursive);
             ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList
+                    | (isRecursive ? MemberAccessOperationSemanticFlags.Recursive : 0),
                 assumedBefore, called);
             return called;
         }
@@ -1809,6 +1895,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is { } variable
             && variable.GetProperty(SymbolProperties.AutoInstantiated);
 
+    // MS-VBAL §5.6.13: an object of the class it is declared as, given arguments, goes through more than one default member when its default member takes
+    // none and returns an object: of a class, or an Object. Where the object is not known, its declared class decides.
+    private static bool IndexesThroughMoreThanOneDefaultMember(IRuntimeSession session, VBType declared, ImmutableArray<ExpressionNode> arguments)
+        => declared is VBClassType declaredClass
+            && CurrentTypes.Of(session.Symbols.Resolver, declaredClass) is { DefaultMember: VBReturningMemberSymbol member }
+            && ReturnsToBeIndexed(member, arguments)
+            && member.ResolvedType is VBClassType or VBObjectType;
+
     // a Function or Property Get that declares no parameters, called with arguments: they are not its own, and index what it returns.
     private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)
     {
@@ -1850,6 +1944,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     public RuntimeSemanticsEvaluationResult? EvaluateSubscripts(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> arguments, out int[] subscripts, out bool isKnown)
     {
+        if (_evaluatedSubscripts is { } evaluatedFirst && evaluatedFirst.FindIndex(list => list.Arguments == arguments) is var at and >= 0)
+        {
+            (_, subscripts, isKnown) = evaluatedFirst[at];
+            evaluatedFirst.RemoveAt(at);
+            return null;
+        }
+
         subscripts = [];
         isKnown = true;
         var evaluated = new int[arguments.Length];
@@ -1905,6 +2006,46 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         subscripts = evaluated;
         return null;
     }
+
+    /// <summary>
+    /// The subscripts of one index list, evaluated: what <see cref="EvaluateSubscripts(IRuntimeSession, RuntimeEvaluationContext,
+    /// ImmutableArray{ExpressionNode}, out int[], out bool)"/> gives for <paramref name="Arguments"/>.
+    /// </summary>
+    /// <param name="Arguments">The subscript expressions of the list.</param>
+    /// <param name="Subscripts">What they evaluated to.</param>
+    /// <param name="IsKnown">Whether every subscript is known.</param>
+    internal readonly record struct EvaluatedSubscripts(ImmutableArray<ExpressionNode> Arguments, int[] Subscripts, bool IsKnown);
+
+    // index lists evaluated before the expression they are written in (WithEvaluatedSubscripts): each is taken, once, in place of evaluating it again.
+    private List<EvaluatedSubscripts>? _evaluatedSubscripts;
+
+    /// <summary>
+    /// Runs <paramref name="evaluate"/> with index lists already evaluated: an index expression whose arguments are one of them is given its subscripts
+    /// instead of evaluating its arguments, once. An assignment to a path through records evaluates its index lists in another order than it navigates
+    /// the path in (<see cref="Statements.LetAssignmentEvaluator"/>).
+    /// </summary>
+    /// <param name="evaluated">The lists, evaluated.</param>
+    /// <typeparam name="T">What <paramref name="evaluate"/> returns.</typeparam>
+    /// <param name="evaluate">What navigates the expression they are written in.</param>
+    /// <returns>What <paramref name="evaluate"/> returned.</returns>
+    internal T WithEvaluatedSubscripts<T>(List<EvaluatedSubscripts> evaluated, Func<T> evaluate)
+    {
+        var before = _evaluatedSubscripts;
+        _evaluatedSubscripts = evaluated;
+        try
+        {
+            return evaluate();
+        }
+        finally
+        {
+            _evaluatedSubscripts = before;
+        }
+    }
+
+    // an index list of a path through records, which the assignment evaluated before it navigates the path (WithEvaluatedSubscripts): what a call in it
+    // returned is what it evaluated to, and the call is not made again ahead of the rest of the list (EvaluateArgumentsFirst).
+    private bool IsAnEvaluatedIndexList(ImmutableArray<ExpressionNode> written)
+        => !written.IsDefaultOrEmpty && _evaluatedSubscripts is { } evaluated && evaluated.Exists(list => list.Arguments == written);
 
     private static VBTypeMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)
     {
@@ -1982,8 +2123,22 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 break;
         }
 
+        switch (call.Callee)
+        {
+            case MemberAccessExpressionNode when !call.Arguments.IsEmpty:
+                _statementCallNodes.TryAdd(StatementCall(call.Callee, call.Arguments), 0);
+                break;
+            case IndexExpressionNode index when call.Arguments.IsEmpty:
+                _statementCallNodes.TryAdd(index, 0);
+                break;
+        }
+
         return call.Arguments.IsEmpty ? Evaluate(session, call.Callee, context) : Invoke(session, context, call.Callee, call.Arguments);
     }
+
+    // the call expression of each call statement that calls a member of an object with arguments, whose target is evaluated as a statement's
+    // (ArgumentOrder.TargetCallsIn).
+    private readonly ConcurrentDictionary<IndexExpressionNode, byte> _statementCallNodes = new(ReferenceEqualityComparer.Instance);
 
     // the member a call statement names on an object, and whether the arguments are the statement's own (`o.Item 1`) rather than those of an index expression
     // (`Call o.Item(1)`): by the callee's node, one statement each.
@@ -1999,7 +2154,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && UnwrappedOwner(owner) is VBObjectValue objectValue
             && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             && !Execution.External.Automation.LateBinding.IsLateBound(instance.ClassModule)
-            && instance.ClassModule.GetProperty(SymbolProperties.Library) is null
+            && !SymbolProperties.IsOfALibraryProject(instance.ClassModule)
                 ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, access.Location,
                     $"'{member.Name}' is a property, which a call statement does not call."))
                 : null;
@@ -2327,12 +2482,51 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return mappingError;
         }
 
-        var mapped = mapResult.Mapped;
         var bound = new IRuntimeValue[parameters.Length];
-        var order = BindingOrder(given);
-        for (var k = 0; k < parameters.Length; k++)
+        var order = OrderOf(session, context, parameters.Length, given, mapResult.Mapped, mapResult.ParamArrayArguments);
+        var calls = ArgumentCalls.Begin(session);
+        try
         {
-            var i = order is null ? k : order[k];
+            if (BindArgumentsInOrder(session, context, parameters, order, given, mapResult, bound, calls, ref isKnown, borrowed, external, cellReferences,
+                    anyByAddress, dispatchedThrough, lateBound) is { } error)
+            {
+                return error;
+            }
+
+            calls.Settle();
+        }
+        finally
+        {
+            calls.End();
+        }
+
+        arguments = bound;
+        return null;
+    }
+
+    // the arguments evaluated and bound in the order MS-VBA evaluates them (ArgumentOrder): the calls among them first, left to right - those inside an
+    // argument that is no call made ahead of the rest of it, and known until the call is bound - then the others, right to left.
+    private RuntimeSemanticsEvaluationResult? BindArgumentsInOrder(IRuntimeSession session, RuntimeEvaluationContext context,
+        ImmutableArray<VBParameterSymbol> parameters, ArgumentOrder order, ImmutableArray<BoundArgument> given, ArgumentMapResult mapResult,
+        IRuntimeValue[] bound, ArgumentCalls calls, ref bool isKnown, List<MemoryAddress> borrowed, bool external, bool cellReferences, bool anyByAddress,
+        ExpressionNode? dispatchedThrough, bool lateBound)
+    {
+        var mapped = mapResult.Mapped;
+        foreach (var step in order)
+        {
+            var i = step.Index;
+            calls.Open(i);
+            if (step.CallsOnly)
+            {
+                if (calls.CanHoist
+                    && calls.KnowCallsIn(this, session, context, given.IsDefault ? null : given[i], given.IsDefault ? mapped![i] : null) is { } failed)
+                {
+                    return failed;
+                }
+
+                continue;
+            }
+
             var parameter = parameters[i];
             var boundArgument = given.IsDefault ? null : given[i];
 
@@ -2423,173 +2617,178 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return RuntimeSemanticsEvaluationResult.InternalError();
             }
 
+            calls.Gives(argumentResult.Value.Result);
+
             // what is passed is a value, which keeps nothing of whether it is known: the call is told here.
             isKnown &= !argumentResult.Value.Result!.IsIndeterminate;
-
-            // a scalar or a String a call returned, passed to a Variant: the Variant holds it as it is, of its own type (MS-VBAL §5.5.1.2.12).
-            if (!external && parameter.ResolvedType is VBVariantType && TryHoldInVariant(argumentResult.Value.Result!, out var held))
+            if (BindValue(session, context, parameter, argumentNode, argumentResult.Value.Result!, external, anyByAddress, lateBound, dispatchedThrough,
+                out bound[i]) is { } bindingError)
             {
-                bound[i] = held;
-                continue;
+                return bindingError;
             }
-
-            // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
-            // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
-            // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
-            // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns. That is
-            // the argument's value type, which is the object's class whether the object is held by an object variable or by a Variant.
-            // a parameter passed by address (ObjPtr) is given the object where it is, or in a temporary (below).
-            if (SetCoercion is { } setCoercion
-                && HeldObject(argumentResult.Value.Result) is { } passedObject
-                && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType
-                && !(anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress)))
-            {
-                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, passedObject, parameter.ResolvedType);
-                if (!setResult.IsSuccess)
-                {
-                    return RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
-                }
-
-                bound[i] = setResult.Result!.RuntimeValue;
-                continue;
-            }
-
-            // `As Any` has no type to coerce to: the argument is passed as what it is.
-            if (external && parameter.ResolvedType is VBUnknownType)
-            {
-                bound[i] = argumentResult.Value.Result!.RuntimeValue;
-                continue;
-            }
-
-            // a library member's `As Any` is given an address (VarPtr): what is no variable is passed in a temporary of the statement, which has one until
-            // the statement is over (MS-VBA: VarPtr(1) is not 0, and two of one statement differ - ArgumentTemporary).
-            var typedByAddress = anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress);
-            if (anyByAddress && parameter.ResolvedType is VBUnknownType || typedByAddress)
-            {
-                var passed = argumentResult.Value.Result!;
-
-                // `ByVal` passes the bytes the value is stored in where an address goes (StdLibAsAnyAttribute): VarPtr(ByVal 1234) is 1234.
-                if (!typedByAddress && argumentNode is ByValArgumentExpressionNode && PassedByValAsAny(passed) is { } pointer)
-                {
-                    bound[i] = new VBRuntimeValue<long>(pointer);
-                    continue;
-                }
-
-                // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5" (StdLibByAddressAttribute).
-                // An object is one as it is: ObjPtr(New Thing) is the address of the new object's interface.
-                if (typedByAddress && !(parameter.ResolvedType is VBObjectType && HeldObject(passed) is not null))
-                {
-                    var temporaryFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
-                        passed, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
-                    var coerced = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, temporaryFrame);
-                    if (!coerced.IsSuccess)
-                    {
-                        return coerced.IsApplicable ? RuntimeSemanticsEvaluationResult.Error(coerced.ErrorInfo!) : RuntimeSemanticsEvaluationResult.InternalError();
-                    }
-
-                    passed = coerced.Result!;
-                }
-
-                if (!session.Storage.TryAllocate(passed.Size, SymbolAddressTable.FreshBinding(passed), out var temporary))
-                {
-                    return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
-                        Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
-                }
-
-                HoldsPointer(session, temporary, passed.TypeInfo);
-                session.Objects.PushTemporary(new ArgumentTemporary(temporary));
-                bound[i] = new VBRuntimeReference(temporary, passed.TypeInfo);
-                continue;
-            }
-
-            // ByVal parameter passing Let-coerces the argument to the parameter's own declared type
-            // (MS-VBAL §5.5.1.2) before it's ever wrapped into a fresh binding - the same rule any other
-            // Let-target follows, a literal "5" (Integer) passed to a Long parameter included. A ByRef
-            // parameter whose argument wasn't recognized as an aliasable variable above falls through to
-            // this exact same path (MS-VBAL §5.3.1.11's own "otherwise" case) - a fresh local, never a
-            // reported error.
-            // by its plan when it can be: a number, a Boolean, a date or a String let-coerced to a parameter of a type a plan converts to.
-            if (TryConvertUnobserved(argumentResult.Value.Result!, parameter.ResolvedType, out var planned))
-            {
-                bound[i] = planned.RuntimeValue;
-                continue;
-            }
-
-            var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
-                argumentResult.Value.Result!, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
-            var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
-            if (!coercionResult.IsApplicable)
-            {
-                return RuntimeSemanticsEvaluationResult.InternalError();
-            }
-            if (!coercionResult.IsSuccess)
-            {
-                // reached late bound, a value other than an object given to a parameter of a class or Object is a type mismatch, as the IDispatch the call
-                // goes through makes it, and not error 424; the member is not entered (observed in VB6: a class's method and PaintPicture's picture).
-                var error = coercionResult.ErrorInfo!;
-                return RuntimeSemanticsEvaluationResult.Error(
-                    lateBound && error.ErrorId == (int)VBRuntimeErrorId.ObjectRequired && parameter.ResolvedType is VBObjectType or VBClassType
-                        && HeldObject(argumentResult.Value.Result) is null
-                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, error.Verbose)
-                        : AsDispatched(session, context, dispatchedThrough, error));
-            }
-
-            // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no
-            // RuntimeValue of its own to hand over: it is boxed around itself instead, the same shape
-            // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
-            // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
-            // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
-            // a record that is no variable - what a function or a property returns - is passed by reference as a copy, in a temporary of the statement: it is no
-            // value with a binding of its own to hand over. (A field of a record held by a variable is one: TryResolveRecordFieldByRefArgument.)
-            if (coercionResult.Result is VBUserDefinedTypeValue record && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
-            {
-                if (!session.Storage.TryAllocate(record.Size, SymbolAddressTable.FreshBinding(record), out var copy))
-                {
-                    return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
-                        Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
-                }
-
-                session.Objects.PushTemporary(new ArgumentTemporary(copy));
-                bound[i] = new VBRuntimeReference(copy, record.TypeInfo);
-                continue;
-            }
-
-            bound[i] = coercionResult.Result is VBArrayValue array
-                ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
-                : coercionResult.Result!.RuntimeValue;
         }
 
-        arguments = bound;
         return null;
     }
 
-    // MS-VBAL §5.3.1.11: each parameter is bound to its argument's data value, Let-assigned to the parameter's new local. A variable given to a parameter
-    // passed by value gives the value it has when the call is made, after the arguments right of it are evaluated - a call among them may change it, as
-    // MS-VBA has it. The order the arguments of a call are evaluated in: those variables last; null when it is the parameters' own.
-    private static int[]? BindingOrder(ImmutableArray<BoundArgument> given)
+    /// <summary>
+    /// What a parameter passed by value is given of <paramref name="value"/>, which its argument evaluated to (MS-VBAL §5.3.1.11), as a call the interpreter
+    /// makes gives it: what compiled code gives a <c>Variant</c> parameter of a function of the standard library, of what a call of the workspace returned.
+    /// </summary>
+    /// <param name="session">The session the call is made in.</param>
+    /// <param name="context">The scope the argument is written in.</param>
+    /// <param name="parameter">The parameter.</param>
+    /// <param name="argumentNode">The argument, as written, where an error coercing it is raised.</param>
+    /// <param name="value">What the argument evaluated to.</param>
+    /// <param name="bound">What the parameter is given.</param>
+    /// <returns>The error giving it raised, or <see langword="null"/> when it was given.</returns>
+    internal RuntimeSemanticsEvaluationResult? BindArgumentValue(IRuntimeSession session, RuntimeEvaluationContext context, VBParameterSymbol parameter,
+        ExpressionNode argumentNode, VBTypedValue value, out IRuntimeValue bound)
     {
-        if (given.IsDefault)
+        bound = null!;
+        return LetCoercionProvider is null ? RuntimeSemanticsEvaluationResult.InternalError()
+            : BindValue(session, context, parameter, argumentNode, value, external: false, anyByAddress: false, lateBound: false, dispatchedThrough: null, out bound);
+    }
+
+    // the parameter given the value its argument evaluated to, for BindArguments: held in a Variant, Set-coerced, or let-coerced to the parameter's type.
+    private RuntimeSemanticsEvaluationResult? BindValue(IRuntimeSession session, RuntimeEvaluationContext context, VBParameterSymbol parameter,
+        ExpressionNode argumentNode, VBTypedValue value, bool external, bool anyByAddress, bool lateBound, ExpressionNode? dispatchedThrough, out IRuntimeValue bound)
+    {
+        bound = null!;
+
+        // a scalar or a String a call returned, passed to a Variant: the Variant holds it as it is, of its own type (MS-VBAL §5.5.1.2.12).
+        if (!external && parameter.ResolvedType is VBVariantType && TryHoldInVariant(value, out var held))
         {
+            bound = held;
             return null;
         }
 
-        bool[]? last = null;
-        var callsRightOfIt = false;
-        for (var i = given.Length - 1; i >= 0; i--)
+        // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
+        // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
+        // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
+        // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns. That is
+        // the argument's value type, which is the object's class whether the object is held by an object variable or by a Variant.
+        // a parameter passed by address (ObjPtr) is given the object where it is, or in a temporary (below).
+        if (SetCoercion is { } setCoercion
+            && HeldObject(value) is { } passedObject
+            && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType
+            && !(anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress)))
         {
-            var argument = given[i];
-            if (callsRightOfIt && argument is { Passing: ArgumentPassing.Value, Value: BoundVariable, Expression: not ByValArgumentExpressionNode })
+            var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, passedObject, parameter.ResolvedType);
+            if (!setResult.IsSuccess)
             {
-                (last ??= new bool[given.Length])[i] = true;
+                return RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
             }
 
-            callsRightOfIt |= argument.Passing is ArgumentPassing.ParamArray ? argument.Elements.Any(MayCall) : argument.Value is { } value && MayCall(value);
+            bound = setResult.Result!.RuntimeValue;
+            return null;
         }
 
-        return last is null ? null : [.. Enumerable.Range(0, given.Length).Where(i => !last[i]), .. Enumerable.Range(0, given.Length).Where(i => last[i])];
+        // `As Any` has no type to coerce to: the argument is passed as what it is.
+        if (external && parameter.ResolvedType is VBUnknownType)
+        {
+            bound = value.RuntimeValue;
+            return null;
+        }
 
-        // what evaluating may change a variable: anything but a variable read or a literal.
-        static bool MayCall(BoundNode node) => node is not (BoundVariable or BoundLiteral);
+        // a library member's `As Any` is given an address (VarPtr): what is no variable is passed in a temporary of the statement, which has one until
+        // the statement is over (MS-VBA: VarPtr(1) is not 0, and two of one statement differ - ArgumentTemporary).
+        var typedByAddress = anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress);
+        if (anyByAddress && parameter.ResolvedType is VBUnknownType || typedByAddress)
+        {
+            var passed = value;
+
+            // `ByVal` passes the bytes the value is stored in where an address goes (StdLibAsAnyAttribute): VarPtr(ByVal 1234) is 1234.
+            if (!typedByAddress && argumentNode is ByValArgumentExpressionNode && PassedByValAsAny(passed) is { } pointer)
+            {
+                bound = new VBRuntimeValue<long>(pointer);
+                return null;
+            }
+
+            // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5"
+            // (StdLibByAddressAttribute).
+            // An object is one as it is: ObjPtr(New Thing) is the address of the new object's interface.
+            if (typedByAddress && !(parameter.ResolvedType is VBObjectType && HeldObject(passed) is not null))
+            {
+                var temporaryFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
+                    passed, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+                var coerced = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, temporaryFrame);
+                if (!coerced.IsSuccess)
+                {
+                    return coerced.IsApplicable ? RuntimeSemanticsEvaluationResult.Error(coerced.ErrorInfo!) : RuntimeSemanticsEvaluationResult.InternalError();
+                }
+
+                passed = coerced.Result!;
+            }
+
+            if (!session.Storage.TryAllocate(passed.Size, SymbolAddressTable.FreshBinding(passed), out var temporary))
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
+                    Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
+            }
+
+            HoldsPointer(session, temporary, passed.TypeInfo);
+            session.Objects.PushTemporary(new ArgumentTemporary(temporary));
+            bound = new VBRuntimeReference(temporary, passed.TypeInfo);
+            return null;
+        }
+
+        // ByVal parameter passing Let-coerces the argument to the parameter's own declared type
+        // (MS-VBAL §5.5.1.2) before it's ever wrapped into a fresh binding - the same rule any other
+        // Let-target follows, a literal "5" (Integer) passed to a Long parameter included. A ByRef
+        // parameter whose argument wasn't recognized as an aliasable variable above falls through to
+        // this exact same path (MS-VBAL §5.3.1.11's own "otherwise" case) - a fresh local, never a
+        // reported error.
+        // by its plan when it can be: a number, a Boolean, a date or a String let-coerced to a parameter of a type a plan converts to.
+        if (TryConvertUnobserved(value, parameter.ResolvedType, out var planned))
+        {
+            bound = planned.RuntimeValue;
+            return null;
+        }
+
+        var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
+            value, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+        var coercionResult = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
+        if (!coercionResult.IsApplicable)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+        if (!coercionResult.IsSuccess)
+        {
+            // reached late bound, a value other than an object given to a parameter of a class or Object is a type mismatch, as the IDispatch the call
+            // goes through makes it, and not error 424; the member is not entered (observed in VB6: a class's method and PaintPicture's picture).
+            var error = coercionResult.ErrorInfo!;
+            return RuntimeSemanticsEvaluationResult.Error(
+                lateBound && error.ErrorId == (int)VBRuntimeErrorId.ObjectRequired && parameter.ResolvedType is VBObjectType or VBClassType
+                    && HeldObject(value) is null
+                    ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, error.Verbose)
+                    : AsDispatched(session, context, dispatchedThrough, error));
+        }
+
+        // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no
+        // RuntimeValue of its own to hand over: it is boxed around itself instead, the same shape
+        // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
+        // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
+        // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
+        // a record that is no variable - what a function or a property returns - is passed by reference as a copy, in a temporary of the statement: it is no
+        // value with a binding of its own to hand over. (A field of a record held by a variable is one: TryResolveRecordFieldByRefArgument.)
+        if (coercionResult.Result is VBUserDefinedTypeValue record && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
+        {
+            if (!session.Storage.TryAllocate(record.Size, SymbolAddressTable.FreshBinding(record), out var copy))
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
+                    Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
+            }
+
+            session.Objects.PushTemporary(new ArgumentTemporary(copy));
+            bound = new VBRuntimeReference(copy, record.TypeInfo);
+            return null;
+        }
+
+        bound = coercionResult.Result is VBArrayValue array
+            ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
+            : coercionResult.Result!.RuntimeValue;
+        return null;
     }
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);
@@ -2711,8 +2910,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return true;
         }
 
-        if (!TryResolveByRefArgument(session, context, argument, ElementParameterOf(paramArray), borrowed, out var reference, out evaluated)
-            || !session.Symbols.Resolver.TryRead(reference.Value, out var variable))
+        var element = ElementParameterOf(paramArray);
+        if (!TryResolveByRefArgument(session, context, argument, element, borrowed, out var reference, out evaluated)
+            || !session.Symbols.Resolver.TryRead(reference, element.ResolvedType, out var variable))
         {
             return false;
         }
@@ -2895,7 +3095,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // the callee assigns is not written back to (MS-VBA, observed in Excel). MS-VBAL §5.6.12 classifies it as a
             // variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL §5.3.1.11). Named by itself in its
             // own class it is the variable, bound below as any name is.
-            return !takesAny && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
+            return (!takesAny || external) && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
         }
 
         if (qualified is null && argument is not SimpleNameExpressionNode)
@@ -3003,9 +3203,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     }
 
     // where a record is in the session's memory, and the record: a variable of a user-defined type, an element of an array of one, or a field of a record
-    // that is one itself.
+    // that is one itself. lend: an element is lent to the call a place in it is passed to, as an element passed itself is (borrowed).
     private bool TryAddressOfRecord(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, out MemoryAddress address,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record, out RuntimeSemanticsEvaluationResult? evaluated)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record, out RuntimeSemanticsEvaluationResult? evaluated,
+        List<MemoryAddress>? lend = null)
     {
         address = default;
         record = null;
@@ -3039,10 +3240,26 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 }
 
                 record = held;
-                return session.Storage is Execution.Memory.SessionStorage storage && storage.TryAddressOfElement(array, array.IndexOf(indices), out address);
+                if (session.Storage is not Execution.Memory.SessionStorage storage)
+                {
+                    return false;
+                }
+
+                if (lend is null)
+                {
+                    return storage.TryAddressOfElement(array, array.IndexOf(indices), out address);
+                }
+
+                if (!storage.TryLendElement(array, array.IndexOf(indices), out address))
+                {
+                    return false;
+                }
+
+                lend.Add(address);
+                return true;
 
             case MemberAccessExpressionNode { Owner: { } owner } nested
-                when TryAddressOfRecord(session, context, owner, out var outer, out var outerRecord, out evaluated):
+                when TryAddressOfRecord(session, context, owner, out var outer, out var outerRecord, out evaluated, lend):
                 var layout = VBUserDefinedTypeLayout.Of(outerRecord, PointerWidthOf(session));
                 var index = FieldIndexOf(layout.Fields, nested.Member.IdentifierName);
                 if (index < 0 || outerRecord.FieldAt(index) is not VBUserDefinedTypeValue inner)
@@ -3097,12 +3314,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private const int VariantSize32 = 16;
     private const int VariantSize64 = 24;
 
-    // the element's own cell, given an address of its own for as long as the call that is made with it runs - which the caller gives back (borrowed). An
-    // element whose cell cannot be written yet (the inert one an element of an object or a Variant array starts with) is given one that can, holding its
-    // default, as an assignment to it would. A callee that is not a variable - a function, a property - is not reached into: its element is a value.
+    // the element, at its address in the block the array's elements are laid out in (VarPtr), lent to the call made with it until the caller gives it back
+    // (borrowed). An element whose cell cannot be written yet (the inert one an element of an object or a Variant array starts with) is given one that can,
+    // holding its default, as an assignment to it would. A callee that is not a variable (a function, a property) is not reached into: its element is a
+    // value.
     // Once the subscripts are evaluated, an element that is not bound is passed as what they select - an error, or a value - and they are not evaluated again
     // (MS-VBA evaluates them once: a subscript outside the bounds is error 9, raised by the call's argument).
-    // atItsAddress: the element is given the address it has in the block the array's elements are laid out in (VarPtr), which lasts as long as the array.
+    // atItsAddress: the element's address is what is passed (VarPtr), and nothing is lent.
+    // An element of a fixed-size array field of a record is in the record, at the field's offset, and so is a parameter bound to it: the record's place is
+    // found first, and the array is the record's field, so that what selects the record is evaluated once. A record element of an array is lent to the call
+    // (TryAddressOfRecord). A Declare is given the element of the array as any other (VBArrayElementLocation).
     private bool TryResolveElementByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, IndexExpressionNode element, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, out RuntimeSemanticsEvaluationResult? evaluated, bool external = false, bool atItsAddress = false)
@@ -3117,15 +3338,39 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // an element of the array a public variable of an object holds, named as its member (b.V(0), Me.V(0), .V(0) in a With block of the object, a nested
         // one too), is a copy, as the variable itself is (MS-VBA, observed in Excel). Named by itself in its own class (V(0)) it is
         // the element, bound below.
-        if (element.Callee is MemberAccessExpressionNode member && (member.Owner is { } instance
-            ? DeclaredTypeOfOwner(session, context, instance) is VBClassType
-            : IsAnObject(context.EnclosingWithTarget)))
+        var member = element.Callee as MemberAccessExpressionNode;
+        var ownerType = member?.Owner is { } instance ? DeclaredTypeOfOwner(session, context, instance) : null;
+        if (member is not null && (member.Owner is not null ? ownerType is VBClassType : IsAnObject(context.EnclosingWithTarget)))
         {
             return false;
         }
 
-        var callee = Evaluate(session, element.Callee, context);
-        var held = callee.IsSuccess ? callee.Result : null;
+        VBTypedValue? held;
+        MemoryAddress? inRecord = null;
+        if ((!external || atItsAddress) && member is { Owner: { } recordOwner } && ownerType is VBUserDefinedType recordType
+            && recordType.Field(member.Member.IdentifierName) is { ResolvedType: VBFixedSizeArrayType }
+            && TryAddressOfRecord(session, context, recordOwner, out var start, out var record, out evaluated, atItsAddress ? null : borrowed))
+        {
+            var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
+            var index = FieldIndexOf(fields, member.Member.IdentifierName);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            held = record.FieldAt(index);
+            inRecord = new MemoryAddress(start.Value + fields[index].Offset);
+        }
+        else if (evaluated is not null)
+        {
+            return false;
+        }
+        else
+        {
+            var callee = Evaluate(session, element.Callee, context);
+            held = callee.IsSuccess ? callee.Result : null;
+        }
+
         while (held is VBVariantValue { TypedValue: var wrapped })
         {
             held = wrapped;
@@ -3166,23 +3411,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // the elements of an array are side by side, at the addresses MS-VBA gives them: those of a fixed-size array field of a record
         // in the record, at the field's offset, and those of any other array in a block of the array's own.
+        if (inRecord is { } fieldStart)
+        {
+            var width = VBUserDefinedTypeLayout.WidthOf(array.ItemType, PointerWidthOf(session));
+            reference = new VBRuntimeReference(new MemoryAddress(fieldStart.Value + array.IndexOf(indices) * width),
+                atItsAddress ? array.ItemType : ReferencedType(parameter, array.ItemType));
+            return true;
+        }
+
         if (atItsAddress)
         {
-            if (element.Callee is MemberAccessExpressionNode { Owner: { } owner } field && array is VBFixedSizeArrayValue
-                && TryAddressOfRecord(session, context, owner, out var start, out var record, out _))
-            {
-                var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
-                var index = FieldIndexOf(fields, field.Member.IdentifierName);
-                if (index < 0)
-                {
-                    return false;
-                }
-
-                var width = VBUserDefinedTypeLayout.WidthOf(array.ItemType, PointerWidthOf(session));
-                reference = new VBRuntimeReference(new MemoryAddress(start.Value + fields[index].Offset + array.IndexOf(indices) * width), array.ItemType);
-                return true;
-            }
-
             if (session.Storage is not Execution.Memory.SessionStorage storage || !storage.TryAddressOfElement(array, array.IndexOf(indices), out var laidOut))
             {
                 return false;
@@ -3192,7 +3430,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return true;
         }
 
-        if (!session.Storage.TryAllocate(array.ItemType.DefaultValue.Size, cell, out var address))
+        // the parameter is bound where the element is (VarPtr), as one given a variable is bound at the variable's address: what is read and written there is
+        // the element's own cell. The address is lent to the call, and the array held until the caller gives it back (borrowed).
+        if (session.Storage is not Execution.Memory.SessionStorage lender || !lender.TryLendElement(array, array.IndexOf(indices), out var address))
         {
             evaluated = array[indices] is { } value ? RuntimeSemanticsEvaluationResult.Success(value) : null;
             return false;
@@ -3206,21 +3446,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return true;
     }
 
-    // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
-    // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
-    // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own: it is given
-    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`. In a With block of a record, `.X` is the field of the
-    // With block variable (MS-VBAL §5.4.2.21), which is the record variable itself when the With expression is one (MS-VBA, observed in
-    // Excel).
+    // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it: what the callee assigns is
+    // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). The parameter is bound where the field is, in
+    // the record, at its offset (VarPtr), and reads there the field's own cell, or a binding over a field that is a record itself or a Variant, which has
+    // no cell of its own (RecordFieldBinding, MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`). A record element of an array is lent to the call, as
+    // an element passed itself is (borrowed). In a With block of a record, `.X` is the field of the With block variable (MS-VBAL §5.4.2.21), which is the
+    // record variable itself when the With expression is one (MS-VBA, observed in Excel): its cell, as the cell of a field of a record that is not where a
+    // variable is, is given an address for as long as the call runs, which the caller gives back (borrowed).
     private bool TryResolveRecordFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, bool external)
     {
         reference = VBRuntimeReference.NullRef;
         VBTypedValue? held = null;
+        MemoryAddress? recordAt = null;
         if (access.Owner is { } owner)
         {
-            if (DenotesAVariable(session, context, owner))
+            if (TryAddressOfRecord(session, context, owner, out var where, out var addressed, out var failed, lend: borrowed))
+            {
+                (held, recordAt) = (addressed, where);
+            }
+            else if (failed is null && DenotesAVariable(session, context, owner))
             {
                 held = Evaluate(session, owner, context).Result;
             }
@@ -3242,32 +3488,38 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
-        IBindingHandle? cell;
-        if (fieldType is VBUserDefinedType or VBVariantType)
-        {
-            cell = new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
-        }
-        else
-        {
-            cell = record.GetFieldHandle(access.Member.IdentifierName);
-        }
-        if (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        // a Declare's As Any parameter is given the field where it is in the record (MS-VBA, observed in Excel: RtlMoveMemory r.A, src, 8 writes r.A and the
+        // field after it). The binding over the field tells the call which field it is, and the call gives the function the field's address in a copy of
+        // the record (DeclaredProcedureProvider), so the binding has an address of its own, even for a record that has one in storage.
+        var asAny = external && parameter.ResolvedType is VBUnknownType;
+        var overTheField = fieldType is VBUserDefinedType or VBVariantType || asAny;
+        var cell = overTheField ? null : record.GetFieldHandle(access.Member.IdentifierName);
+        if (!overTheField && (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue)))
         {
             return false;
         }
 
-        if (!IsOfDeclaredType(parameter, fieldType) && parameter.ResolvedType is not VBVariantType && !(external && parameter.ResolvedType is VBUnknownType))
+        if (!IsOfDeclaredType(parameter, fieldType) && parameter.ResolvedType is not VBVariantType && !asAny)
         {
             return false;
         }
 
+        var referenced = asAny ? fieldType : ReferencedType(parameter, fieldType);
+        if (recordAt is { } start && !asAny)
+        {
+            var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
+            reference = new VBRuntimeReference(new MemoryAddress(start.Value + fields[FieldIndexOf(fields, access.Member.IdentifierName)].Offset), referenced);
+            return true;
+        }
+
+        cell ??= new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
         if (!session.Storage.TryAllocate(fieldType.DefaultValue.Size, cell, out var address))
         {
             return false;
         }
 
         borrowed.Add(address);
-        reference = new VBRuntimeReference(address, external && parameter.ResolvedType is VBUnknownType ? fieldType : ReferencedType(parameter, fieldType));
+        reference = new VBRuntimeReference(address, referenced);
         return true;
     }
 
@@ -3278,6 +3530,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     {
         foreach (var address in borrowed)
         {
+            // an element is where it was: only the address it was lent at is given back.
+            if (session.Storage is Execution.Memory.SessionStorage storage && storage.TryGiveBackElement(address))
+            {
+                continue;
+            }
+
             if (returned && session.Storage.TryRead(address, out var passed) && passed is Execution.FixedStringArgument fixedString)
             {
                 fixedString.WriteBack(session.Symbols.Resolver);
@@ -3431,6 +3689,31 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private static VBType? ReferencedType(VBParameterSymbol parameter, VBType variableType)
         => parameter.ResolvedType is VBVariantType && !variableType.Equals(parameter.ResolvedType) ? variableType : null;
 
+    /// <summary>
+    /// The argument of a parameter passed by reference that is <paramref name="variable"/>, a variable of the activation <paramref name="frame"/> is of, as
+    /// a call the interpreter makes gives it (MS-VBAL §5.3.1.11, TryResolveByRefArgument): the variable's address, and the type it is declared as when the
+    /// parameter is a <c>Variant</c> and the variable is not, or is a reference parameter bound to a variable of another type. What compiled code gives a
+    /// <c>Variant</c> parameter of a procedure of the workspace, of a <c>Variant</c> variable or parameter of its activation.
+    /// </summary>
+    /// <param name="frame">The frame of the activation the variable is of.</param>
+    /// <param name="variable">The variable.</param>
+    /// <param name="parameter">The parameter it is given to.</param>
+    /// <param name="reference">The argument.</param>
+    /// <returns><see langword="false"/> when the variable has no address, or cannot be assigned: the interpreter then makes the call.</returns>
+    internal static bool TryReferenceTo(Execution.Frames.CallStackFrame frame, Symbol variable, VBParameterSymbol parameter, out VBRuntimeReference reference)
+    {
+        reference = VBRuntimeReference.NullRef;
+        if (variable is not ITypedSymbol typed || !frame.TryGetAddress(variable, out var address) || !frame.TryResolve(variable, out var binding)
+            || !binding.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        var declared = frame.TryGetReferencedType(variable, out var referenced) ? referenced : typed.ResolvedType;
+        reference = new VBRuntimeReference(address, ReferencedType(parameter, declared));
+        return true;
+    }
+
     // the declared type of the variable a name is: its own, unless the name is a reference parameter of the current activation bound to a variable of another
     // type - which is the variable it hands on when it is passed by reference again.
     private static VBType DeclaredTypeOf(IRuntimeSession session, Symbol symbol, VBType declared)
@@ -3497,16 +3780,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         IRuntimeSession session, RuntimeEvaluationContext context, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
     {
         var assumedBefore = AssumedSoFar;
-        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner);
+        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner, out var isRecursive);
         ObserveMemberAccess(session, context, dictionaryAccess, Tokens.DictionaryAccess, dictionaryAccess.Owner, owner, null,
-            MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess,
+            MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess
+                | (isRecursive ? MemberAccessOperationSemanticFlags.Recursive : 0),
             assumedBefore, result);
         return result;
     }
 
     private RuntimeSemanticsEvaluationResult CallThroughDictionary(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner,
+        out bool isRecursive)
     {
+        isRecursive = false;
         while (owner is VBVariantValue { TypedValue: { } wrapped })
         {
             owner = wrapped;
@@ -3526,7 +3812,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // owner!member is always sugar for a call through owner's default member (MS-VBAL §5.6.14), with the name of the member as its argument -
         // never a plain read. An object that has no default member to bind the call to does not support it: error 438.
-        if (TryResolveDefaultMember(session, objectValue) is not { } defaultMember)
+        if (TryResolveDefaultMember(session, context, dictionaryAccess.Owner, objectValue) is not { } defaultMember)
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to call with the name of the member."));
@@ -3534,6 +3820,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var name = new LiteralExpressionNode(
             dictionaryAccess.Member.Identity, dictionaryAccess.Member.Location, new VBStringValue(dictionaryAccess.Member.IdentifierName));
+
+        // MS-VBAL §5.6.14: the access is the index expression of the owner given the name as its argument, so a default member that takes no parameters is
+        // called with none, and the name given to what it returns (§5.6.13).
+        if (ReturnsToBeIndexed(defaultMember.Member, [name]) && (dictionaryAccess.Owner ?? context.EnclosingWithTargetExpression) is { } callee)
+        {
+            var index = new IndexExpressionNode(dictionaryAccess.Identity, dictionaryAccess.Location, callee, [name]);
+            return CallDefaultMember(session, context, expression, index, objectValue, out isRecursive);
+        }
+
         return InvokeProcedure(session, context, defaultMember.Member, [name], defaultMember.Receiver, call: expression);
     }
 
@@ -3562,7 +3857,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // a user-defined type or an enumeration is a type no object is (MS-VBA: False, Excel-verified); a name that binds no type is a compile error.
-        var targetResult = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
+        var targetResult = VBProjectSymbol.ResolveQualifiedType(
+            session.Symbols.Resolver, qualifier, typeName, context.Scope,
+            ProjectVisibility.Instance, ProjectVisibility.ProjectOf(session.Symbols, context.Scope));
         return targetResult.Symbol switch
         {
             VBClassModuleSymbol targetClass => IsOfClass(session, operandResult, targetClass, expression),

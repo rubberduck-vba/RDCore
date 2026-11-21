@@ -361,8 +361,47 @@ public sealed partial class RuntimeExpressionEvaluator
     // session has no instance of, a member the class does not have - is what the late-bound evaluation does with the owner it was given.
     private RuntimeSemanticsEvaluationResult EvaluateBoundMember(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context)
     {
+        // the target of a member call is evaluated after its arguments; the target of the enclosing With block, which is no owner, was evaluated when
+        // the block began.
+        if (bound is not { Owner: { } target, Arguments: { } written })
+        {
+            return EvaluateBoundMemberOf(session, bound, context);
+        }
+
+        var statement = _statementCallNodes.ContainsKey(written);
+        var first = EvaluateArgumentsFirst(session, context, target, bound.BoundArguments ?? default, written.Arguments, statement, out var error);
+        if (error is not null)
+        {
+            return error.Value;
+        }
+
+        if (first is null)
+        {
+            return EvaluateBoundMemberOf(session, bound, context);
+        }
+
+        try
+        {
+            return EvaluateBoundMemberOf(session, bound, context, first);
+        }
+        finally
+        {
+            first.End();
+        }
+    }
+
+    // first: what the arguments made, evaluated ahead of the target, which is settled once the target is evaluated.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundMemberOf(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context,
+        ArgumentCalls? first = null)
+    {
         // no owner: the object is the target of the enclosing With block.
         var ownerResult = bound.Owner is { } ownerNode ? EvaluateBoundNode(session, ownerNode, context) : EvaluateOwner(session, context, bound.Access);
+        if (first is not null)
+        {
+            first.Gives(ownerResult.Result);
+            first.Settle();
+        }
+
         if (!ownerResult.IsSuccess)
         {
             return ownerResult;
@@ -462,7 +501,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private static bool IsLateBoundAsLibraryClass(VBClassModuleSymbol actual, VBClassModuleSymbol declared)
         => Execution.External.Automation.LateBinding.IsLateBound(actual) && !Execution.External.Automation.LateBinding.IsLateBound(declared)
-            && declared.GetProperty(SymbolProperties.Library) is { Length: > 0 };
+            && SymbolProperties.IsOfALibraryProject(declared);
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {

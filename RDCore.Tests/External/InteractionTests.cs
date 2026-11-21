@@ -7,54 +7,12 @@ using System.IO.Abstractions.TestingHelpers;
 namespace RDCore.Tests.External;
 
 /// <summary>
-/// The platform-agnostic half of what a program reaches outside the platform without a server or a library: the dialogs a <c>MsgBox</c> is made of, what answers
-/// them when nobody can, the syntax of <c>SendKeys</c>, and the workspace application settings.
+/// The platform-agnostic half of what a program reaches outside the platform without a server or a library: what answers its dialogs when nobody can, the
+/// syntax of <c>SendKeys</c>, and the workspace application settings.
 /// </summary>
 [TestClass]
 public sealed class InteractionTests
 {
-    // ---- MessageBoxRequest ----
-
-    [TestMethod]
-    [DataRow(VBMsgBoxStyle.VBOKOnly, new[] { VBMsgBoxResult.VBOK })]
-    [DataRow(VBMsgBoxStyle.VBOKCancel, new[] { VBMsgBoxResult.VBOK, VBMsgBoxResult.VBCancel })]
-    [DataRow(VBMsgBoxStyle.VBAbortRetryIgnore, new[] { VBMsgBoxResult.VBAbort, VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBIgnore })]
-    [DataRow(VBMsgBoxStyle.VBYesNoCancel, new[] { VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo, VBMsgBoxResult.VBCancel })]
-    [DataRow(VBMsgBoxStyle.VBYesNo, new[] { VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo })]
-    [DataRow(VBMsgBoxStyle.VBRetryCancel, new[] { VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBCancel })]
-    public void TheButtonsOfAMessage_AreThoseItsStyleNames_InOrder(VBMsgBoxStyle style, VBMsgBoxResult[] choices)
-        => CollectionAssert.AreEqual(choices, new MessageBoxRequest("x", "t", style | VBMsgBoxStyle.VBExclamation).Choices.ToArray());
-
-    [TestMethod]
-    public void TheIcon_AndTheDefaultButton_AreReadOffTheStyle()
-    {
-        var request = new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBYesNoCancel | VBMsgBoxStyle.VBQuestion | VBMsgBoxStyle.VBDefaultButton3);
-        Assert.AreEqual(VBMsgBoxStyle.VBQuestion, request.Icon);
-        Assert.AreEqual(2, request.DefaultChoice);
-    }
-
-    [TestMethod]
-    public void ADefaultButtonTheMessageDoesNotHave_IsTheFirst()
-        => Assert.AreEqual(0, new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBDefaultButton2).DefaultChoice);
-
-    [TestMethod]
-    public void AStyleThatNamesNoButtons_IsOKOnly()
-        => CollectionAssert.AreEqual(new[] { VBMsgBoxResult.VBOK }, new MessageBoxRequest("x", "t", (VBMsgBoxStyle)7).Choices.ToArray());
-
-    [TestMethod]
-    [DataRow(VBMsgBoxStyle.VBOKOnly, VBMsgBoxResult.VBOK)]
-    [DataRow(VBMsgBoxStyle.VBOKCancel, VBMsgBoxResult.VBCancel)]
-    [DataRow(VBMsgBoxStyle.VBYesNoCancel, VBMsgBoxResult.VBCancel)]
-    [DataRow(VBMsgBoxStyle.VBRetryCancel, VBMsgBoxResult.VBCancel)]
-    public void EscapeClosesAMessage_AsItsCloseButtonWould(VBMsgBoxStyle style, VBMsgBoxResult expected)
-        => Assert.AreEqual(expected, new MessageBoxRequest("x", "t", style).EscapeResult);
-
-    [TestMethod]
-    [DataRow(VBMsgBoxStyle.VBYesNo)]
-    [DataRow(VBMsgBoxStyle.VBAbortRetryIgnore)]
-    public void AMessageThatHasNoWayToBeClosedButToChoose_IsNotClosedByEscape(VBMsgBoxStyle style)
-        => Assert.IsNull(new MessageBoxRequest("x", "t", style).EscapeResult);
-
     // ---- nobody to ask, no desktop, no settings ----
 
     [TestMethod]

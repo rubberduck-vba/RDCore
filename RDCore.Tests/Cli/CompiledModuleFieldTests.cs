@@ -43,9 +43,10 @@ public sealed class CompiledModuleFieldTests
 
     // the program run both ways: what it printed, the error it raised and where, alike - in each run, when it is run again after each of between; and each
     // procedure named compiled, run in compiled code with as many statements stepped as recoveries says, over every run - to its end, unless walkBacks says
-    // it was handed to the interpreter that many times.
+    // it was handed to the interpreter that many times. Without countsRecoveries, the recoveries are not asserted.
     internal static async Task AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, IReadOnlyList<(string Name, string Source)>? modules = null,
-        IReadOnlyList<(string Name, string Source)>? classes = null, IReadOnlyList<Func<EnvironmentSessionProvider, Task>>? between = null, long walkBacks = 0)
+        IReadOnlyList<(string Name, string Source)>? classes = null, IReadOnlyList<Func<EnvironmentSessionProvider, Task>>? between = null, long walkBacks = 0,
+        bool countsRecoveries = true)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, modules ?? [], classes ?? [], between ?? []);
@@ -59,7 +60,10 @@ public sealed class CompiledModuleFieldTests
             if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.AreEqual(walkBacks, result.Body.WalkBacks, $"{name}'s walk-backs");
-                Assert.AreEqual(recoveries, result.Body.Recoveries, $"{name}'s recoveries");
+                if (countsRecoveries)
+                {
+                    Assert.AreEqual(recoveries, result.Body.Recoveries, $"{name}'s recoveries");
+                }
             }
         }
     }

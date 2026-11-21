@@ -30,11 +30,13 @@ internal sealed class RDFormsForm : IComponentEventSink
     private readonly Dictionary<object, IAutomationEventSink> _arraySinks = new(ReferenceEqualityComparer.Instance);
     private DispatcherFrame? _modal;
 
-    public RDFormsForm(Model.FormDefinition model, CodeUnit unit)
+    // `program` is the RDForms program of the form's own program: another program's window taking the activation raises nothing on this one.
+    public RDFormsForm(Model.FormDefinition model, CodeUnit unit, RDFormsProgram program)
     {
         Model = model;
         Unit = unit;
-        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload };
+        Program = program;
+        Window = new RDFormsFormWindow(model) { UnloadRequestHandler = AskToUnload, Program = program };
         RDFormsControl.SetEventSink(Window, this);
         Handle = HandleOf(model.Root);
         Controls = new RDFormsControls(this);
@@ -44,6 +46,13 @@ internal sealed class RDFormsForm : IComponentEventSink
 
     // the unit the form's program reads and writes its components' positions and sizes in; the model holds them in pixels.
     public CodeUnit Unit { get; }
+
+    // whether the form is a VB6 form RDForms renders in place, whose code names its classes as VB's (VB.TextBox); an RDForms form's code names them
+    // as RDForms' (RDForms.TextBox).
+    public bool IsVisualBasic { get; init; }
+
+    // the program the form is an object of, whose calls the form's events are the answer to (RDFormsUI.IsInCallOf).
+    public RDFormsProgram Program { get; }
 
     public RDFormsFormWindow Window { get; }
 
@@ -194,7 +203,7 @@ internal sealed class RDFormsForm : IComponentEventSink
         }
 
         object?[] raised = [.. first == 1 ? [element] : Array.Empty<object?>(), .. arguments.Select(argument => RDFormsValues.ToNeutral(argument, HandleOf))];
-        sink.OnEvent(new AutomationEvent(definition.Name, raised, RDFormsUI.IsInCall, _ => RDFormsUI.Serve()));
+        sink.OnEvent(new AutomationEvent(definition.Name, raised, RDFormsUI.IsInCallOf(Program), _ => RDFormsUI.Serve()));
         for (var index = 0; index < arguments.Length; index++)
         {
             arguments[index] = RDFormsValues.FromNeutral(raised[first + index], arguments[index]);
@@ -216,6 +225,6 @@ internal sealed class RDFormsForm : IComponentEventSink
             return;
         }
 
-        sink.OnEvent(new AutomationEvent(FormWindowEvents.Close, [(short)mode], RDFormsUI.IsInCall, _ => RDFormsUI.Serve()));
+        sink.OnEvent(new AutomationEvent(FormWindowEvents.Close, [(short)mode], RDFormsUI.IsInCallOf(Program), _ => RDFormsUI.Serve()));
     }
 }

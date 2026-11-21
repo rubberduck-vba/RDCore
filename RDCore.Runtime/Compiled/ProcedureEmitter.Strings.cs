@@ -7,7 +7,7 @@ internal sealed partial class ProcedureEmitter
     // the String slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _texts = [];
 
-    // the Strings a Let appends to, each by the local its appender is held in: null until its first append.
+    // the Strings a Let appends to or a Mid statement changes, each by the local its appender is held in: null until its first append or Mid statement.
     private readonly Dictionary<int, LocalBuilder> _appenders = [];
     private static readonly Type Strings = typeof(StringOperations);
 
@@ -105,22 +105,20 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
-    // the Mid statement (CompiledActivation.TryMid), in the String's appender while it holds what was appended, else in its cell. The start, the length
-    // and the value are evaluated before it is changed; one the statement declines is the interpreter's, given what was appended (EmitSpill).
+    // the Mid statement of a variable in its appender, made of its cell when it does not hold it (CompiledActivation.TryMid); of a parameter by reference,
+    // in its cell (TryMidInCell). The start, the length and the value are evaluated before it is changed; one the statement declines is the
+    // interpreter's, given what the appender holds (EmitSpill).
     private void EmitMid(MidStep mid)
     {
         var failure = RecoverAt(mid.Offset);
         var start = EmitPayload(mid.Start, failure);
         var length = mid.Length is { } given ? EmitPayload(given, failure) : default(Operand?);
         var value = EmitTextInto(mid.Value, failure);
+        var buffered = _appenders.TryGetValue(mid.Slot, out var appender);
         _il.Emit(OpCodes.Ldarg_0);
-        if (_appenders.TryGetValue(mid.Slot, out var appender))
+        if (buffered)
         {
-            _il.Emit(OpCodes.Ldloc, appender);
-        }
-        else
-        {
-            _il.Emit(OpCodes.Ldnull);
+            _il.Emit(OpCodes.Ldloca, appender!);
         }
 
         _il.Emit(OpCodes.Ldloc, _texts[mid.Slot]);
@@ -137,7 +135,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         _il.Emit(OpCodes.Ldloc, value);
-        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryMid))!);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(buffered ? nameof(CompiledActivation.TryMid) : nameof(CompiledActivation.TryMidInCell))!);
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
@@ -258,6 +256,15 @@ internal sealed partial class ProcedureEmitter
             case WholeTextNode whole:
                 Load(EmitPayload(whole.Value, failure), whole.Value.Kind);
                 _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.OfWhole))!);
+                _il.Emit(OpCodes.Stloc, text);
+                break;
+
+            case FloatingTextNode floating:
+                var number = EmitPayload(floating.Value, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                Load(number, floating.Value.Kind);
+                _il.Emit(floating.Value.Kind is ScalarKind.Single ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.FloatingText))!);
                 _il.Emit(OpCodes.Stloc, text);
                 break;
 
@@ -390,7 +397,7 @@ internal sealed partial class ProcedureEmitter
     private void EmitLibraryVariantText(LibraryVariantTextNode node, LocalBuilder text, Label failure)
     {
         var offset = _knowingAt;
-        var (payloads, values) = EmitLibraryArguments(node.Arguments, failure);
+        var (payloads, values) = EmitLibraryArguments(node.Library, node.Arguments, failure);
         LoadLibraryArguments(offset, node.Library, payloads, values);
         _il.Emit(OpCodes.Ldloca, text);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryCallLibraryVariantText))!);

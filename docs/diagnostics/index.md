@@ -1,11 +1,4 @@
 # RDCore Diagnostics
-|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
-|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
-|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
-|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
-|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
-|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
-|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
 
 Every problem the RDCore platform reports carries a stable **code** and, through the LSP
 `codeDescription` field, a link to its page here. See
@@ -147,6 +140,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal|A parameter of a record is declared `ByVal`|
 |[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions|A record is given to a `Variant`|
 |[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
+|[VBC09384](vbc09384.md)|Only valid in object module|A procedure of a standard module is declared `Friend`|
+|[VBC09385](vbc09385.md)|Not a legal object name|A module is named with a keyword of the language, such as `Circle`|
+|[VBC09386](vbc09386.md)|Name conflicts with existing module, project, or object library|A module is named as a library or a project that the project references, such as `Excel`|
 
 ### Runtime errors
 
@@ -265,6 +261,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00115](rdc00115.md)|Implicit result local|A function that reads its own return value, as the local variable it implicitly is|
 |[RDC00116](rdc00116.md)|Implicit For step|A For loop that states no Step, under the convention that writes Step 1|
 |[RDC00117](rdc00117.md)|Implicit constant type|A constant with no As clause and no type character|
+|[RDC00118](rdc00118.md)|Variant form of a String function|`Left` and the like, which return a Variant where their `$` form returns a String|
 |[RDC00119](rdc00119.md)|Implicit default member access|An object of a known class used as a value, or assigned one without `Set`, through a default member the code does not name|
 |[RDC00120](rdc00120.md)|Implicit unbound default member access|An `Object` used as a value, or assigned one without `Set`: its default member is known only at run time|
 |[RDC00121](rdc00121.md)|Indexed default member access|An argument list given to an object of a known class, which its default member takes|
@@ -272,6 +269,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00123](rdc00123.md)|Bang notation|`b!key`: a name given as a `String` to the default member|
 |[RDC00124](rdc00124.md)|Unbound bang notation|`v!key` of an `Object`: its default member is known only at run time|
 |[RDC00125](rdc00125.md)|Suspicious Let assignment|An object assigned to an object without `Set`|
+|[RDC00126](rdc00126.md)|Indexed recursive default member access|An argument list given through a default member that takes none, to the default member of what it returns|
+|[RDC00127](rdc00127.md)|Recursive bang notation|`b!key` through a default member that takes none, to the default member of what it returns|
+|[RDC00128](rdc00128.md)|Undeclared variable|A variable that no statement declares, in a module with no `Option Explicit`|
 |[RDC00201](rdc00201.md)|Integer data type declaration|An As Integer clause or a % type character|
 |[RDC00202](rdc00202.md)|Module-scope Dim declaration|A module-level variable declared with Dim|
 |[RDC00203](rdc00203.md)|Multiline parameter declaration|One parameter declared over several lines|
@@ -288,7 +288,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00214](rdc00214.md)|Procedure can be written as a function|A `Sub` that gives its result back through its only `ByRef` parameter|
 |[RDC00215](rdc00215.md)|Self-assigned declaration|A variable declared `As New`|
 |[RDC00216](rdc00216.md)|Function result discarded|A `Function` of the project called as a statement|
+|[RDC00217](rdc00217.md)|Function result always discarded|A `Function` that every call of the project calls as a statement|
 |[RDC00218](rdc00218.md)|IsMissing of a Variant that is not Optional|IsMissing of a required Variant parameter, or of a Variant variable|
+|[RDC00219](rdc00219.md)|Unreachable Case|A `Case` or `Case Else` block that no value of the selector reaches|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
 |[RDC00304](rdc00304.md)|Obsolete error syntax|An Error statement|
@@ -309,6 +311,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00409](rdc00409.md)|Public field|A `Public` variable of a class module|
 |[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
 |[RDC00411](rdc00411.md)|Code in a class implemented as an interface|A class that another class implements, with a statement in a member|
+|[RDC00413](rdc00413.md)|Module variable used in one procedure|A variable of the module that only one procedure uses|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
 |[RDC01003](rdc01003.md)|Empty If block|An `If` or `ElseIf` branch with no statement|
@@ -319,8 +322,24 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01008](rdc01008.md)|Native call reachable on every platform|A `Declare` that no `#If` on the platform constants guards, and a call of one compiled where it is not declared|
 |[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
 |[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
+|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
+|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
+|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
+|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
+|[RDC01015](rdc01015.md)|Constant not used|A constant nothing refers to|
+|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
+|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
+|[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
+|[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
+|[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
+|[RDC01021](rdc01021.md)|Unassigned variable usage|A local variable read where nothing has assigned it|
+|[RDC01022](rdc01022.md)|Assignment not used|A value assigned to a variable that nothing reads|
+|[RDC01023](rdc01023.md)|Parameter can be passed by value|A parameter passed by reference that its procedure never changes|
+|[RDC01024](rdc01024.md)|Default project name|A project named `VBAProject`, the name MS-VBA gives a new project|
+|[RDC01025](rdc01025.md)|Procedure not used|A procedure or a property that no code calls|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
+|[RDC11010](rdc11010.md)|Unresolved late-bound member access|A member of an `Object` that no class it can be of has: error 438 when it runs|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String|The number is less, whatever the values|
 |[RDC11012](rdc11012.md)|Set of a call that always fails|A function whose default member has no Property Set, as the target of a Set|
 |[RDC11013](rdc11013.md)|Variant compared with a String as text|MS-VBA compares their text, where MS-VBAL specifies a type mismatch|
@@ -356,9 +375,15 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11045](rdc11045.md)|Let through a default member with no Property Let|`total = 5` compiles in RD-VBA, where MS-VBA refuses it|
 |[RDC11046](rdc11046.md)|Let through a Variant property or function|RD-VBA assigns the returned object's default member, as MS-VBA does, where MS-VBAL raises 451 or 450|
 |[RDC11047](rdc11047.md)|Object assigned with Let to an object property|An object given with `Let` to a property whose value parameter is a class or `Object`: MS-VBA passes the object, MS-VBAL makes it a type mismatch|
+|[RDC11049](rdc11049.md)|Single-line If with no statement|`If x Then:` with nothing after the colon: VB6 and MS-VBA run it as an `If` that does nothing, MS-VBAL gives the line no reading|
+|[RDC11050](rdc11050.md)|Let to an object with no default member|A value assigned to an object of a class with no default member: VBA compiles it, and raises error 438 (91 for `Nothing`) every time it runs|
+|[RDC11051](rdc11051.md)|Set to an incompatible class|`Set shape = item`, no object of `item`'s class an object of `shape`'s or of a class that implements it: VBA compiles it, and raises error 13 every time it runs with an object|
+|[RDC11052](rdc11052.md)|Argument of an incompatible class|`Draw item`, no object of `item`'s class an object of the parameter's class or of a class that implements it: VBA compiles it, and raises error 13 every time it is made with an object|
+|[RDC11053](rdc11053.md)|Member not on the declared interface|A member that a library's class does not declare (`ws.Rnage` of a `Worksheet`): looked up when the code runs|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 |[RDC30001](rdc30001.md)|No entry point|`rdc run` or `rdc build` of a workspace with no `Sub Main`, an entry point the `.rdproj` names that nothing declares, or a library|
 |[RDC30002](rdc30002.md)|More than one entry point|`rdc run` or `rdc build` of a workspace where more than one standard module declares a `Sub Main`, and the `.rdproj` names none|
+|[RDC31001](rdc31001.md)|Circular reference of projects|A project that references itself, directly or through the projects it references|
 
 ---
 [ACCUEIL](../index.fr.md) • [HOME](../index.md) | ℹ️ [BIENVENUE](../introduction.fr.md) • [WELCOME](../introduction.md) | 🧩 [BÂTISSONS](../getting-started.fr.md) • [BUILD](../getting-started.md) | [**RD-VBAL**](../specs/rd-vbal.md) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

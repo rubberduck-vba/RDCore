@@ -40,6 +40,16 @@ public sealed class ModuleOrderTests
             [("Shapes", StandardModule("Shapes", "Public Type Point", "    X As Long", "    Y As Long", "End Type", "Public Type Segment", "    A As Point", "    B As Point", "End Type", "Public Enum Kind", "    kFirst = 1", "    kSecond", "End Enum"))],
             MainModule("Dim s As Segment", "s.B.Y = 5", "Debug.Print s.B.Y", "Dim k As Kind", "k = kSecond", "Debug.Print k")));
 
+    // a variable of a Type of a module listed after is given its storage before the Type's fields are bound: a local of the Type, and a field of an object,
+    // given theirs once they are, have the fields.
+    [TestMethod]
+    public async Task ARecordOfAModuleListedAfter_GivenStorageBeforeItsFieldsAreBound_HasThemInALocalAndAnObjectAfter()
+        => CollectionAssert.AreEqual(new[] { "5", "7" }, await RunProgramFirstAsync(
+            [("Holder", ClassModule("Holder", "Private V As Point", "Public Function Bumped() As Long", "    V.X = V.X + 7", "    Bumped = V.X", "End Function"))],
+            [("Shapes", StandardModule("Shapes", "Public Type Point", "    X As Long", "    Y As Long", "End Type"))],
+            StandardModule("Program", "Private Held As Point", "Public Sub Main()", "    Dim p As Point", "    p.X = 5", "    Debug.Print p.X",
+                "    Dim h As New Holder", "    Debug.Print h.Bumped", "End Sub")));
+
     [TestMethod]
     public async Task ARecordOfAModuleListedAfter_IsReturned_AndHasItsFixedSizeArrayField()
         => CollectionAssert.AreEqual(new[] { "9", "3" }, await RunProgramFirstAsync([],

@@ -203,7 +203,8 @@ public static class ExpressionStaticSemanticsEvaluator
         StaticEvaluationContext context, ExpressionNode expression, Symbol qualifier, MemberAccessExpressionNode memberAccess)
     {
         var memberName = memberAccess.Member.IdentifierName;
-        var resolved = context.Resolver.ResolveMember(qualifier, memberName, context.Scope.Uri);
+        // a member written with a type character is looked for as written first: VBA.Left$ is not VBA.Left.
+        var resolved = context.Resolver.ResolveMember(qualifier, memberAccess.Member, context.Scope.Uri);
 
         if (resolved.IsError)
         {
@@ -489,9 +490,10 @@ public static class ExpressionStaticSemanticsEvaluator
 
     // an Enum of a class module that declares a procedure of the Enum's name qualifies no member of it, from any module: the procedure takes the name in a
     // value, and `PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier in another module as in the class
-    // (observed in Excel; the same without the Get). The Enum is still the type of `Dim t As PlayerType`.
+    // (observed in Excel; the same without the Get). The Enum is still the type of `Dim t As PlayerType`. A class of a referenced source project is VBA code
+    // (MS-VBAL §4.1), as the project's own is.
     private static bool IsTakenByAProcedureOfItsClass(StaticEvaluationContext context, VBEnumType enumeration)
-        => enumeration.Symbol.GetProperty(SymbolProperties.Library) is null
+        => !SymbolProperties.IsOfALibraryProject(enumeration.Symbol)
             && context.Resolver.ResolveQualifier(SymbolUri.ModuleNameOf(enumeration.Symbol.Uri), ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol module
             && module.Uri.AbsoluteUri == enumeration.Symbol.ParentUri.AbsoluteUri
             && module.Members.Any(member => ScopeTreeSymbolResolver.IsProcedure(member) && string.Equals(member.Name, enumeration.Symbol.Name, StringComparison.OrdinalIgnoreCase));

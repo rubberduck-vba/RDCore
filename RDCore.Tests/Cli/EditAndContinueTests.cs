@@ -214,6 +214,115 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "x=16" }, Output(resumed));
     }
 
+    // a class given a variable, a Class_Initialize and a Class_Terminate while the program waits, after an object of it was made and let go of: the object
+    // the same New makes after the edit has the variable, and runs both handlers. What an object of the class is made with is found again after an edit.
+    [TestMethod]
+    public async Task AClassGivenAVariableAndHandlersWhileTheProgramWaits_TheNextObjectOfItHasThemAll()
+    {
+        var point = ModuleWorkspace.ClassModule("Point", "Option Explicit", "Public X As Long");
+        var edited = ModuleWorkspace.ClassModule("Point",
+            "Option Explicit",
+            "Public X As Long",
+            "Public Y As Long",
+            "Private Sub Class_Initialize()",
+            "    Y = 2",
+            "    Debug.Print \"initialize\"",
+            "End Sub",
+            "Private Sub Class_Terminate()",
+            "    Debug.Print \"terminate y=\" & Y",
+            "End Sub");
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim I As Long",
+            "    Dim P As Point",
+            "    For I = 1 To 2",
+            "        Set P = New Point",
+            "        Set P = Nothing",
+            "        Debug.Print \"made \" & I",
+            "        If I = 1 Then Stop",
+            "    Next",
+            "End Sub");
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([("Point", point)], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Point"], ("Point", ModuleType.ClassModule, edited), ("Program", ModuleType.StdModule, program));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "initialize", "terminate y=2", "made 2" }, Output(resumed));
+    }
+
+    // a field of a class given another type, length or bounds while the program waits, after an object of the class was made and let go of: an edit the
+    // program is not resumed on, which applies when the program is run again. The object the run makes has the field as the edit declares it, with the
+    // value a variable so declared starts with.
+    [TestMethod]
+    [DataRow("Private V As Long", "Private V As String", "TypeName(V)", "Long", "String")]
+    [DataRow("Private V As String * 3", "Private V As String * 5", "Len(V)", "3", "5")]
+    [DataRow("Private V(1 To 2) As Long", "Private V(1 To 4) As Long", "UBound(V)", "2", "4")]
+    public async Task AFieldOfAClassGivenAnotherTypeWhileTheProgramWaits_TheObjectOfTheRunAgainHasTheFieldAsEdited(
+        string field, string edit, string shape, string before, string after)
+    {
+        string Box(string declared)
+            => ModuleWorkspace.ClassModule("Box", "Option Explicit", declared, "Public Function Shape() As String", $"    Shape = {shape}", "End Function");
+        var (stopped, again) = await MadeAndRunAgainEditedAsync([("Box", Box(field))], "Box", "Shape", ("Box", ModuleType.ClassModule, Box(edit)));
+
+        CollectionAssert.AreEqual(new[] { before }, Output(stopped));
+        Assert.AreEqual(ExecutionOutcome.Suspended, again.Outcome, again.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { after }, Output(again));
+    }
+
+    // a Type of a standard module given a field while the program waits, after an object of a class with a field of the Type was made and let go of: the
+    // object the run again makes has the record as the Type now declares it. The class is not edited.
+    [TestMethod]
+    public async Task ATypeOfAFieldOfAClassGivenAFieldWhileTheProgramWaits_TheObjectOfTheRunAgainHasTheRecordAsEdited()
+    {
+        string Shapes(params string[] fields) => ModuleWorkspace.StandardModule("Shapes", ["Option Explicit", "Public Type Pt", .. fields, "End Type"]);
+        var holder = ModuleWorkspace.ClassModule("Holder",
+            "Option Explicit", "Private P As Pt", "Public Function Size() As Long", "    Size = Len(P)", "End Function");
+        var (stopped, again) = await MadeAndRunAgainEditedAsync([("Holder", holder)], "Holder", "Size",
+            ("Shapes", ModuleType.StdModule, Shapes("    X As Long", "    Y As Long")), modules: [("Shapes", Shapes("    X As Long"))]);
+
+        CollectionAssert.AreEqual(new[] { "4" }, Output(stopped));
+        Assert.AreEqual(ExecutionOutcome.Suspended, again.Outcome, again.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "8" }, Output(again));
+    }
+
+    // a program that makes an object of className, prints what member says, lets go of the object and stops: what it printed, and what it printed when run
+    // again after edited was loaded in place of the module of its name while it waited.
+    private static async Task<(ExecuteResult Stopped, ExecuteResult Again)> MadeAndRunAgainEditedAsync(IReadOnlyList<(string Name, string Source)> classes,
+        string className, string member, (string Name, ModuleType Type, string Source) edited, IReadOnlyList<(string Name, string Source)>? modules = null)
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            $"    Dim O As {className}",
+            $"    Set O = New {className}",
+            $"    Debug.Print O.{member}",
+            "    Set O = Nothing",
+            "    Stop",
+            "End Sub");
+        ExecuteResult? first = null, again = null;
+        await ModuleWorkspace.InspectAsync(classes, program, async (provider, stopped, runAgain) =>
+        {
+            first = stopped;
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            (string Name, ModuleType Type, string Source)[] workspace =
+            [
+                .. classes.Select(each => each.Name == edited.Name ? edited : (each.Name, ModuleType.ClassModule, each.Source)),
+                .. (modules ?? []).Select(each => each.Name == edited.Name ? edited : (each.Name, ModuleType.StdModule, each.Source)),
+                ("Program", ModuleType.StdModule, program),
+            ];
+            var errors = await ModuleWorkspace.ReloadOnlyAsync(provider, [edited.Name], workspace);
+            Assert.AreEqual(0, errors.Count, string.Join("; ", errors));
+            again = await runAgain().WaitAsync(SafetyCap);
+        }, debug: true, modules: modules);
+
+        return (first!, again!);
+    }
+
     // what MS-VBA applies and goes on with, and RD-VBA does: the program runs the edited code where it next reaches it.
     [TestMethod]
     [DataRow(new[] { "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:EDITED obj=\" & Obj.Value" }, new[] { "other:EDITED obj=10" },
@@ -562,6 +671,34 @@ public sealed class EditAndContinueTests
 
         Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "edited:2", "main:end" }, Output(resumed));
+    }
+
+    // a module's record with a fixed-size array field is allocated again at its load only while the field is without its elements: the load at an
+    // edit leaves the record as the program made it, where it was.
+    [TestMethod]
+    public async Task AModulesRecordWithAFixedSizeArrayField_KeepsItsValuesAndItsAddress_AcrossAnEdit()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Private Type TFixed",
+            "    B As Byte",
+            "    N(2) As Long",
+            "    After As Integer",
+            "End Type",
+            "Private R As TFixed",
+            "Private Address As LongPtr",
+            "Public Sub Main()",
+            "    R.N(1) = 42",
+            "    R.After = 7",
+            "    Address = VarPtr(R)",
+            "    Stop",
+            "    Debug.Print \"main:\" & R.N(1) & \"|\" & R.After & \"|\" & (VarPtr(R) = Address)",
+            "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("\"main:\"", "\"edited:\"", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "edited:42|7|True" }, Output(resumed));
     }
 
     [TestMethod]

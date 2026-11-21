@@ -41,18 +41,22 @@ internal class FreeListManager
         => _free.TryTakeEndingAt(segment, end, out block);
 
     /// <summary>
-    /// Takes the smallest free block that fits <paramref name="size"/>, splitting it if it is larger.
+    /// Takes the smallest free block that fits <paramref name="size"/> on an <paramref name="alignment"/> boundary, splitting it if it is larger.
     /// </summary>
     /// <param name="size">The number of bytes wanted.</param>
+    /// <param name="alignment">The boundary the block starts on, a power of two.</param>
     /// <param name="block">The block to allocate, exactly <paramref name="size"/> bytes long.</param>
+    /// <param name="padding">The free bytes before <paramref name="block"/> that are skipped to align it, allocated with it.</param>
     /// <param name="segment">The segment it belongs to.</param>
     /// <returns><c>false</c> if no free block is big enough.</returns>
     public bool TryGetFreeListBlock(
         int size,
+        int alignment,
         [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemoryBlock? block,
+        out int padding,
         [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemorySegment? segment)
     {
-        if (_free.TryTakeSmallestFit(size, out var found, out segment))
+        if (_free.TryTakeSmallestFit(size, alignment, out var found, out padding, out segment))
         {
             block = found;
             return true;

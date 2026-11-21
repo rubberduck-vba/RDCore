@@ -205,6 +205,9 @@
   <data name="ExportLibrary_Skipped" xml:space="preserve">
     <value>Not described: {0}.</value>
   </data>
+  <data name="ExportLibrary_Lost" xml:space="preserve">
+    <value>The file this replaces states facts of members the library no longer declares; those facts are lost: {0}.</value>
+  </data>
   <data name="Command_Unknown" xml:space="preserve">
     <value>Unknown command.</value>
   </data>
@@ -642,7 +645,7 @@
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
   </data>
   <data name="CLI_NativeDialogs" xml:space="preserve">
-    <value>Whether rdc run, and the programs rdc build builds, show MsgBox and InputBox as the machine's own dialogs where it has them (Windows), rather than asking them at the console.</value>
+    <value>Whether a program run by rdc run or built by rdc build shows MsgBox and InputBox as Windows dialog boxes, rather than as RDForms dialogs (an RDForms application) or at the console (a console application). Only Windows has them: on any other operating system, this setting changes nothing.</value>
   </data>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>
@@ -875,6 +878,20 @@
   </data>
   <data name="Install_ProfileHasBlock" xml:space="preserve">
     <value>{0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal.</value>
+  </data>
+  <data name="Mcp_Summary" xml:space="preserve">
+    <value>Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output.</value>
+  </data>
+  <data name="Mcp_Usage" xml:space="preserve">
+    <value>Usage: rdc mcp --workspace &lt;path&gt;. The workspace is a folder, with or without a .rdproj.</value>
+  </data>
+  <data name="Mcp_NoSuchWorkspace" xml:space="preserve">
+    <value>The workspace folder "{0}" does not exist.</value>
+    <comment>{0}: the full path of the folder.</comment>
+  </data>
+  <data name="Mcp_Instructions" xml:space="preserve">
+    <value>The tools read and check the VBA code of the RDCore workspace at {0}. Paths are relative to that folder, or absolute; lines and columns are 1-based.</value>
+    <comment>{0}: the full path of the workspace folder.</comment>
   </data>
   <data name="BenchMsVba_Summary" xml:space="preserve">
     <value>Runs the benchmark corpus and the Excel automation cases in MS-VBA and in RD-VBA, in alternated rounds on this machine, and writes the reference figures (msvba.json). Needs Windows and Excel.</value>

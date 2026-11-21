@@ -31,7 +31,7 @@ namespace RDCore.Tests.Runtime.Execution;
 /// <remarks>
 /// Two classes. <c>Source</c> declares <c>Event Changed(ByVal Value As Long)</c> and <c>Event Bump(ByRef Count As Long)</c>
 /// and raises them from <c>Fire</c> (<c>Changed(7)</c>) and <c>FireBump</c> (<c>Bump</c> of its own <c>Total</c>, then
-/// prints what <c>Total</c> is). <c>Sink</c> has a <c>WithEvents Src As Source</c> and a <c>Tag</c>; <c>Attach(Origin,
+/// prints what <c>Total</c> is). <c>Sink</c> has a <c>Public WithEvents Src As Source</c> and a <c>Tag</c>; <c>Attach(Origin,
 /// Name)</c> tags it and sets <c>Src</c>, <c>Detach</c> sets <c>Src</c> to <c>Nothing</c>, and the handlers are what
 /// each test gives it. <c>Main</c>, which has the variables <c>a</c> and <c>b</c> (<c>Source</c>) and <c>x</c> and <c>y</c>
 /// (<c>Sink</c>), runs the statements under test.
@@ -104,7 +104,7 @@ public sealed class EventRuntimeTests
 
         var sink = new VBClassModuleSymbol(Root, Root, "Sink");
         var src = (VBInstanceFieldVariableMemberSymbol)new VBInstanceFieldVariableMemberSymbol(
-            Root, sink.Uri, "Src", R, R, sourceType, AccessModifier.Private).With(SymbolProperties.WithEvents, true);
+            Root, sink.Uri, "Src", R, R, sourceType, AccessModifier.Public).With(SymbolProperties.WithEvents, true);
         var tag = new VBInstanceFieldVariableMemberSymbol(Root, sink.Uri, "Tag", R, R, VBStringType.TypeInfo, AccessModifier.Public);
         var attach = Sub(sink, "Attach", AccessModifier.Public, bodies, attachBody ?? ["Tag = Name", "Set Src = Origin"],
             ("Origin", ParameterKind.ExplicitByVal, sourceType), ("Name", ParameterKind.ExplicitByVal, VBStringType.TypeInfo));

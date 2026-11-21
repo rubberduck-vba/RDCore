@@ -10,6 +10,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.Symbols;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -35,12 +36,15 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether a member access is a member of an object compiled code reaches, declared as a class, not late-bound: of an object variable it holds, of Me, or
-    // of the object of the enclosing With block, whose expression is declared as a class. A record's field, and a member of anything else, is not.
+    // of the object of the enclosing With block, whose expression is declared as a class. A record's field, and a member of anything else, is not. A member of
+    // an object variable declared As New is one: compiled code assigns it while the variable holds an object, and while the variable holds Nothing the
+    // interpreter assigns it, which makes the object (MS-VBAL §5.2.3.1.4).
     private bool IsMemberOfAnObject(BoundNode node)
         => node is BoundMember { IsLateBound: false, Arguments: null } member && member.Owner switch
         {
             null => _withExpression is { } with && _evaluator.DeclaredTypeOf(_session, with, new RuntimeEvaluationContext(_procedure.Uri)) is VBClassType,
-            BoundVariable variable => ObjectSlotOf(variable) is not null && variable.Variable is SDK.Model.Symbols.Abstract.ITypedSymbol { ResolvedType: VBClassType },
+            BoundVariable variable => ObjectSlotOf(variable, receiver: true) is not null
+                && variable.Variable is SDK.Model.Symbols.Abstract.ITypedSymbol { ResolvedType: VBClassType },
             BoundInstance => MeSlot is not null,
             _ => false,
         };
@@ -102,7 +106,8 @@ internal sealed partial class ProcedureAnalysis
     // of the class the object is declared as, and of an object of a class that implements it as an interface, the implementing one (CompiledActivation.MemberOf). A
     // property indexed by arguments, and one whose value parameter compiled code passes nothing to, is the interpreter's to assign; the reasons this found
     // are not the statement's. A property with no Property Get is bound with no class, as a member read is (ExpressionBinder.InvocableMember): its class is
-    // the one the object is declared as.
+    // the one the object is declared as. An object variable declared As New is called on while it holds an object; while it holds Nothing the interpreter
+    // assigns the property, and makes the object (CompiledActivation.CanCallMember).
     private CallStep? AccessorCallOf(int offset, AssignmentStatementNode assignment, bool isSet)
     {
         if (Bind(assignment.Target) is not BoundMember { IsLateBound: false, Arguments: null } target
@@ -119,7 +124,7 @@ internal sealed partial class ProcedureAnalysis
         int? receiver = null;
         if (target.Owner is BoundVariable owner)
         {
-            if (ObjectSlotOf(owner) is not { } slot)
+            if (ObjectSlotOf(owner, receiver: true) is not { } slot)
             {
                 return null;
             }
@@ -152,10 +157,11 @@ internal sealed partial class ProcedureAnalysis
     // the parameter's range, which is an error the interpreter raises (PayloadOperations.Convert): a value of that kind; an integer or a Boolean, to any
     // kind (a LongLong to a Single excepted); a Single or a Double, to a Single, a Double, a Boolean or an integer type, which it rounds as the interpreter
     // does (MS-VBAL §5.5.1.2.1). What it would decline (a Currency, a Variant, a Date) it hands the interpreter to assign, as any member's (MemberLetStep).
-    // An object parameter's value is Set-coerced, and declines nothing.
+    // An object parameter's value is Set-coerced, and declines nothing. A String parameter of variable length is given the value's text: compiled code
+    // evaluates it (TextArgumentNode), or leaves the assignment to the interpreter.
     private bool ConvertsWithoutDeclining(ExpressionNode value, VBParameterSymbol parameter)
     {
-        if (IsObjectType(parameter.ResolvedType))
+        if (IsObjectType(parameter.ResolvedType) || IsText(parameter.ResolvedType))
         {
             return true;
         }
@@ -181,9 +187,11 @@ internal sealed partial class ProcedureAnalysis
             ? VBProjectSymbol.ResolveClass(_session.Symbols.Resolver, snapshot) ?? snapshot
             : null;
 
-    // the Property Let, or the Property Set, of the name, of the class.
-    private static VBTypeMemberSymbol? AccessorOf(VBClassModuleSymbol declared, string name, bool isSet)
-        => declared.DefaultInterfaceMembers.FirstOrDefault(candidate => (isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol)
+    // the Property Let, or the Property Set, of the name, of the class, that the procedure's project reaches (MS-VBAL §5.3.1.1): a Friend one of another
+    // project's class is not, and the interpreter refuses the assignment as it refuses one through a Private accessor.
+    private VBTypeMemberSymbol? AccessorOf(VBClassModuleSymbol declared, string name, bool isSet)
+        => ProjectVisibility.MembersSeenFrom(declared.DefaultInterfaceMembers, declared, ProjectVisibility.ProjectOf(_session.Symbols, _procedure.Uri))
+            .FirstOrDefault(candidate => (isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol)
             && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
 }
 

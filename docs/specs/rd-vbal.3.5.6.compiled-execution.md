@@ -14,8 +14,10 @@ A program does the same thing in either engine: what it prints, the errors it ra
 Any `Sub`, `Function` or `Property` procedure can be compiled, in a standard module or in a class. Compiled code holds the procedure's scalar parameters,
 passed `ByVal` or `ByRef`, its scalar variables, and the result of a function that returns a scalar. The scalars are `Byte`, `Integer`, `Long`, `LongLong`,
 `Boolean`, `Currency`, `Single`, `Double` and `Date`. An enumeration is a `Long` (MS-VBAL §5.2.3.4): a variable, a parameter, a field or a function
-result declared as one is held as a `Long`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`, an
-object, a `String`, a `Variant`, an array and a record.
+result declared as one is held as a `Long`. Compiled code also holds the references of the procedure's object parameters and variables, and of the
+result of a function that returns an object (see Objects, below), and the text of its `String` parameters and variables (see Strings, below).
+Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`, a fixed-length `String`, a `Variant`, an array and
+a record.
 
 A `LongPtr` is a scalar too. It is the integer type it is an alias of (MS-VBAL §2.2): a `LongLong` in a 64-bit environment and a `Long` in a 32-bit
 one. The session's environment decides it, whatever the process RDCore runs in, so in a 32-bit environment a `LongPtr` past the range of a `Long`
@@ -74,9 +76,10 @@ A `Variant` result assigned to a variable of a scalar type (`N = F()`) is the in
 
 ### Strings
 
-Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it is a fixed-length `String`, which pads or truncates
-what it is assigned. A `Let` of a literal, of another `String` variable, or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is
-(MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
+Compiled code reads and writes the text of a `String` parameter or variable in the cell that holds it: the activation's own, or its frame's once it has
+one. A fixed-length `String`, which pads or truncates what it is assigned, stays in its frame. A `Let` of a literal, of another `String` variable,
+or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is (MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are
+compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
 A `String` constant is the text it holds (MS-VBAL §5.2.3.2). `vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`.
 Compiled code also reads, as such `String`s, `Err.Description` and `Err.Source` (MS-VBAL §6.1.3.2.2.1, §6.1.3.2.2.6), where the session keeps the
 error, and a `String` public variable of an object (see Objects, below). A `String` that ends with a lone byte (`ChrB(65)`) is the interpreter's to join
@@ -95,9 +98,11 @@ argument is a `String` it reads, as above, or a whole number where the function 
 - `Val`.
 - `Replace` of three `String`s, in a module that compares `Binary` (below).
 - `Chr$` of a whole number (below).
+- `Format` and `Format$` of a `Double`, a `Long` or a `Date` and a format, with `FirstDayOfWeek` and `FirstWeekOfYear` left out, in the session's
+  regional settings and calendar.
 
 An argument the function refuses (a start below 1, a negative length, the zero-length text of `Asc`, a `Val` that overflows), a non-ASCII first character
-of `Asc`, and `InStr` or `Replace` in a module that compares `Text` are the interpreter's at that statement.
+of `Asc`, a zero-length format, and `InStr` or `Replace` in a module that compares `Text` are the interpreter's at that statement.
 
 A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assigned to one, is its digits, after a minus sign when it is negative
 (MS-VBAL §5.5.1.2.4): `"(" & X & "," & Y & ")"`. Regional settings do not change how a whole number is written. A `Currency`, a `Single`, a `Double`, a
@@ -132,9 +137,10 @@ a `String` is the interpreter's.
 
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
-variable given. Either way the callee holds its own frame, which the interpreter makes. A whole number given by value is given its digits, and a
-`Variant` variable the text it is let-coerced to, as above. Any other number given to a `String` parameter, a `Variant` that holds anything else, a
-fixed-length `String`, a field and an element of an array are the interpreter's to give, and it makes the call.
+variable given. Either way the callee gets the frame the interpreter would make once something needs it (see What compiled code does itself,
+below). A whole number given by value is given its digits, and a `Variant` variable the text it is let-coerced to, as above. Any other number
+given to a `String` parameter, a `Variant` that holds anything else, a fixed-length `String`, a field and an element of an array are the
+interpreter's to give, and it makes the call.
 
 ### `Debug.Print`
 
@@ -162,11 +168,16 @@ whose counter is such a variable is the interpreter's.
 
 ### Objects
 
-Compiled code reads the reference held by an object parameter or variable (declared `As Object`, or as a class or an interface) where its frame keeps it.
-It reads the reference held by an object field of `Me` or of a standard module, or by an object `Static`, where the interpreter keeps it, as it does a
-scalar one. It compares two such references with `Is`, or one with `Nothing`, and tests one with `TypeOf`, as the interpreter does (MS-VBAL §5.6.9.7,
-§5.6.7). `TypeOf` of `Nothing` is the interpreter's, which raises error 91. So is a variable or field declared `As New`, which the interpreter makes when
-it is read.
+Compiled code holds the reference of an object parameter or variable (declared `As Object`, or as a class or an interface), and of the result of a
+function that returns an object, and counts it as the frame counts it. When the procedure returns, it lets go of what its variables hold, in the order
+they are declared, then of what `Me` and the parameters given by value hold, as the interpreter does (MS-VBAL §5.3.1.10): an object only they held is
+destroyed there, and its `Class_Terminate` runs. What a function returns is held by the statement that called it before the function's variables let go
+of it, so it outlives the variable that held it. A variable declared `As New` stays in the frame.
+
+Compiled code reads the reference held by an object field of `Me` or of a standard module, or by an object `Static`, where the interpreter keeps it, as
+it does a scalar one. It compares two such references with `Is`, or one with `Nothing`, and tests one with `TypeOf`, as the interpreter does
+(MS-VBAL §5.6.9.7, §5.6.7). `TypeOf` of `Nothing` is the interpreter's, which raises error 91. So is a variable or field declared `As New`, which the
+interpreter makes when it is read.
 
 Compiled code also tests a `Variant` parameter or variable of the procedure with `TypeOf`, where its frame keeps it. A `Variant` that holds an object is
 tested for that object, and one that holds no object (a number, `Empty`, `Null`, a `String` or an error value, `Missing` among them) is an instance of no
@@ -217,13 +228,15 @@ Compiled code gives an object to a procedure or a member it calls as the interpr
 
 What a function or a `Property Get` returns is given by value the same way (`N = Doubled(S.Pos)`), in a statement that calls inside an expression (see
 Calls inside an expression, below). A field given by reference, a `WithEvents` variable, a member or `New` given as an argument, and a call given as one
-in any other statement are the interpreter's to give, and it makes the call. A call that gives an object goes through the interpreter's binding of the
-callee, never straight into the callee's compiled code.
+in any other statement are the interpreter's to give, and it makes the call. A call of a compiled procedure of a module that gives an object goes
+straight into the procedure's compiled code, which holds the reference the parameter is given, or, by reference, the variable's own. A call of a member
+that gives an object goes through the interpreter's binding of the member.
 
-When the member is compiled too, compiled code calls the member's compiled code directly. A member that keeps nothing in its frame but `Me` and values of
-scalar types runs without a frame, as a compiled procedure called directly does. Its activation still holds `Me`, so an object is let go of, and its
-`Class_Terminate` runs, exactly when the interpreter would do it. The activation gets the frame the interpreter would have made as soon as anything needs
-it: an error, a statement the interpreter runs, another object's `Class_Terminate`. Under a debugger, every member gets its frame when it is called.
+When the member is compiled too, compiled code calls the member's compiled code directly. A member that keeps nothing in its frame but `Me`, values of
+scalar types and object references runs without a frame, as a compiled procedure called directly does. Its activation still holds `Me`, so an object
+is let go of, and its `Class_Terminate` runs, exactly when the interpreter would do it. The activation gets the frame the interpreter would have made as
+soon as anything needs it: an error, a statement the interpreter runs, another object's `Class_Terminate`. Under a debugger, every member gets its frame
+when it is called.
 
 Compiled code remembers where it last found an object's fields, and looks for them again for another object. An object keeps the same place for each
 field for as long as it lives, and a procedure is compiled again when its class is edited. What compiled code remembers never keeps an object alive: once
@@ -358,7 +371,9 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
   found, as the interpreter finds it: a subscript is read as the call left it. When the target cannot be assigned after the call, because a subscript
   is out of range or the object variable holds `Nothing`, the interpreter raises the error, given what was evaluated, and the call is not made again;
 - a `Let` of an element whose subscripts call, whatever the value (`this.State(Position.X, Position.Y) = Hit`). A value that calls is evaluated
-  first, as above. A value that calls nothing is read after the subscripts and their calls, as the interpreter reads it;
+  first, as above. A value that calls nothing is read after the subscripts and their calls, as the interpreter reads it. An element of the array a
+  `Variant` holds is assigned as MS-VBA assigns a `Property Let`: the calls of its subscripts are made before the value is evaluated. When the value
+  calls too (`V(F(1)) = G(5)`), the interpreter runs the `Let` for compiled code;
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
@@ -380,7 +395,7 @@ returns, using `Is` (`OK = Fits(P) And Overlaps(P) Is Nothing`, **MS-VBAL §5.6.
 holds the object until it is over, and then lets go of it, as the interpreter does: if nothing else holds it, its `Class_Terminate` runs there
 (MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
 
-- after its assignment or its call;
+- after its assignment, its call, or its `Debug.Print` (`Debug.Print Make("m").Hello`);
 - for an `If`, an `ElseIf` or a loop, once its condition is evaluated, before the jump the condition decides;
 - for a `For`, once the counter is given the start, before the first test of the counter.
 
@@ -443,8 +458,12 @@ Compiled code calls these functions of the standard library inside an expression
 - `IIf`.
 
 Each argument is a number, a `Boolean` or a `Date` that compiled code evaluates, or a `Variant` that holds one. Compiled code calls the function as the
-interpreter does, through the same binding and with the session's locale. When a `Variant` argument holds anything else, such as a `String`, the
-interpreter runs the statement on its own. An error the function raises, such as the overflow of `CByte(300)`, is raised where the interpreter raises it.
+interpreter does, through the same binding and with the session's locale. When a `Variant` argument that compiled code evaluates holds anything else,
+such as a `String`, the interpreter runs the statement on its own. A `Variant` parameter of the function is given what the argument holds, as the
+interpreter gives it (**MS-VBAL §5.3.1.11**), a `String`, `Empty`, `Null`, an error or an object among them, when the argument is a `Variant`
+parameter or variable of the procedure, an element of one of its arrays of `Variant`s, or an element of the array one of its `Variant`s holds. An
+element that holds an array or a record is the interpreter's. An error the function raises, such as the overflow of `CByte(300)`, is raised where the
+interpreter raises it.
 `Abs` of the least value of a type, on which the function overflows, is the interpreter's: compiled code hands it the statement, and the interpreter
 decides the result by how the argument is written. Of the least `Long` written as a constant expression (`Abs(CLng(-2147483647) - 1)`) it is that
 `Long`, of a `Variant` it is the next wider type, and of a `Long` variable it is error 6.
@@ -462,10 +481,10 @@ them: a call in a part is not made twice.
 
 `IsEmpty`, `IsNull` and `VarType` of a `Variant` parameter or variable of the procedure, or of an element of one of its arrays of `Variant`s, are read in
 the `Variant` (**MS-VBAL §6.1.2.7.1.4**, **§6.1.2.7.1.7**, **§6.1.2.7.1.13**) when it holds a number, a `Boolean`, a `Date`, `Empty`, `Null`, a
-`String` or an error. Of a `Variant` that holds an object or an array, compiled code calls the standard library's function, as it calls the functions
-above, and an object is judged by its default member's value.
-The interpreter runs the statement where compiled code cannot, as for an element that holds an array. Compiled code runs a single-line `If` such as
-`If Not IsEmpty(V(R, C)) Then V(R, C) = V(R, C) * 2` whole.
+`String` or an error, and `IsEmpty` also when it holds an array, which is not `Empty`. For a `Variant` that holds an object, and for `IsNull` and
+`VarType` of one that holds an array, compiled code calls the standard library's function, as it calls the functions above, and an object is judged by
+its default member's value. The interpreter runs the statement where compiled code cannot, as for `IsNull` or `VarType` of an element that holds an
+array. Compiled code runs a single-line `If` such as `If Not IsEmpty(V(R, C)) Then V(R, C) = V(R, C) * 2` whole.
 
 `Rnd` moves the random number generator at each call, so compiled code calls it only in a statement listed under Calls inside an expression, above. When
 compiled code hands that statement to the interpreter after the call, it gives the interpreter the number `Rnd` returned, so no number is drawn twice. A
@@ -475,10 +494,11 @@ Compiled code calls `Count` and `Item` of a `Collection` (**MS-VBAL §6.1.3.1.1.
 variables, of an object field of one of its records, or of a `With` block: named (`C.Count`, `C.Item("a")`, `.Count`), or `Item` as the default member
 given the arguments of an index expression (`C(1)`, MS-VBAL §5.6.13). It reads the object before it evaluates the arguments, as the interpreter does
 (MS-VBAL §5.6.13.1), and calls the member of the object's class as the interpreter calls it. An `Item` that no member answers to is error 9 for a
-position and error 5 for a key, and `Nothing` is error 91, each raised where the interpreter raises it. An `Item` that returns anything but a value of a
-scalar type (an object, an array, a `String`, `Empty` or `Null`) is the interpreter's, which assigns it as the statement says (MS-VBAL §5.4.3.8,
-§5.4.3.9), and so is an index expression with a named or an omitted argument. Neither member changes the collection, so when compiled code hands
-the statement to the interpreter, the interpreter calls it again.
+position and error 5 for a key, and `Nothing` is error 91, each raised where the interpreter raises it. The `Let` of a `Variant` whose whole value is
+an `Item` (`V = C(N)`) assigns an array, a `String`, `Empty` or `Null` as the interpreter assigns the value of a statement's expression (MS-VBAL
+§5.4.3.8). Any other `Item` that returns anything but a value of a scalar type, and an object in that `Let`, is the interpreter's, which assigns it
+as the statement says (MS-VBAL §5.4.3.8, §5.4.3.9), and so is an index expression with a named or an omitted argument. Neither member changes the
+collection, so when compiled code hands the statement to the interpreter, the interpreter calls it again.
 
 ### What compiled code does itself
 
@@ -489,7 +509,7 @@ Compiled code does these itself:
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, and of such array fields of its records, `LBound` and `UBound` of its arrays and of the array fields of its records (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `IsEmpty` of a `Variant` and `Count` and `Item` of a `Collection` (see Functions of the standard library, above), `Chr$` of a whole number, `TypeName` and `Replace` (see Strings, above), and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, what a call returns (see Calls inside an expression, above), and `Nothing`, and `TypeOf` of one of its object variables or fields, of an element of one of its arrays of objects, or of one of its `Variant` variables.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim`, with `Preserve` or without, and `Erase` of its array variables, and the `Let` of an array variable to a `Variant`, which the interpreter runs for compiled code (see Arrays, above); `Debug.Print` of `String`s (see `Debug.Print`, above).|
-|Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above), to a member of an object or to a field of a record, of a procedure of a standard module other than a `Declare`d one, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. An `Optional` parameter the call leaves out is given what the interpreter gives it (MS-VBAL §5.3.1.11): its declared default, let-coerced to its type, or the default value of its type, `Nothing` for an object; the interpreter makes a call that leaves out a `Variant` parameter, a parameter whose default is the calling module's `Option Compare`, or one whose default raises an error. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
+|Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above), to a member of an object or to a field of a record, of a procedure of a standard module other than a `Declare`d one, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `Variant` parameter passed by reference may be given one of the procedure's `Variant` variables, its parameters among them, which the callee's parameter is a second name for (MS-VBAL §5.3.1.11); a `Variant` parameter of the procedure that is bound to a variable of another type passes that variable on, with its type. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is not a variable, which the callee is given a copy of. An `Optional` parameter the call leaves out is given what the interpreter gives it (MS-VBAL §5.3.1.11): its declared default, let-coerced to its type, or the default value of its type, `Nothing` for an object; the interpreter makes a call that leaves out a `Variant` parameter, a parameter whose default is the calling module's `Option Compare`, or one whose default raises an error. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector or of a `String` of variable length; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
@@ -559,8 +579,16 @@ A procedure whose frame holds something compiled code does not hold, such as the
 the interpreter's call, never through the compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is
 compiled and what keeps it in the interpreter, and, for a compiled procedure, what the interpreter runs of it.
 
-No procedure runs compiled during an analysis. Under a debugger, compiled code writes its variables into its frame before each call, so the debugger sees
-every activation while the program waits.
+A compiled procedure whose frame would hold nothing compiled code does not hold runs without a frame however it is called: by the interpreter, by an
+event, or by the compiled code of a caller that calls it through the interpreter's call. Each argument must be what compiled code holds the parameter
+as: a value of the parameter's scalar type, a `String`, or, for a `ByRef` parameter, the cell of the caller's variable. Any other argument is given as
+the interpreter gives it, with the frame. The objects its parameters and variables hold are let go of when it returns, in the order the frame would
+let go of them (MS-VBAL §5.3.1.10), and the object a function returns is held until the caller's statement is over. The activation gets the frame
+the interpreter would have made as soon as anything needs it: an error, a break or a `Stop`, a statement the interpreter runs, an edit made while a
+call waits, or the call stack an error's trace or a debugger reads.
+
+No procedure runs compiled during an analysis. Under a debugger, every procedure gets its frame when it is called, and compiled code writes its
+variables into its frame before each call, so the debugger sees every activation while the program waits.
 
 ## Parameters passed by reference
 
@@ -568,6 +596,10 @@ A `ByRef` parameter is a second name for its caller's variable (MS-VBAL §5.3.1.
 variable it passes `ByRef`, in a cell for the whole activation, and the activation's frame holds the same cell. So what the callee writes, the caller reads.
 The same is true when either is handed to the interpreter, when a debugger reads or assigns the variable, and when the same variable is passed to two
 parameters. A parameter bound to something other than a variable's cell, such as a field or an element of an array, is the interpreter's from the start.
+
+A `Variant` parameter bound to a variable of another type is a second name for that variable, and reads as a `Variant` that holds its value. Compiled
+code reads it so when the variable is a `String` of variable length or has a scalar type: as an argument of the standard library's functions
+(`IsObject`, `VarType`) and in what it assigns (`K = Key`). Bound to a variable of any other type, it is the interpreter's.
 
 ## The semantics are the interpreter's
 
@@ -582,9 +614,9 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
 - `VariantOperations`: a `Variant` read and written where its frame keeps it, and an operation with a `Variant` operand, worked out for the types of the
   values its operands hold. Each calls the interpreter's own code for it. A `Variant` read as the type it is guessed to hold fails when it holds another,
   and a `Variant` written as one fails when it holds an object.
-- `ObjectOperations`: the reference an object variable holds, read where its frame keeps it, and `Is` of two of them or of one and `Nothing`. A
+- `ObjectOperations`: the reference an object variable holds, read where it is kept, and `Is` of two of them or of one and `Nothing`. A
   variable whose reference compiled code cannot read fails.
-- `StringOperations`: the text a `String` variable holds, read where its frame keeps it, two texts joined, a whole number written as text, and a text
+- `StringOperations`: the text a `String` variable holds, read where it is kept, two texts joined, a whole number written as text, and a text
   written as a `Let` assigns it. A `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own
   comparison of the module's mode.
 
@@ -637,8 +669,8 @@ The rest of the activation runs in the interpreter instead when any of these hol
 |`CompiledActivation`|What compiled code is given: its parameters, the cells of its `ByRef` variables, its calls, the poll, the hand-over to the interpreter with what compiled code evaluated of the instruction, and `Recover`, which has the interpreter run one instruction.|
 |`PayloadOperations`|The operations compiled code and the interpreter share.|
 |`VariantOperations`|What compiled code does with a `Variant`: reads and writes it in the frame, and runs its operations through the interpreter's own code.|
-|`ObjectOperations`|What compiled code does with an object variable: reads the reference it holds in the frame, and compares references with `Is`.|
-|`StringOperations`|What compiled code does with a `String`: reads and writes its text in the frame, joins two texts, and writes a whole number as text.|
+|`ObjectOperations`|What compiled code does with an object variable: reads the reference it holds, and compares references with `Is`.|
+|`StringOperations`|What compiled code does with a `String`: reads and writes its text where it is kept, joins two texts, and writes a whole number as text.|
 |`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 
 The IL calls only members of `RDCore.Runtime.Compiled`, and a test checks it.

@@ -33,6 +33,8 @@
     <InternalsVisibleTo Include="RDCore.Tests" />
     <!-- the Windows implementations of its abstractions say what fails in the same words: ExternalMessages. -->
     <InternalsVisibleTo Include="RDCore.External.Windows" />
+    <!-- and so do RDForms' windows, which a process starts once. -->
+    <InternalsVisibleTo Include="RDCore.External.Forms" />
   </ItemGroup>
 
 </Project>

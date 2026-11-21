@@ -269,8 +269,9 @@ internal static class InlineCall
     private static InlineRefusal? RefusalOf(RenameContext context, Symbol callee, ExtractionProcedureAnalysis procedure)
     {
         var declaration = procedure.Declaration;
+        // a handler bound to its event, or the implementation of an interface member: an unmatched handler, which no event calls, is a procedure as any.
         if (NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(callee.Uri))) is VBClassModuleSymbol owner
-            && (owner.IsDocument || callee.Name.Contains('_')) && SymbolRename.IsNamedByConvention(context, owner, callee))
+            && SymbolRename.BindingOf(context, owner, callee) is { Role: not (DeclarationRole.None or DeclarationRole.UnmatchedEventHandler) })
         {
             return new(InlineRefusalKind.CalledByTheRuntime, callee.Name);
         }

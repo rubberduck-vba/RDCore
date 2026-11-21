@@ -325,9 +325,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitVariableSubStmt([NotNull] VBAParser.VariableSubStmtContext context)
     {
         // recovery can leave Parent.Parent not pointing at the VariableStmt that carries the
-        // visibility / Static token (`variableStmt : (DIM | STATIC | visibility) ...`).
+        // visibility / Static token (`variableStmt : (DIM | STATIC | variableVisibility) ...`).
         var parent = context.Parent?.Parent as VBAParser.VariableStmtContext;
-        var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
+        var modifier = NodeBuilder.ParseAccessModifier(parent?.variableVisibility()?.GetText());
         var isStatic = parent?.STATIC() is not null;
 
         // the bounds of a fixed-size array are constant expressions (MS-VBAL §5.2.3.1.3), which only the listener can walk
@@ -443,7 +443,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     {
         _isCapturingConstantExpression--;
         var parent = context.Parent as VBAParser.ConstStmtContext;
-        var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
+        var modifier = NodeBuilder.ParseAccessModifier(parent?.variableVisibility()?.GetText());
         var location = DeclaratorLocation(context, parent, parent?.constSubStmt(0) == context);
         OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier, location));
     }

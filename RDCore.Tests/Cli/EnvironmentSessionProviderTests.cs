@@ -1,10 +1,15 @@
+using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.External;
+using RDCore.External.Automation;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Workspace;
@@ -142,6 +147,23 @@ public sealed class EnvironmentSessionProviderTests
         CollectionAssert.AreEqual(new[] { "VBA 0", "VBRUN 1", "VB 2", "Scripting 3" }, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
     }
 
+    // a project with an RDForms form references RDForms without its .rdproj listing it: after the language's own, before the ones the project lists.
+    [TestMethod]
+    [DataRow("vb6", new[] { "VBA 0", "VBRUN 1", "VB 2", "RDForms 3", "Scripting 4" }, DisplayName = "a VB6 project")]
+    [DataRow("vba", new[] { "VBA 0", "RDForms 1", "Scripting 2" }, DisplayName = "an RD-VBA project")]
+    public void Compose_ExposesRDForms_ForAProjectWithAnRDFormsForm(string language, string[] references)
+    {
+        var project = new RDCoreProject
+        {
+            References = [new RDCoreReference { Name = "Scripting", Major = 1, Minor = 0 }],
+            Modules = [new RDCoreModule { RelativeUri = "Module1.bas" }, new RDCoreModule { RelativeUri = "Forms/Form2.rdform" }],
+        };
+
+        var session = NewProvider(language: language == "vb6" ? SupportedLanguages.VB6 : SupportedLanguages.RDVBA).Compose(project, WorkspaceRoot);
+
+        CollectionAssert.AreEqual(references, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
+    }
+
     [TestMethod]
     public void Compose_DefaultProject_ExposesTheVBStandardLibraryReference()
     {
@@ -199,5 +221,28 @@ public sealed class EnvironmentSessionProviderTests
 
         Assert.IsTrue(token.IsCancellationRequested, "the code of the session that was replaced is not there any more");
         release.Set();
+    }
+
+    [TestMethod]
+    [DataRow(ProjectOutputType.Application, 1, DisplayName = "an RDForms application")]
+    [DataRow(ProjectOutputType.ConsoleApplication, 0, DisplayName = "a console application")]
+    public void WhatHostsTheObjectsOfALibraryAndTheForms_IsStartedWithTheSession_UnlessTheProgramIsAConsoleApplication(ProjectOutputType output, int prepared)
+    {
+        var automation = Substitute.For<IAutomationServer>();
+        using var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new MockFileSystem(), NullLogger<EnvironmentSessionProvider>.Instance,
+            new DirectoryLibrarySource(new FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols),
+            ExternalWorld.None with { Automation = automation });
+
+        provider.Compose(
+            new RDCoreProject
+            {
+                Name = "NavalConsole",
+                References = [new RDCoreReference { Name = "Scripting" }],
+                Build = new ProjectBuild { OutputType = output },
+            },
+            WorkspaceRoot);
+
+        automation.Received(prepared).Prepare();
     }
 }

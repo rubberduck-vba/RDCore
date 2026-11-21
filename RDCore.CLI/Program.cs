@@ -12,6 +12,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Install;
+using RDCore.CLI.App.Mcp;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
@@ -67,8 +68,13 @@ namespace RDCore.CLI;
 
 public class Program
 {
-    public static async Task<int> Main(string[] args)
+    // the process's main thread is served while rdc runs on another: on macOS, the RDForms windows of an external host run their loop on it.
+    public static int Main(string[] args) => ProcessMainThread.Serve(() => MainAsync(args));
+
+    private static async Task<int> MainAsync(string[] args)
     {
+        // in every mode, a form ported to RDForms declares what its .xaml does, as RDForms reads it: the bench and rdc build read its .rdform's form so.
+        RDCore.SDK.Workspace.Forms.FormDesigner.Register(RDCore.Forms.Xaml.FormXamlDocumentReader.Instance);
         var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
         // in every mode, the version of the platform rdc runs from is held until it exits: a deployment into the shared root does not remove it.
         using var lease = PlatformTree.Hold(PlatformEnvironment.Default.Root);
@@ -94,6 +100,12 @@ public class Program
             // which needs neither a workspace nor an LSP connection.
             if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
             {
+                // rdc mcp brings the platform up as a client, and its standard output is the MCP session's from before anything is written.
+                if (string.Equals(verb, CommandNames.McpCommand, StringComparison.OrdinalIgnoreCase))
+                {
+                    McpStandardStreams.Claim();
+                }
+
                 using var commandHost = new RDCoreConsoleCommandHost();
                 try
                 {
@@ -516,6 +528,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<ICliCommand, BuildCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
+            .AddSingleton<ICliCommand, McpCommand>()
             .AddSingleton<ICliCommand, InstallCommand>()
             .AddSingleton<ICliCommand, SplashCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
@@ -697,7 +710,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
         try
         {
             // a folder with no project file is the project it holds, as the language server makes it up.
-            var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
+            var workspace = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace;
+            var language = workspace.SupportedLanguage;
             var root = request.RootUri.GetFileSystemPath();
             ProjectFile project;
             try
@@ -712,7 +726,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
                 project = new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName });
             }
 
-            sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
+            // the constants of the command line are the project's, over those of its file.
+            sessionProvider.Compose(workspace.WithDefines(project.ProjectInfo), SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }
         catch (Exception exception)

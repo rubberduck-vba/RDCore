@@ -193,9 +193,10 @@ public sealed partial class CompiledActivation
     }
 
     // what an activation a call entered directly returned (ReturnedDirectly): the frame's function result, or the payload the activation holds it as while it
-    // has no frame.
+    // has no frame, or the object its own result cell holds (OwnResult).
     private static VBTypedValue? ReturnedBy(CompiledActivation callee)
         => callee._frame is { } frame ? frame.ReturnValue
+            : callee._body.ResultIsObject ? callee.OwnResult()
             : callee.TryReadResult(out var payload) ? payload.Typed()
             : null;
 }

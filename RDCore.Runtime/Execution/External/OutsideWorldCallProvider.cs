@@ -30,9 +30,10 @@ public sealed class OutsideWorldCallProvider : IExternalCallProvider
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
-        foreach (var argument in request.Arguments)
+        var parameters = RuntimeProcedureInvoker.GetParameters(request.Member);
+        for (var index = 0; index < request.Arguments.Length; index++)
         {
-            Forget(argument, resolver);
+            Forget(request.Arguments[index], index < parameters.Length ? parameters[index].ResolvedType : null, resolver);
         }
 
         return RuntimeSemanticsEvaluationResult.Success(request.Member is ITypedSymbol { ResolvedType: { } returned } && returned is not VBVoidType
@@ -40,11 +41,12 @@ public sealed class OutsideWorldCallProvider : IExternalCallProvider
             : VBVoidValue.Void);
     }
 
-    // an argument passed by reference is the address of the variable it names, which the callee may write to - through any chain of references.
-    private static void Forget(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
+    // an argument passed by reference is the address of the variable it names, which the callee may write to - through any chain of references. The
+    // variable is of its parameter's type, which tells a field that starts where its record does from the record.
+    private static void Forget(IRuntimeValue argument, VBType? type, IRuntimeSymbolResolver resolver)
     {
         var visited = new HashSet<MemoryAddress>();
-        while (argument is VBRuntimeReference reference && visited.Add(reference.Value) && resolver.TryRead(reference.Value, out var cell))
+        while (argument is VBRuntimeReference reference && visited.Add(reference.Value) && resolver.TryRead(reference, type, out var cell))
         {
             if (cell is IKnowledgeBinding knowledge)
             {

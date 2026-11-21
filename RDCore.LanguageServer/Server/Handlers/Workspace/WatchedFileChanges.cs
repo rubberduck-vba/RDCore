@@ -4,7 +4,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Server;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 
@@ -34,18 +36,25 @@ internal interface IWatchedFileChanges
 internal sealed class WatchedFileChanges(
     IWorkspaceReloadService reload,
     IWorkspaceDocumentService documents,
-    ILogger<WatchedFileChanges> logger) : IWatchedFileChanges
+    ILogger<WatchedFileChanges> logger,
+    StagedFiles? staged = null) : IWatchedFileChanges
 {
     private static StringComparison PathComparison => WorkspacePaths.Comparison;
 
     public async Task ChangedAsync(IReadOnlyList<FileEvent> changes, ILanguageServerFacade server)
     {
+        // a file that changed after a rename staged its replacement is not replaced: the staged file is deleted, and the rename's edit fails (StagedFiles).
+        foreach (var change in changes)
+        {
+            staged?.Verify(change.Uri);
+        }
+
         if (changes.Any(IsTheProjectFileWritten))
         {
             await RunAsync(() => reload.BeginReloadAsync(CancellationToken.None), server, projectFile: true);
         }
 
-        var files = changes.Where(change => !IsTheProjectFile(change)).Select(change => change.Uri.ToUri()).ToList();
+        var files = changes.Where(change => !IsTheProjectFile(change) && !IsCompanion(change)).Select(change => change.Uri.ToUri()).ToList();
         if (files.Count > 0)
         {
             await RunAsync(() => reload.BeginReloadFilesAsync(files, CancellationToken.None), server, projectFile: false);
@@ -73,6 +82,10 @@ internal sealed class WatchedFileChanges(
             logger.LogError(exception, "❌ Files of the workspace changed, and the workspace could not be made what they are.");
         }
     }
+
+    // a form's binary file (its .frx), which is watched for the renames that replace it, and is not a module of the project.
+    private static bool IsCompanion(FileEvent change)
+        => FormDesigner.CompanionExtensions.Values.Contains(Path.GetExtension(change.Uri.GetFileSystemPath()), StringComparer.OrdinalIgnoreCase);
 
     private bool IsTheProjectFile(FileEvent change)
         => string.Equals(Path.GetFullPath(change.Uri.GetFileSystemPath()), Path.GetFullPath(Path.Combine(documents.WorkspaceRoot, ProjectFile.FileName)), PathComparison);

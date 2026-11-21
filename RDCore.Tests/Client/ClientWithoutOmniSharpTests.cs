@@ -652,6 +652,40 @@ public sealed class ClientWithoutOmniSharpTests
         StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Applied, "the parse server it started");
     }
 
+    // the error a program raises is described in the language of the client's user interface, which an IDE says only in the locale of its initialize
+    // request: the environment host the program runs in is told the same, and the description of the error is the language's own.
+    [TestMethod]
+    [Timeout(900_000, CooperativeCancellation = true)]
+    public async Task TheErrorAProgramRaises_IsDescribedInTheLocaleOfTheInitializeRequest()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var parameters = platform.InitializeParams("{}");
+        parameters["locale"] = "fr-CA";
+
+        var initialize = await rpc.RequestAsync(1, "initialize", parameters);
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+
+        var failed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = "Public Sub Main()\r\n    Debug.Print 1 / 0\r\nEnd Sub\r\n",
+            ["moduleName"] = "Program",
+            ["entryPoint"] = "Main",
+            ["sessionModule"] = true,
+        });
+        var told = $"{failed.ToJsonString()}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.RuntimeError, failed["result"]!["outcome"]!.GetValue<int>(), told);
+        Assert.AreEqual(11, failed["result"]!["errorNumber"]!.GetValue<int>(), told);
+        Assert.AreEqual("Division par zéro", failed["result"]!["errorMessage"]!.GetValue<string>(), "the error's description: " + told);
+
+        await platform.ShutdownAsync(4);
+        const string Applied = "The client's user interface is in 'fr-CA'.";
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.EnvironmentHost"), Applied, "the environment host it started");
+    }
+
     // the language the user sets (Environment.Regional.Language) is the language of every component, over the locale of a client in English (an IDE's): the
     // environment host answers in it, and the language server, the parse server and the environment host say they started in it. How the program writes and
     // reads numbers and dates is untouched. The logs are read once the platform is shut down.
@@ -676,6 +710,7 @@ public sealed class ClientWithoutOmniSharpTests
         Assert.AreEqual((int)ExecutionOutcome.RuntimeError, failed["result"]!["outcome"]!.GetValue<int>(), told);
         CollectionAssert.AreEqual(new[] { "2.5", "1/2/2026 1:05:00 PM" }, failed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
         Assert.AreEqual(11, failed["result"]!["errorNumber"]!.GetValue<int>(), told);
+        Assert.AreEqual("Division par zéro", failed["result"]!["errorMessage"]!.GetValue<string>(), "the error's description: " + told);
 
         await platform.ShutdownAsync(5);
 

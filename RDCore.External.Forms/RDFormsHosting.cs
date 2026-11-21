@@ -1,4 +1,6 @@
 using RDCore.External.Automation;
+using RDCore.External.Interaction;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
@@ -64,6 +66,16 @@ public static class RDFormsHosting
         return (new RoutingAutomationServer(server, platform), new RoutingFormHost(new RDFormsFormHost(server), microsoftForms));
     }
 
+    /// <summary>
+    /// The dialogs of the programs whose forms a form host <see cref="Compose"/> made hosts: RDForms' dialogs, shown over its forms, when RDForms hosts the
+    /// Visual Basic 6.0 forms.
+    /// </summary>
+    /// <param name="forms">The form host <see cref="Compose"/> made.</param>
+    /// <param name="help">What opens the dialogs' help topics; <see cref="ShellHelpViewer.Instance"/> when <see langword="null"/>.</param>
+    /// <returns>The dialogs; <see langword="null"/> when RDForms hosts no form of <paramref name="forms"/>.</returns>
+    public static IUserInteraction? DialogsOf(IFormHost forms, IHelpViewer? help = null)
+        => forms is RoutingFormHost { VisualBasic: { } rdForms } ? new RDFormsUserInteraction(rdForms, help) : null;
+
     // the objects of RDForms to RDForms, by their handles, and everything else to the platform's server: creating an object by its name included.
     private sealed class RoutingAutomationServer(RDFormsAutomationServer forms, IAutomationServer platform) : IAutomationServer
     {
@@ -87,6 +99,8 @@ public static class RDFormsHosting
 
         public string? ClassNameOf(object target) => ServerOf(target).ClassNameOf(target);
 
+        public bool IsFormHostObject(object target) => ServerOf(target).IsFormHostObject(target);
+
         public bool? IsInstanceOf(object target, string library, string className) => ServerOf(target).IsInstanceOf(target, library, className);
 
         public bool MoveNext(object enumerator, out object? current) => ServerOf(enumerator).MoveNext(enumerator, out current);
@@ -106,6 +120,8 @@ public static class RDFormsHosting
     // host that created it.
     private sealed class RoutingFormHost(RDFormsFormHost? visualBasic, IFormHost microsoftForms) : IFormHost
     {
+        public RDFormsFormHost? VisualBasic => visualBasic;
+
         public bool IsAvailable => visualBasic is not null || microsoftForms.IsAvailable;
 
         public bool HostsVisualBasic6Forms => visualBasic is not null;
@@ -123,7 +139,8 @@ public static class RDFormsHosting
             }
         }
 
-        public object Create(FormDefinition form) => form.Kind == FormDesignerKind.VisualBasic6
+        // RDForms renders an RDForms form, and a VB6 form in place.
+        public object Create(FormDefinition form) => form.Kind is FormDesignerKind.VisualBasic6 or FormDesignerKind.RDForms
             ? ((IFormHost?)visualBasic ?? UnavailableFormHost.Instance).Create(form)
             : microsoftForms.Create(form);
 

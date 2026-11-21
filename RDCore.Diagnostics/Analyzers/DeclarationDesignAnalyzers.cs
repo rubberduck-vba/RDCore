@@ -71,24 +71,27 @@ internal sealed class SelfAssignedDeclarationAnalyzer : SyntaxTreeAnalyzer
 }
 
 /// <summary>
-/// <c>RDC00409</c>: a <c>Public</c> variable of a class module (<strong>MS-VBAL §5.2.3.1</strong>), a member of its objects that any code holding one can
-/// assign, with nothing of the class to check the value.
+/// <c>RDC00409</c>: a <c>Public</c> or <c>Global</c> variable of a module (<strong>MS-VBAL §5.2.3.1</strong>), with nothing of the module to check the value.
+/// Of a class module, it is a member of its objects that any code holding one can assign; of a standard module, a variable any code of the project can assign.
 /// </summary>
 /// <remarks>
-/// A class module is told by the host (<c>ModuleSemanticsDto.Class</c>). A variable that states no access modifier is <c>Private</c>.
+/// A class module is told by the host (<c>ModuleSemanticsDto.Class</c>), and the message says which it is. A variable that states no access modifier is
+/// <c>Private</c>. The language server's Encapsulate Field refactoring is the code action offered at the variable.
 /// </remarks>
 internal sealed class EncapsulatePublicFieldAnalyzer : IModuleAnalyzer
 {
     public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EncapsulatePublicField.ToCode()];
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context is { ParseResult.SyntaxTree: { } module, Semantics.Class: not null }
+        => context is { ParseResult.SyntaxTree: { } module, Semantics: { } semantics }
             ? module.Children.OfType<VariableDeclarationNode>()
                 .Where(variable => variable.AccessModifier is AccessModifier.Public or AccessModifier.Global)
                 .Select(variable => new AnalyzerFinding(
                     RDCoreDiagnosticId.EncapsulatePublicField.ToCode(),
                     variable.NameRange ?? variable.SourceLocation.Range,
                     DiagnosticSeverity.Information,
-                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.EncapsulatePublicField_Message, variable.Name)))
+                    AnalyzerMessages.Format(
+                        semantics.Class is null ? RDCoreDiagnosticsResources.EncapsulatePublicField_ModuleVariable_Message : RDCoreDiagnosticsResources.EncapsulatePublicField_Message,
+                        variable.Name)))
             : [];
 }

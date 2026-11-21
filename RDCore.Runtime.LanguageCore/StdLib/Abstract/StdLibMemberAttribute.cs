@@ -68,4 +68,11 @@ public sealed class StdLibMemberAttribute(string? name = null) : Attribute
     /// Whether the member is hidden: it resolves like any other, and is left out of a completion list.
     /// </summary>
     public bool IsHidden { get; init; }
+
+    /// <summary>
+    /// Whether the member is the <c>$</c> form of the member of its module named without the <c>$</c>: functionally identical to it, except that it returns
+    /// a <c>String</c> rather than a <c>Variant</c> (<strong>MS-VBAL §6.1.2</strong>, <c>Left$</c> of <c>Left</c>). The other member's symbol states it
+    /// (<see cref="SDK.Model.Symbols.Abstract.SymbolProperties.StringForm"/>). Not set on a form the specification describes otherwise (<c>Date$</c>).
+    /// </summary>
+    public bool IsStringForm { get; init; }
 }

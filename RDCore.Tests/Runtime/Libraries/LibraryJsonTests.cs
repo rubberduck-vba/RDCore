@@ -72,8 +72,10 @@ public sealed class LibraryJsonTests
     [TestMethod]
     public void AFormatThisDoesNotKnow_IsRefused_NotMisread()
     {
-        var exception = Assert.Throws<InvalidDataException>(() => LibraryJson.Read("{ \"formatVersion\": 7, \"name\": \"Future\" }"));
+        var future = LibraryJson.CurrentFormatVersion + 1;
 
-        StringAssert.Contains(exception.Message, "version 7");
+        var exception = Assert.Throws<InvalidDataException>(() => LibraryJson.Read($$"""{ "formatVersion": {{future}}, "name": "Future" }"""));
+
+        StringAssert.Contains(exception.Message, $"version {future}");
     }
 }

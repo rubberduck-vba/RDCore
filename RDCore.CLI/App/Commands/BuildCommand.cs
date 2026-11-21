@@ -60,7 +60,8 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         BenchWorkspace workspace;
         try
         {
-            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token);
+            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
+                ansiCodePage: runner.Environment.AnsiCodePage);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
@@ -112,7 +113,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         builder.Save(assembly, pdb, $"{name}.pdb");
         var folder = options.Output ?? fileSystem.Path.Combine(workspace.Root, "bin", options.Configuration.ToString(), runtime);
         var (executable, lacking) = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime,
-            built.Libraries, hostsForms: built.Provider.Image.Forms.Values.Any(form => form.Kind == FormDesignerKind.VisualBasic6));
+            built.Libraries, hostsForms: built.Provider.Image.Forms.Values.Any(form => form.HasVisualBasic6FormModel));
 
         if (executable is null)
         {

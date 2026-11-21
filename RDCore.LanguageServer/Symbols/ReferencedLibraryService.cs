@@ -33,6 +33,13 @@ internal interface IReferencedLibraryService
     IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project);
 
     /// <summary>
+    /// The libraries another project of the workspace references that were loaded, the ones that could not be, and the reference precedence of each,
+    /// a reference to a project among them (<see cref="ReferencedLibraries.Priorities"/>).
+    /// </summary>
+    /// <param name="project">The project.</param>
+    ReferencedLibraries LibrariesOf(RDCoreProject project) => ReferencedLibraries.None;
+
+    /// <summary>
     /// The name of the project that references them, which qualifies the project's own names as a library's qualifies its own (<c>MVVM.AppContext</c>);
     /// <see langword="null"/> when no project is loaded.
     /// </summary>
@@ -65,6 +72,7 @@ internal sealed class ReferencedLibraryService(
     private (Uri Root, IReadOnlyList<Symbol> Symbols)? _symbols;
     private readonly Dictionary<(string Root, string Library), IReadOnlyList<Symbol>> _described = [];
     private readonly Dictionary<(string Root, string References), IReadOnlyList<Symbol>> _others = [];
+    private readonly Dictionary<string, ReferencedLibraries> _othersLoaded = [];
 
     public string? ProjectName => project.Project?.ProjectInfo?.Name is { Length: > 0 } name ? name : null;
 
@@ -72,14 +80,14 @@ internal sealed class ReferencedLibraryService(
     {
         get
         {
-            var references = project.Project?.ProjectInfo?.References ?? [];
-            var key = KeyOf(references);
+            var info = project.Project?.ProjectInfo ?? new RDCoreProject();
+            var key = KeyOf(info);
 
             lock (_loading)
             {
                 if (_loaded is not { } loaded || loaded.Key != key)
                 {
-                    var libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
+                    var libraries = LibrarySymbolProvider.Load(source, info, options.Value.Workspace.SupportedLanguage);
                     foreach (var problem in libraries.Problems)
                     {
                         logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
@@ -111,19 +119,12 @@ internal sealed class ReferencedLibraryService(
 
     public IReadOnlyList<Symbol> SymbolsOf(Uri workspaceRoot, RDCoreProject project)
     {
-        var references = project.References ?? [];
-        var key = (workspaceRoot.AbsoluteUri, KeyOf(references));
+        var libraries = LibrariesOf(project);
+        var key = (workspaceRoot.AbsoluteUri, KeyOf(project));
         lock (_loading)
         {
             if (!_others.TryGetValue(key, out var symbols))
             {
-                var libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
-                foreach (var problem in libraries.Problems)
-                {
-                    logger.LogWarning("📚 The library '{library}' that {project} references could not be loaded ({kind}); a type of it is not a type of that project.",
-                        problem.Name, project.Name, problem.Kind);
-                }
-
                 _others[key] = symbols = [.. new LibrarySymbolProvider(workspaceRoot, libraries, options.Value.Environment.Is64Bit).ProvideSymbols()];
             }
 
@@ -131,9 +132,34 @@ internal sealed class ReferencedLibraryService(
         }
     }
 
-    // a reference is the library its identity finds: the same name of another type library or version is another library.
-    private static string KeyOf(IEnumerable<RDCoreReference> references)
-        => string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}"));
+    public ReferencedLibraries LibrariesOf(RDCoreProject project)
+    {
+        var key = KeyOf(project);
+        lock (_loading)
+        {
+            if (!_othersLoaded.TryGetValue(key, out var libraries))
+            {
+                libraries = LibrarySymbolProvider.Load(source, project, options.Value.Workspace.SupportedLanguage);
+                foreach (var problem in libraries.Problems)
+                {
+                    logger.LogWarning("📚 The library '{library}' that {project} references could not be loaded ({kind}); a type of it is not a type of that project.",
+                        problem.Name, project.Name, problem.Kind);
+                }
+
+                _othersLoaded[key] = libraries;
+            }
+
+            return libraries;
+        }
+    }
+
+    // a reference is the library its identity finds: the same name of another type library or version is another library, and a reference to a project of
+    // the workspace finds that project, never a library of the same name. The key includes the implicit references, so a project that gains or loses an
+    // RDForms form loads its libraries again.
+    private string KeyOf(RDCoreProject project)
+        => string.Join('\n', [
+            .. options.Value.Workspace.SupportedLanguage.ImplicitReferencesOf((project.Modules ?? []).Select(module => module?.RelativeUri)),
+            .. (project.References ?? []).Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}|{reference.IsProject}")]);
 
     public IReadOnlyList<Symbol> DescribedSymbolsOf(Uri workspaceRoot, string library)
     {

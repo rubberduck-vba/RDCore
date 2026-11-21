@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 7,
   "name": "Excel",
   "description": "Microsoft Excel 16.0 Object Library",
   "origin": {
@@ -33423,6 +33423,10 @@
           "type": "Variant",
           "dispId": 0,
           "isHidden": true,
+          "writtenAs": {
+            "withArguments": "Item",
+            "withoutArguments": "Value"
+          },
           "parameters": [
             {
               "name": "RowIndex",
@@ -33443,6 +33447,10 @@
           "kind": "propertyLet",
           "dispId": 0,
           "isHidden": true,
+          "writtenAs": {
+            "withArguments": "Item",
+            "withoutArguments": "Value"
+          },
           "parameters": [
             {
               "name": "RowIndex",
@@ -123556,6 +123564,10 @@
           "type": "Variant",
           "dispId": 0,
           "isHidden": true,
+          "writtenAs": {
+            "withArguments": "Item",
+            "withoutArguments": "Value"
+          },
           "parameters": [
             {
               "name": "RowIndex",
@@ -123576,6 +123588,10 @@
           "kind": "propertyLet",
           "dispId": 0,
           "isHidden": true,
+          "writtenAs": {
+            "withArguments": "Item",
+            "withoutArguments": "Value"
+          },
           "parameters": [
             {
               "name": "RowIndex",

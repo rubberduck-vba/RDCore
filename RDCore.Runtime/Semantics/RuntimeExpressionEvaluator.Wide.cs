@@ -211,8 +211,9 @@ public sealed partial class RuntimeExpressionEvaluator
     /// </summary>
     internal RuntimeSemanticsEvaluationResult EvaluateAssigned(IRuntimeSession session, ExpressionNode target, ExpressionNode expression, RuntimeEvaluationContext context)
     {
+        // a value evaluated ahead of the target (WithAccessorArgumentsFirst) is what it evaluated to, and not evaluated again.
         var node = BoundTreeOf(session, expression, context);
-        return IsWide(node) && DeclaredTypeOf(session, target, context) is { } declared
+        return IsWide(node) && !(KnownOperands.AnyHeld && TryKnown(session, node, out _)) && DeclaredTypeOf(session, target, context) is { } declared
             ? EvaluateConverted(session, node, declared, context)
             : EvaluateBoundNode(session, node, context);
     }

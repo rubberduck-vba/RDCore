@@ -666,8 +666,7 @@ public sealed partial class RuntimeExpressionEvaluator
     /// <returns><see langword="false"/> when the operation is not done on payloads, as the operation of its token says.</returns>
     internal static bool TryOperateDeferred(VariantOperator @operator, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
     {
-        if (lhs.Kind is { } left && rhs.Kind is { } right
-            && ReferenceEquals(lhs.Type, ScalarKinds.TypeOf(left)) && ReferenceEquals(rhs.Type, ScalarKinds.TypeOf(right)))
+        if (ScalarKinds.OfShared(lhs.Type) is { } left && ScalarKinds.OfShared(rhs.Type) is { } right)
         {
             var plan = KindPlan.Of(@operator, left, right);
             return TryOperateBinary(@operator, plan.Destination, plan.DestinationKind, plan.Effective, plan.EffectiveKind, lhs, rhs, out result);
@@ -775,12 +774,11 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         var arguments = ArrayPool<ScalarPayload>.Shared.Rent(parameters.Length);
-        var order = BindingOrder(given);
         try
         {
-            for (var k = 0; k < parameters.Length; k++)
+            // evaluating on payloads makes no call: the arguments are evaluated in any order, and an argument that makes one is the boxed evaluation's.
+            for (var i = 0; i < parameters.Length; i++)
             {
-                var i = order is null ? k : order[k];
                 var parameter = parameters[i];
                 // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted.
                 // any other is let-coerced to the parameter's type - an extended intermediate from its 80 bits (MS-VBAL §5.6.9.3).

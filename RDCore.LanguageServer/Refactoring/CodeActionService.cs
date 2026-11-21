@@ -101,8 +101,10 @@ internal sealed class CodeActionService(
 /// </para>
 /// <para>
 /// The diagnostics of a code that can be disabled are offered, once for the code and after their fixes, a quick fix that disables it in every workspace of the
-/// user (<c>Analysis.DisabledDiagnostics</c>): a command (<see cref="Workspace.ListSettingValueCommand"/>) that asks the client to add it to the user's list. Only a
-/// client that expects <see cref="SDK.Client.ListSettingValue"/> is offered it.
+/// user (<c>Analysis.DisabledDiagnostics</c>), then one that disables it in the document's workspace only: each a command
+/// (<see cref="Workspace.ListSettingValueCommand"/>) that asks the client to add it to the user's list, or to the workspace's. Only a client that expects
+/// <see cref="SDK.Client.ListSettingValue"/> is offered them. A diagnostic whose fix adds an item to the list of a setting (<see cref="SettingFix"/>), as a
+/// name a naming rule is to allow, is offered the quick fix that asks the client to add it to the user's list, by the same command.
 /// </para>
 /// <para>
 /// A workspace whose folder has a VB6 project and no project file of its own is offered, in every document, a source action that imports each VB6 project
@@ -248,6 +250,16 @@ internal sealed class CodeActions(
                 });
             }
 
+            // an item the fix adds to the list of a setting is added to the user's list: a command that asks the client to, for a client that takes it.
+            if (fixes?.Setting is { Key.Length: > 0, Value.Length: > 0 } settingFix && clientCapabilities.Expects(group => group.ListSettingValue))
+            {
+                var change = new ListSettingValueParams
+                {
+                    Key = settingFix.Key, Value = settingFix.Value, Scope = SettingScope.Platform, Document = documentUri,
+                };
+                actions.Add(ListSettingAction(settingFix.Title, change, [diagnostic]));
+            }
+
             if (fixes?.Rename is not { } fix || workspace.Prepare(documentUri, diagnostic.Range.Start).Value is not { } target)
             {
                 continue;
@@ -381,9 +393,12 @@ internal sealed class CodeActions(
     // the key of the setting that lists the codes whose diagnostics are not reported.
     private static readonly string DisabledDiagnosticsKey = $"{nameof(SdkAppOptions.Analysis)}.{nameof(SdkAnalysisOptions.DisabledDiagnostics)}";
 
+    // where a code is disabled: in every workspace of the user, then in the document's workspace only.
+    private static readonly SettingScope[] DisableScopes = [SettingScope.Platform, SettingScope.Workspace];
+
     // for each code of the diagnostics of the range that can be disabled, once, after their fixes: the action that disables it in every workspace of the user,
-    // which asks the client to add it to the user's list (rdcore.listSettingValue). Only a client that takes such a change is offered it. A code of the
-    // language's own errors cannot be disabled.
+    // then the one that disables it in the document's workspace only. Each asks the client to add the code to a list (rdcore.listSettingValue): the user's,
+    // or the workspace's. Only a client that takes such a change is offered them. A code of the language's own errors cannot be disabled.
     private IEnumerable<CodeAction> DisableActions(IEnumerable<Diagnostic> diagnostics, Uri documentUri)
     {
         if (!clientCapabilities.Expects(group => group.ListSettingValue))
@@ -399,17 +414,26 @@ internal sealed class CodeActions(
                 continue;
             }
 
-            var change = new ListSettingValueParams { Key = DisabledDiagnosticsKey, Value = code.ToString(), Scope = SettingScope.Platform, Document = documentUri };
-            var title = RefactoringTitles.DisableDiagnostic(code, SettingScope.Platform);
-            yield return new CodeAction
+            foreach (var scope in DisableScopes)
             {
-                Title = title,
-                Kind = CodeActionKind.QuickFix,
-                Diagnostics = new Container<Diagnostic>(diagnostics.Where(other => other.Code?.String == diagnostic.Code?.String)),
-                Command = new Command { Name = Workspace.ListSettingValueCommand.CommandName, Title = title, Arguments = Workspace.ListSettingValueCommand.ArgumentsOf(change) },
-            };
+                var change = new ListSettingValueParams { Key = DisabledDiagnosticsKey, Value = code.ToString(), Scope = scope, Document = documentUri };
+                yield return ListSettingAction(
+                    RefactoringTitles.DisableDiagnostic(code, scope), change, diagnostics.Where(other => other.Code?.String == diagnostic.Code?.String));
+            }
         }
     }
+
+    // the quick fix that asks the client to change the list of a setting (rdcore.listSettingValue), for the diagnostics it fixes.
+    private static CodeAction ListSettingAction(string title, ListSettingValueParams change, IEnumerable<Diagnostic> diagnostics) => new()
+    {
+        Title = title,
+        Kind = CodeActionKind.QuickFix,
+        Diagnostics = new Container<Diagnostic>(diagnostics),
+        Command = new Command
+        {
+            Name = Workspace.ListSettingValueCommand.CommandName, Title = title, Arguments = Workspace.ListSettingValueCommand.ArgumentsOf(change),
+        },
+    };
 
     // the action that extracts the statements of a selection, or converts a GoSub routine, offered when nothing refuses it, with the refusals when something
     // does. A client with a dialog of its own runs it as a command, which prepares the refactoring and applies it with its user's answers; any other is sent the
@@ -919,12 +943,7 @@ internal sealed class CodeActions(
             Title = title,
             Kind = kind,
             Diagnostics = diagnostic is null ? null : new Container<Diagnostic>(diagnostic),
-            Command = new Command
-            {
-                Name = RefactoringCommands.Rename,
-                Title = title,
-                Arguments = new JArray(document.ToString(), JToken.FromObject(new { line = position.Line, character = position.Character })),
-            },
+            Command = new RenameCommandArguments(document.ToString(), position.ToSourcePosition()).ToCommand(title),
         };
     }
 

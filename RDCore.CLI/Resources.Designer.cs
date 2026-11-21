@@ -142,6 +142,42 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output..
+        /// </summary>
+        public static string Mcp_Summary {
+            get {
+                return ResourceManager.GetString("Mcp_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Usage: rdc mcp --workspace &lt;path&gt;. The workspace is a folder, with or without a .rdproj..
+        /// </summary>
+        public static string Mcp_Usage {
+            get {
+                return ResourceManager.GetString("Mcp_Usage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The workspace folder &quot;{0}&quot; does not exist..
+        /// </summary>
+        public static string Mcp_NoSuchWorkspace {
+            get {
+                return ResourceManager.GetString("Mcp_NoSuchWorkspace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The tools read and check the VBA code of the RDCore workspace at {0}. Paths are relative to that folder, or absolute; lines and columns are 1-based..
+        /// </summary>
+        public static string Mcp_Instructions {
+            get {
+                return ResourceManager.GetString("Mcp_Instructions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Runs a workspace&apos;s program, and exits with its exit code: 0 when it ends, 1 on a run-time error, 2 when it cannot start..
         /// </summary>
         public static string Run_Summary {
@@ -358,6 +394,15 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The file this replaces states facts of members the library no longer declares; those facts are lost: {0}..
+        /// </summary>
+        public static string ExportLibrary_Lost {
+            get {
+                return ResourceManager.GetString("ExportLibrary_Lost", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library&apos;s resource, as a .vbp references it (MSVBVM60.DLL\3)..
         /// </summary>
         public static string ExportLibrary_NotFound {
@@ -365,7 +410,7 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("ExportLibrary_NotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Not described: {0}..
         /// </summary>

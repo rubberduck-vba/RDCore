@@ -54,8 +54,8 @@ public sealed class CompiledSetFromCallTests
             "    Next",
             "End Function"), [("Count", 2)], classes: Classes);
 
-    // the factory of a class's default instance, and a member of an object variable that returns an object. The factory is given a String, which a member
-    // call of compiled code is not: its Set is a support call. The recovery is the Set of Copy in pass 2, which destroys the twin of pass 1.
+    // the factory of a class's default instance, given a String, and a member of an object variable that returns an object: what the program prints, and
+    // when each object is destroyed, is the interpreter's.
     [TestMethod]
     public async Task ASetOfWhatAMemberReturns_OfADefaultInstance_OrOfAnObjectVariable_IsCompiled()
         => await AssertAlikeAsync(Program(
@@ -69,10 +69,10 @@ public sealed class CompiledSetFromCallTests
             "        Set Copy = Item.Twin",
             "        Names = Names + I",
             "    Next",
-            "End Function"), [("Names", 1)], classes: Classes);
+            "End Function"), [("Names", 0)], classes: Classes, countsRecoveries: false);
 
-    // the function result variable Set to what a call returns, and to a new object. The recovery is the Set to New in pass 2 of the second call, which
-    // destroys the object of pass 1: the interpreter's, with the new object compiled code made known.
+    // the function result variable Set to what a call returns, and to a new object: the Set in pass 2 destroys the object of pass 1, as the interpreter
+    // does.
     [TestMethod]
     public async Task TheFunctionResult_IsSetToWhatACallReturns_OrToANewObject()
         => await AssertAlikeAsync(Program(
@@ -84,7 +84,7 @@ public sealed class CompiledSetFromCallTests
             "    For I = 1 To 2",
             "        If Made Then Set Pick = Noisy.Create(\"p\" & I) Else Set Pick = New Noisy",
             "    Next",
-            "End Function"), [("Pick", 1)], classes: Classes);
+            "End Function"), [("Pick", 0)], classes: Classes, countsRecoveries: false);
 
     // New of a class of the workspace, in a loop: each object made is let go of by the next pass.
     [TestMethod]

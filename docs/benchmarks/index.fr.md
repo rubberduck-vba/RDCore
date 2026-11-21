@@ -33,9 +33,15 @@ rdc bench
 | Option | Ce qu'elle fait |
 |---|---|
 | `--runs <n>`, `-r <n>` | Exécute chaque cas `n` fois (3 par défaut). |
-| `--filter <texte>`, `-f <texte>` | N'exécute que les cas dont le nom `Module.Procedure` contient le texte, par exemple `--filter Strings.` |
+| `--filter <texte>`, `-f <texte>` | N'exécute que les cas dont le nom `Module.Procedure` contient le texte, par exemple `--filter Strings.` La ligne `indent` (le shell qui indente un programme de 5 000 lignes, la plus rapide de 10 exécutions) s'exécute quand son nom, `Indent.Program`, contient le texte. |
 | `--list`, `-l` | Liste les cas sans les exécuter. |
 | `--engine <moteur>`, `-e <moteur>` | Exécute les cas avec `Compiled` ou `Interpreter`, au lieu du moteur d'exécution configuré. |
+| `--no-warm-up` | Chronomètre chaque cas dès sa première exécution. |
+
+Avant ses exécutions chronométrées, chaque cas est exécuté sans chronomètre jusqu'à ce que .NET ait fini d'optimiser le code qu'il appelle : au moins
+31 fois, puis jusqu'à ce que le compilateur JIT n'ait rien compilé pendant 250 ms, pendant 5 secondes au plus. D'ici là, une exécution peut prendre
+plusieurs fois plus de temps que les suivantes. La ligne `warm-up` du rapport donne le nombre
+d'exécutions non chronométrées de l'ensemble des cas, ou `none` avec `--no-warm-up`.
 
 Pour chaque cas, le rapport donne son exécution la plus rapide et sa médiane, ce qu'a alloué son exécution la plus rapide, et les collectes de
 mémoire de chaque génération faites pendant qu'elle s'exécutait. Avant les cas, il donne le temps qu'a pris le corpus pour être analysé
@@ -59,8 +65,10 @@ rdc bench-msvba
 ```
 
 La commande exécute le corpus et les cas d'automatisation d'Excel dans MS-VBA, dans un Excel masqué, et dans RD-VBA, en rondes alternées : MS-VBA en
-premier dans les rondes impaires, RD-VBA en premier dans les rondes paires. Elle garde l'exécution la plus rapide de chaque cas de chaque côté, sur
-l'ensemble des rondes, et écrit les chiffres dans `msvba.json`. Rien n'est écrit à moins que chaque cas ait un chiffre des deux côtés.
+premier dans les rondes impaires, RD-VBA en premier dans les rondes paires. RD-VBA réchauffe chaque cas du corpus comme le fait `rdc bench`; MS-VBA
+l'exécute d'abord deux fois sans chronomètre, puisqu'il compile une procédure une seule fois, au premier appel. La commande garde l'exécution la
+plus rapide de chaque cas de chaque côté, sur l'ensemble des rondes, et écrit les chiffres dans `msvba.json`. Rien n'est écrit à moins que chaque
+cas ait un chiffre des deux côtés.
 
 | Option | Ce qu'elle fait |
 |---|---|

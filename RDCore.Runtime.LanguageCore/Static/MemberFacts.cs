@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
@@ -41,13 +42,17 @@ internal static class MemberFacts
             return fact;
         }
 
-        var named = MembersOf(context, classType.Symbol, member.Name);
-        return fact with
-        {
-            DefaultMember = new DefaultMemberFact(member.Name, ClassificationOf(member),
-                member is IVBPropertyMemberSymbol ? Of(named) : PropertyAccessors.None, RequiredParametersOf(member)),
-        };
+        return fact with { DefaultMember = DefaultMemberOf(context.Resolver, classType, member) };
     }
+
+    // the default member of a class: what it is, the accessors of a property, the arguments a call of it must be given, and the members a library's hidden
+    // one stands for, which the library states (Excel's Range._Default is Item given arguments, Value given none).
+    public static DefaultMemberFact DefaultMemberOf(ISymbolResolver resolver, VBClassType classType, VBTypeMemberSymbol member)
+        => new(member.Name, ClassificationOf(member),
+            member is IVBPropertyMemberSymbol ? Of(MembersOf(resolver, classType.Symbol, member.Name)) : PropertyAccessors.None, RequiredParametersOf(member))
+        {
+            WrittenAs = member.GetProperty(SymbolProperties.WrittenAs),
+        };
 
     // a member of an object is its class's, by its name; a name is what its module declares of it.
     private static Symbol[] AccessorsOf(StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode expression, VBTypeMemberSymbol property)
@@ -60,13 +65,13 @@ internal static class MemberFacts
         };
 
         return ownerType is VBClassType { Symbol: { } owned }
-            ? MembersOf(context, owned, property.Name)
+            ? MembersOf(context.Resolver, owned, property.Name)
             : [.. context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name))
                 .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri)];
     }
 
-    private static Symbol[] MembersOf(StaticEvaluationContext context, VBClassModuleSymbol snapshot, string name)
-        => [.. (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+    private static Symbol[] MembersOf(ISymbolResolver resolver, VBClassModuleSymbol snapshot, string name)
+        => [.. (VBProjectSymbol.ResolveClass(resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
             .Where(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase))];
 
     private static PropertyAccessors Of(IEnumerable<Symbol> accessors) => accessors.Aggregate(PropertyAccessors.None, (found, accessor) => found | accessor switch

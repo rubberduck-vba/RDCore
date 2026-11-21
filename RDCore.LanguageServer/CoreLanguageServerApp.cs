@@ -62,12 +62,16 @@ internal sealed class CoreLanguageServerApp(
     ISessionStopRelay stops,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
-    ILogger<CoreLanguageServerApp> logger)
+    ILogger<CoreLanguageServerApp> logger,
+    IProjectFileDiagnostics? projectFiles = null)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
 
     protected override TextDocumentSelector DocumentSelector => SupportedLanguages.DocumentSelector;
+
+    // the files the client says changed are read as the notification arrives (ProjectFileWatchHandler), and a request about a document waits for them.
+    protected override bool ServesFileChanges => true;
 
     /// <summary>
     /// Cancels in-flight core-component bring-up when the server is shutting down.
@@ -187,6 +191,9 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<DidCreateWorkspaceFilesHandler>();
         builder.WithHandler<DidRenameWorkspaceFilesHandler>();
         builder.WithHandler<DidDeleteWorkspaceFilesHandler>();
+
+        // and the files it is about to rename that a rename staged: one whose file changed since is deleted, and the rename of it fails.
+        builder.WithHandler<WillRenameStagedFilesHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -199,6 +206,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<Formatting.ICodeFormattingService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<RDCore.SDK.Server.StagedFiles>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IExtractMethodService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IMoveMemberService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IEncapsulateFieldService>());
@@ -223,6 +231,27 @@ internal sealed class CoreLanguageServerApp(
         // the one gate both the relay and the diagnostics pulls see: the pulls are declined while a dialog the relay asked is open.
         services.AddSingleton(_ => ExternalServices.GetRequiredService<Runtime.OpenDialogs>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>());
+
+        // the code actions, as textDocument/codeAction answers them, for the tools that fix code; the catalog holds those and the host's read tools.
+        services.AddSingleton<ICodeActionService>(provider => new CodeActionService(
+            provider.GetRequiredService<IRenameService>(), provider.GetRequiredService<IWorkspaceDocumentService>(), provider.GetRequiredService<System.IO.Abstractions.IFileSystem>(),
+            provider.GetRequiredService<IExtractMethodService>(), provider.GetRequiredService<IMoveMemberService>(), provider.GetRequiredService<IPlatformClientCapabilitiesService>(),
+            provider.GetRequiredService<OmniSharp.Extensions.JsonRpc.ISerializer>(), ExternalServices.GetService<IProjectFileService>(),
+            ExternalServices.GetService<RDCore.SDK.Runtime.Libraries.ILibrarySource>(), ExternalServices.GetService<IEncapsulateFieldService>(),
+            ExternalServices.GetService<IImplementInterfaceService>(), ExternalServices.GetService<IMoveCloserToUsageService>(), ExternalServices.GetService<IParameterReorderService>()));
+        services.AddSingleton(provider => new Assistant.FixToolEdits(ExternalServices.GetRequiredService<Assistant.AssistantDocuments>(),
+            ExternalServices.GetRequiredService<IDocumentDiagnosticsService>(), ExternalServices.GetRequiredService<IDocumentLifecycleService>(),
+            provider.GetRequiredService<ICodeActionService>(), ExternalServices.GetRequiredService<IWorkspaceDocumentService>(),
+            ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>(), new Assistant.ClientEdits(() => provider.GetService<ILanguageServerFacade>())));
+        services.AddSingleton(provider =>
+        {
+            var fixes = provider.GetRequiredService<Assistant.FixToolEdits>();
+            return new RDCore.SDK.Server.Assistant.AssistantToolCatalog(ExternalServices.GetServices<RDCore.SDK.Server.Assistant.IAssistantTool>().Concat(
+            [
+                new Assistant.ListFixesTool(fixes), new Assistant.PreviewFixTool(fixes), new Assistant.ApplyFixTool(fixes),
+                new Assistant.RenameTool(provider.GetRequiredService<IRenameService>(), fixes),
+            ]));
+        });
 
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
@@ -288,6 +317,17 @@ internal sealed class CoreLanguageServerApp(
 
         // a project that lists a file no workspace folder holds does not have it: the client is told which, and why.
         WorkspaceFolderChanges.TellRefused(server, projects.Refused);
+        TellFormatOf(server, workspace);
+    }
+
+    // a project file in a format that is not this platform's is said to the client as it is to the log: window/logMessage, which LSP allows before initialize
+    // is answered.
+    internal static void TellFormatOf(ILanguageServerFacade server, IWorkspaceService workspace)
+    {
+        if (workspace.FormatNote is { } note)
+        {
+            server.Window.Log(note);
+        }
     }
 
     // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The
@@ -314,10 +354,11 @@ internal sealed class CoreLanguageServerApp(
     {
         LogIfEnabled(LogLevel.Information, "🤝 LSP initialization handshake completed");
 
-        // workspace/didRenameFiles is read by a handler of the platform's own, which OmniSharp does not state the server has.
+        // workspace/didRenameFiles and willRenameFiles are read by handlers of the platform's own, which OmniSharp does not state the server has.
         response.Capabilities.Workspace ??= new();
         response.Capabilities.Workspace.FileOperations ??= new();
         response.Capabilities.Workspace.FileOperations.DidRename = WorkspaceFileOperationFilters.DidRename;
+        response.Capabilities.Workspace.FileOperations.WillRename = RDCore.SDK.Server.StagedFiles.WillRename;
 
         // the client owns the file system: one that does not say it watches files is watched for, unless the setting says never.
         if (workspaceDocuments.WorkspaceRoot is { Length: > 0 } root)
@@ -413,6 +454,10 @@ internal sealed class CoreLanguageServerApp(
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
         await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, _workspaceExpected, token);
+        if (projectFiles is not null)
+        {
+            await projectFiles.PublishAsync(token);
+        }
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);

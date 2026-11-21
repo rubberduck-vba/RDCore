@@ -190,6 +190,21 @@ public abstract class VBABaseParser : Parser
         return TokenTypeAtRelativePosition(offset) == VBALexer.COLON;
     }
 
+    // MS-VBAL §5.4.2.1: the blanks after a call statement's name begin its argument list only where an argument, or the comma after a missing first one,
+    // follows them. Before the end of the statement, a comment, or the Else of a single-line If, they belong to what follows: an argument can be missing,
+    // so the list would otherwise hold one there.
+    protected bool IsArgumentListAhead()
+    {
+        var offset = 1;
+        while (IsTokenType(TokenTypeAtRelativePosition(offset), VBALexer.WS, VBALexer.LINE_CONTINUATION))
+        {
+            offset++;
+        }
+
+        var next = TokenTypeAtRelativePosition(offset);
+        return offset > 1 && !IsStatementEnd(next) && next != VBALexer.ELSE;
+    }
+
     // MS-VBAL §5.3.1: a procedure's header is no statement of the procedure before it, which is missing its End Sub: the statements of that procedure end
     // there. Read as a statement, `Public Sub B()` would be a declaration (`Public` declares variables), refused, and the procedure would go on with B's
     // statements.

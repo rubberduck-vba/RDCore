@@ -17,6 +17,7 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
+using RDCore.Tests.Cli;
 using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -158,23 +159,29 @@ public sealed class CodeActionHandlerTests
     private static Diagnostic Coded(string code, Range range) => new() { Range = range, Code = code, Source = "RDCore", Message = code };
 
     [TestMethod]
-    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionThatDisablesIt_InEveryWorkspace_Once()
+    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionsThatDisableIt_InEveryWorkspace_ThenInThisWorkspace_Once()
     {
         ClientTakesListChanges();
         var first = Coded("RDC01002", new Range(0, 7, 0, 14));
         var second = Coded("RDC01002", new Range(3, 15, 3, 22));
 
-        var action = Assert.ContainsSingle(await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second));
+        var actions = await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second);
 
-        Assert.AreEqual("Disable RDC01002 in every workspace", action.Title);
-        Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
-        CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
-        Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
-        var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
-        Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
-        Assert.AreEqual("RDC01002", (string?)change["value"]);
-        Assert.AreEqual((int)RDCore.SDK.Platform.Protocol.SettingScope.Platform, (int?)change["scope"]);
-        Assert.IsFalse((bool?)change["remove"]);
+        Assert.HasCount(2, actions);
+        CollectionAssert.AreEqual(new[] { "Disable RDC01002 in every workspace", "Disable RDC01002 in this workspace" }, actions.Select(action => action.Title).ToArray());
+        var scopes = new[] { RDCore.SDK.Platform.Protocol.SettingScope.Platform, RDCore.SDK.Platform.Protocol.SettingScope.Workspace };
+        for (var index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
+            CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
+            Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
+            var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
+            Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
+            Assert.AreEqual("RDC01002", (string?)change["value"]);
+            Assert.AreEqual((int)scopes[index], (int?)change["scope"]);
+            Assert.IsFalse((bool?)change["remove"]);
+        }
     }
 
     [TestMethod]
@@ -187,6 +194,39 @@ public sealed class CodeActionHandlerTests
 
         Assert.IsEmpty(await ActionsAsync(new Range(0, 7, 0, 14), [CodeActionKind.QuickFix], Coded(code, new Range(0, 7, 0, 14))));
     }
+
+    // a diagnostic of a name, whose fix adds the name to the names a rule allows. The code is one that cannot be disabled, so that its only action is the
+    // fix's.
+    private static Diagnostic Allowing(string name, Range range) => Coded("VBC00013", range) with
+    {
+        Data = new RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes
+        {
+            Setting = new RDCore.SDK.Extensibility.Diagnostics.SettingFix { Title = $"Allow {name}", Key = "Diagnostics.Rule.AllowedNames", Value = name },
+        }.ToData(),
+    };
+
+    [TestMethod]
+    public async Task AFixThatAddsAnItemToASetting_IsOfferedAsTheCommandThatAsksTheClientToAddItToTheUsersList()
+    {
+        ClientTakesListChanges();
+        var diagnostic = Allowing("x", new Range(1, 7, 1, 8));
+
+        var action = Assert.ContainsSingle(await ActionsAsync(new Range(1, 7, 1, 8), [CodeActionKind.QuickFix], diagnostic));
+
+        Assert.AreEqual("Allow x", action.Title);
+        Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
+        CollectionAssert.AreEqual(new[] { diagnostic }, action.Diagnostics!.ToArray());
+        Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
+        var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
+        Assert.AreEqual("Diagnostics.Rule.AllowedNames", (string?)change["key"]);
+        Assert.AreEqual("x", (string?)change["value"]);
+        Assert.AreEqual((int)RDCore.SDK.Platform.Protocol.SettingScope.Platform, (int?)change["scope"]);
+        Assert.IsFalse((bool?)change["remove"]);
+    }
+
+    [TestMethod]
+    public async Task AClientThatDoesNotTakeAChangeOfItsSettings_IsNotOfferedAFixThatAddsAnItemToASetting()
+        => Assert.IsEmpty(await ActionsAsync(new Range(1, 7, 1, 8), [CodeActionKind.QuickFix], Allowing("x", new Range(1, 7, 1, 8))));
 
     [TestMethod]
     public async Task AClientThatDoesNotTakeAChangeOfItsSettings_IsNotOfferedTheActionThatDisablesACode()
@@ -495,5 +535,120 @@ public sealed class CodeActionHandlerTests
         };
 
         Assert.IsEmpty(await ActionsAsync(document, new Range(1, 0, 1, 0), [CodeActionKind.Refactor], diagnostic));
+    }
+
+    // the RDC00413 findings of a module of a program, as the diagnostics a client sends back with the range it asks the actions of; the workspace holds
+    // every module of the program, so that its actions can be asked.
+    private async Task<(DocumentUri Document, Diagnostic[] Findings)> CloserToUsageFindingsAsync(
+        string name, string program, IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)>? modules = null)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(classes, program, modules: modules);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
+        var isClass = classes.Any(module => module.Name == name);
+        var source = (isClass ? classes : modules!).Single(module => module.Name == name).Source;
+        var file = $"{name}.{(isClass ? "cls" : "bas")}";
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, file));
+        Hold([.. classes.Select(each => new WorkspaceDocument($"{each.Name}.cls", Root, each.Source, version: 1)),
+            .. (modules ?? []).Select(each => new WorkspaceDocument($"{each.Name}.bas", Root, each.Source, version: 1)),
+            new WorkspaceDocument("Program.bas", Root, program, version: 1)]);
+
+        var findings = new RDCore.Diagnostics.Analyzers.MoveFieldCloserToUsageAnalyzer()
+            .Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), model));
+        return (DocumentUri.From(Path.Combine(Root, file)), [.. findings.Select(finding => new Diagnostic
+        {
+            Range = new Range(finding.Range.Start.Line, finding.Range.Start.Character, finding.Range.End.Line, finding.Range.End.Character),
+            Code = "RDC00413",
+            Source = "RDCore",
+            Message = finding.Message,
+        })]);
+    }
+
+    // a client that shows an action it cannot take, disabled, with why.
+    private void ClientShowsDisabledActions()
+        => _client = new ClientCapabilities
+        {
+            TextDocument = new TextDocumentClientCapabilities { CodeAction = new CodeActionCapability { DisabledSupport = true } },
+        };
+
+    [TestMethod]
+    public async Task APrivateVariableOfAModuleThatOneProcedureUses_IsOfferedItsMove_AtItsFinding()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.StandardModule("Counter",
+            "Private mCalls As Long", "Public Sub Note()", "    mCalls = mCalls + 1", "End Sub"));
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Note", "End Sub");
+        var (document, findings) = await CloserToUsageFindingsAsync("Counter", program, [], [counter]);
+        var finding = findings.Single();
+
+        var actions = await ActionsAsync(document, finding.Range, null, finding);
+
+        var move = Assert.ContainsSingle(actions.Where(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
+        Assert.AreEqual("Move 'mCalls' closer to its usage", move.Title);
+        var edits = move.Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray();
+        CollectionAssert.AreEqual(new[] { (new Range(1, 0, 2, 0), string.Empty), (new Range(3, 0, 3, 0), "    Static mCalls As Long\r\n") }, edits,
+            "Static, which keeps its value from one call to the next as the variable of the module did");
+    }
+
+    // a Static local of a member of a class has the extent of the object the member is called on, as the variable of the class did (RD-VBAL §5.4.3.1).
+    [TestMethod]
+    public async Task APrivateVariableOfAClassThatOneProcedureUses_IsOfferedItsMove_AtItsFinding_AsInAStandardModule()
+    {
+        (string, string) counter = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Private mCalls As Long", "Public Sub Note()", "    mCalls = mCalls + 1", "End Sub"));
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim c As New Counter", "    c.Note", "End Sub");
+        var (document, findings) = await CloserToUsageFindingsAsync("Counter", program, [counter]);
+        var finding = findings.Single();
+
+        var actions = await ActionsAsync(document, finding.Range, null, finding);
+
+        var move = Assert.ContainsSingle(actions.Where(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
+        var edits = move.Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray();
+        CollectionAssert.AreEqual(new[] { (new Range(5, 0, 6, 0), string.Empty), (new Range(7, 0, 7, 0), "    Static mCalls As Long\r\n") }, edits);
+    }
+
+    // a Public variable of a standard module goes into the procedure that uses it, of its module or of another: one edit of each document.
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsModule_IsOfferedItsMove_AtItsFinding_IntoTheProcedureThatUsesIt()
+    {
+        (string, string) globals = ("Globals", ModuleWorkspace.StandardModule("Globals",
+            "Public gCount As Long", "Public gTotal As Long", "Public Sub Add()", "    gTotal = gTotal + 1", "End Sub"));
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Tally", "    Add", "End Sub",
+            "Public Sub Tally()", "    Globals.gCount = gCount + 1", "End Sub");
+        var (document, findings) = await CloserToUsageFindingsAsync("Globals", program, [], [globals]);
+        Assert.HasCount(2, findings, "gCount, which Program.Tally uses, and gTotal, which Add does");
+
+        var moves = new List<CodeAction>();
+        foreach (var finding in findings)
+        {
+            moves.Add((await ActionsAsync(document, finding.Range, null, finding))
+                .Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage));
+        }
+
+        var intoTally = moves[0].Edit!.Changes!.ToDictionary(change => Path.GetFileName(change.Key.GetFileSystemPath()),
+            change => change.Value.Select(edit => (edit.Range, edit.NewText)).ToArray());
+        CollectionAssert.AreEqual(new[] { (new Range(1, 0, 2, 0), string.Empty) }, intoTally["Globals.bas"]);
+        CollectionAssert.AreEqual(new[] { (new Range(6, 0, 6, 0), "    Static gCount As Long\r\n"), (new Range(6, 4, 6, 12), string.Empty) },
+            intoTally["Program.bas"], "declared before its use, which loses the name of its module");
+        CollectionAssert.AreEqual(new[] { (new Range(2, 0, 3, 0), string.Empty), (new Range(4, 0, 4, 0), "    Static gTotal As Long\r\n") },
+            moves[1].Edit!.Changes!.Single().Value.Select(edit => (edit.Range, edit.NewText)).ToArray());
+    }
+
+    // a variable of a class is a member of each of its objects: the refactoring does not move a Public one, and offers its move disabled, with why.
+    [TestMethod]
+    public async Task APublicVariableOfAProgramsClass_ThatTheClassUses_IsOfferedItsMoveDisabled_AtItsFinding()
+    {
+        (string, string) item = ("Item", ModuleWorkspace.ClassModule("Item", "Public Count As Long", "Public Sub Touch()", "    Count = Count + 1", "End Sub"));
+        var program = ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "    Dim i As New Item", "    i.Touch", "End Sub");
+        var (document, findings) = await CloserToUsageFindingsAsync("Item", program, [item]);
+
+        var hidden = await ActionsAsync(document, findings.Single().Range, null, findings.Single());
+        ClientShowsDisabledActions();
+        var actions = await ActionsAsync(document, findings.Single().Range, null, findings.Single());
+
+        Assert.IsFalse(
+            hidden.Any(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage), "a client that shows no disabled action is offered none");
+        Assert.AreEqual(
+            "'Count' is a member of each object of its class, which other modules can use: only a Private variable of a class module is moved into a "
+            + "procedure.",
+            actions.Single(action => action.Kind == CodeActionHandler.RefactorMoveCloserToUsage).Disabled?.Reason);
     }
 }

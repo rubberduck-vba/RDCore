@@ -38,6 +38,7 @@ public enum RDCoreDiagnosticId
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
     ImplicitForStep = 116, // a For loop with no Step, under the convention that writes Step 1
     ImplicitConstantType = 117, // a Const with no As and no type character: its type is the one the reader works out from its value
+    VariantStringFunction = 118, // [RD2:UntypedFunctionUsageInspection] Left(s, 1) returns a Variant: Left$ is the same function returning a String
     ImplicitDefaultMemberAccess = 119, // an object of a known class used as a value, or assigned one without Set: its default member, not named
     ImplicitUnboundDefaultMemberAccess = 120, // an Object used as a value, or assigned one without Set: its default member is known only at run time
     IndexedDefaultMemberAccess = 121, // an argument list given to an object of a known class: its default member takes it, not named
@@ -45,6 +46,9 @@ public enum RDCoreDiagnosticId
     BangNotation = 123, // b!key: the default member of a known class given the name as a String
     UnboundBangNotation = 124, // v!key of an Object: its default member is known only at run time
     SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
+    IndexedRecursiveDefaultMemberAccess = 126, // an argument list given to an object of a known class that goes through more than one default member
+    RecursiveBangNotation = 127, // b!key of a known class that goes through more than one default member
+    UndeclaredVariable = 128, // [RD2: UndeclaredVariableInspection] a name that matches nothing, which declares a local where it is first used, with no Option Explicit
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,
@@ -62,7 +66,9 @@ public enum RDCoreDiagnosticId
     ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
     SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
     FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
+    FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
+    UnreachableCase = 219, // [RD2:UnreachableCaseInspection] a Case block, or the Case Else, that the Cases before it leave no value of the selector for
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -87,9 +93,10 @@ public enum RDCoreDiagnosticId
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
     UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
     UnderscoreInPublicClassMember = 408, // a public member of a class named with an underscore: no class can implement the class
-    EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public variable of a class module, which any code can assign
+    EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public or Global variable of a module, which any code can assign
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
+    MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,
@@ -112,6 +119,13 @@ public enum RDCoreDiagnosticId
     LineLabelNotUsed = 1016, // a line label nothing jumps to
     WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
     KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
+    Win64IsABitnessTest = 1019, // #If Win64 Then: 1 on a 64-bit Mac too, as in Excel for Mac; Is64BitEnv tests the bitness
+    UndefinedConditionalConstant = 1020, // #If DEV Then, DEV defined nowhere: 0, so False; a retired predefined one (Linux64) names its replacement
+    UnassignedVariableUsage = 1021, // [RD2:UnassignedVariableUsageInspection] Dim n As Long: Debug.Print n: always the default value
+    AssignmentNotUsed = 1022, // [RD2:AssignmentNotUsedInspection] n = 1: n = 2: the value 1 is never read
+    ParameterCanBeByVal = 1023, // [RD2:ParameterCanBeByValInspection] Sub Show(n As Long) that never assigns n nor passes it on ByRef
+    DefaultProjectName = 1024, // [RD2:DefaultProjectNameInspection] a project named VBAProject, reported against its .rdproj at the name
+    ProcedureNotUsed = 1025, // a procedure or a property no code calls, its own calls aside
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
@@ -123,7 +137,7 @@ public enum RDCoreDiagnosticId
     PreferErrRaiseOverErrorStatement,
     EnumerationOverArray,
     LateBoundMemberAccess,
-    UnresolvedLateBoundMemberAccess,
+    UnresolvedLateBoundMemberAccess = 11010, // o.Nope, o late-bound: no class o can be of has an accessible member of the name, so it raises 438
     VariantNumberStringComparison = 11011, // two Variants, a number and a String: the number is always less
     SetThroughACallFails = 11012, // Set of a call that returns no object (424), or one whose default member has no Property Set (438): MS-VBA compiles it
     VariantComparedWithStringAsText = 11013, // a Variant number compared with a String as text: MS-VBAL's table says type mismatch (13)
@@ -159,6 +173,11 @@ public enum RDCoreDiagnosticId
     LetToADefaultMemberWithNoPropertyLet = 11045, // os = 5, os's default member a Property Get or a Function with no Property Let: MS-VBAL compiles it, MS-VBA refuses it
     LetThroughAVariantGetOrFunction = 11046, // o.Value = 5, Value a Variant Property Get with no Let (or a Variant Function): MS-VBAL 451/450, MS-VBA assigns through what it returns, or 424
     ObjectLetToObjectProperty = 11047, // h.Pic = p, Property Let Pic(v As Object): MS-VBA passes the object; MS-VBAL §5.5.1.1 makes the Let invalid, §5.5.1.2.13 424
+    SingleLineIfWithNoStatement = 11049, // If x Then: with nothing after the colon: VB6 runs it as an If with no statement; MS-VBAL §5.4.2.9 has no reading
+    LetToAnObjectWithNoDefaultMember = 11050, // p = 5, h.Plain = 5, of a class with no default member: compiles, raises 438 (91 for Nothing) whenever it runs
+    SetToAnIncompatibleClass = 11051, // Set s = a, a's class never s's nor implementing it (§5.5.2.2.1): compiles, raises 13 whenever it runs with an object
+    ArgumentOfAnIncompatibleClass = 11052, // Draw a, Sub Draw(ByVal s As IShape), a's class never IShape nor implementing it: compiles, 13 with an object
+    MemberNotOnDeclaredInterface = 11053, // [RD2:MemberNotOnInterfaceInspection] ws.Rnage, ws a Worksheet: not declared by a library's class, bound at run time
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
@@ -170,6 +189,11 @@ public enum RDCoreDiagnosticId
     */
     NoEntryPoint = 30001, // no Sub Main, the entry point the .rdproj names declared nowhere, or a Library project: the program has nowhere to start
     AmbiguousEntryPoint = 30002, // more than one standard module declares the Sub Main, and the .rdproj names none
+
+    /*
+     * [31000-31999]: the workspace and its project files, issued by the language server against a project's .rdproj
+    */
+    CircularProjectReference = 31001, // NavalLib references NavalWindow, which references NavalLib: a project references itself, through other projects or not
 }
 
 public static class RDCoreDiagnosticIds
