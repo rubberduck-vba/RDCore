@@ -19,8 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// which only its module calls, a <c>Friend</c> one, and a <c>Public</c> one of a program, whose run starts at its entry point. Another <c>Public</c>
 /// procedure can be called by another project or by the host that runs the project. The host counts no <c>Private</c> one that a string of the project
 /// names, which a host can call back by its name. A procedure with a role is called by no expression: the entry point, the handler of an event and
-/// the implementation of an interface member are not found here. A call of a procedure in its own code (a recursion) does not use it. The fix removes every accessor of the
-/// property, or the procedure, when nothing else is written on their lines.
+/// the implementation of an interface member are not found here. A call of a procedure in its own code (a recursion) does not use it. The fix removes
+/// every accessor of the property, or the procedure, when nothing else is written on their lines.
 /// </remarks>
 internal sealed class ProcedureNotUsedAnalyzer : IModuleAnalyzer
 {
