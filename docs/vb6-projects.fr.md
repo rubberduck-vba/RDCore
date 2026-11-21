@@ -69,9 +69,10 @@ ajoute : `AddItem`, `RemoveItem`, `Clear`, `List(Index)`, `ItemData(Index)`, `Li
 affectation à `ListCount`, `NewIndex` ou `SelCount`. `Column` est un membre de la ListBox de MSForms, et lève 438.
 
 La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une modification faite par elle change chaque contrôle qui la détient, et
-`Set Text2.Font = Text1.Font` partage la police. `Text1.Font = "Arial"` en affecte le `Name`, son membre par défaut, et un `Set` à `Nothing` lève 380.
-`FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` et `FontUnderline` sont le `Bold`, l'`Italic`, le `Name`, le `Size`, le
-`Strikethrough` et l'`Underline` de la `Font`.
+`Set Text2.Font = Text1.Font` partage la police. Un `Set` d'une police du programme la partage aussi : après `Set Label1.Font = f`,
+`Label1.Font Is f` est True, une modification faite par l'une se voit par l'autre, et un contrôle à qui l'on donne une autre police cesse de suivre `f`.
+`Text1.Font = "Arial"` en affecte le `Name`, son membre par défaut, et un `Set` à `Nothing` lève 380. `FontBold`, `FontItalic`, `FontName`,
+`FontSize`, `FontStrikethru` et `FontUnderline` sont le `Bold`, l'`Italic`, le `Name`, le `Size`, le `Strikethrough` et l'`Underline` de la `Font`.
 
 Une feuille et un PictureBox dessinent avec `Cls`, `Line`, `Circle`, `PSet`, `Point`, `PaintPicture`, `Scale`, `CurrentX` et `CurrentY`, dans leur
 propre échelle. `PaintPicture` dessine une image du programme, comme celle que donne `LoadPicture`, ou la `Picture` d'un autre contrôle. Il lève ce que
@@ -86,9 +87,6 @@ contrôles lèvent 425. Un Timer n'a pas de `Container` (438), et une affectatio
 > **Non implémenté.**
 > - Une feuille ou un PictureBox qui n'est pas affiché ne dessine rien, et son `Point` donne -1, quel que soit son `AutoRedraw`. VB6 dessine sur
 >   celui dont l'`AutoRedraw` est True.
-> - Un contrôle à qui l'on donne une police du programme (`Set Label1.Font = New StdFont`) en détient une copie des valeurs. VB6 partage la police :
->   `Label1.Font Is f` est True, et une modification faite par l'une se voit par l'autre.
-
 ---
 ## Exécuter un projet VB6
 

@@ -69,9 +69,10 @@ outside the items, 380 for a `ListIndex` outside -1 to `ListCount` - 1, and 383 
 an MSForms ListBox's, and raises 438.
 
 A control's `Font` is a `StdFont`, the same object on every read. A change through it changes every control that holds it, and
-`Set Text2.Font = Text1.Font` shares the font. `Text1.Font = "Arial"` sets its `Name`, its default member, and a `Set` to `Nothing` raises 380.
-`FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` and `FontUnderline` are the `Font`'s `Bold`, `Italic`, `Name`, `Size`,
-`Strikethrough` and `Underline`.
+`Set Text2.Font = Text1.Font` shares the font. So does a `Set` of a font of the program's: after `Set Label1.Font = f`, `Label1.Font Is f` is
+True, a change through either is seen through the other, and a control given another font stops following `f`. `Text1.Font = "Arial"` sets its
+`Name`, its default member, and a `Set` to `Nothing` raises 380. `FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` and
+`FontUnderline` are the `Font`'s `Bold`, `Italic`, `Name`, `Size`, `Strikethrough` and `Underline`.
 
 A form and a PictureBox draw with `Cls`, `Line`, `Circle`, `PSet`, `Point`, `PaintPicture`, `Scale`, `CurrentX` and `CurrentY`, in their own scale.
 `PaintPicture` draws a picture of the program's, such as one `LoadPicture` gives, or another control's `Picture`. It raises what VB6 raises: 91 for
@@ -86,9 +87,6 @@ and an assignment without `Set` raises 438.
 > **Not implemented.**
 > - A form or a PictureBox that is not shown draws nothing, and its `Point` reads -1, whatever its `AutoRedraw`. VB6 draws on one whose `AutoRedraw`
 >   is True.
-> - A control given a font of the program's (`Set Label1.Font = New StdFont`) holds a copy of its values. VB6 shares the font: `Label1.Font Is f` is
->   True, and a change through either is seen through the other.
-
 ---
 ## Running a VB6 project
 
