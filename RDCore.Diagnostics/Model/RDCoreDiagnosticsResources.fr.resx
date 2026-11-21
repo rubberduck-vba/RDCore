@@ -309,6 +309,9 @@
   <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
     <value>Chaque appel de la fonction &apos;{0}&apos; perd la valeur qu&apos;elle renvoie : elle peut être une Sub.</value>
   </data>
+  <data name="FunctionMadeASub_Fix" xml:space="preserve">
+    <value>Faire de &apos;{0}&apos; une Sub</value>
+  </data>
   <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
     <value>La variable &apos;{0}&apos; du module n&apos;est utilisée que dans &apos;{1}&apos; : elle peut y être déclarée.</value>
   </data>

@@ -14,7 +14,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// a <c>Friend</c> one, a <c>Public</c> one of a program, whose run starts at its entry point, and a <c>Private</c> one, which only its module calls.
 /// Another <c>Public</c> function can be called by another project or by the host that runs the project. A <c>Private</c> one is not counted when a string
 /// of the project writes its name, when its module calls <c>CallByName</c> with a name that is not a string literal, or when it implements a member of
-/// an interface. A function no code calls is not found here.
+/// an interface. A function no code calls is not found here. The fix makes the function a <c>Sub</c> (<see cref="FunctionsMadeSubs"/>).
 /// </remarks>
 internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyzer
 {
@@ -29,5 +29,8 @@ internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyz
                 RDCoreDiagnosticId.FunctionReturnValueAlwaysDiscarded.ToCode(),
                 declaration.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.FunctionReturnValueAlwaysDiscarded_Message, declaration.Name)));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.FunctionReturnValueAlwaysDiscarded_Message, declaration.Name))
+            {
+                Fixes = FunctionsMadeSubs.Fix(context, declaration) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null,
+            });
 }
