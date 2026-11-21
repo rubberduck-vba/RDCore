@@ -20,8 +20,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// The declaration of a variable, a constant, a parameter or a function that is written with one is reported where its name is written. So is a reference to a name
 /// that the host vouches is bound to a declaration of the project (<see cref="ExpressionFactDto.Binding"/>), of this module or of another, since the declaration is
 /// what is changed to get rid of it: a simple name (<c>gCount%</c>), or the name of a member access (<c>Globals.gCount%</c>), reported where the member's
-/// name is written. Outside a procedure (the value of a constant, the bounds of an array), a simple name is reported where the host states a reference to
-/// a declaration of this module (<see cref="DeclarationFactDto.ReferencedFrom"/>).
+/// name is written. A reference outside a procedure, in the value of a constant or the bounds of an array, is bound the same way
+/// (<see cref="ModuleSemanticsDto.Expressions"/>).
 /// </para>
 /// <para>
 /// A reference to a member of a library (<see cref="ValueExpressionSemanticFlags.BoundToLibrary"/>), such as <c>Mid$</c> or <c>Error$</c> of the standard library,
@@ -44,19 +44,12 @@ internal sealed class ObsoleteTypeHintAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        // a reference bound to a declaration of the project: of this module, or of another.
+        // a reference bound to a declaration of the project, of this module or of another, in a procedure or outside any: Const B = A% * 2.
         var boundToTheProject = (context.Semantics?.Procedures ?? [])
             .SelectMany(procedure => procedure.Expressions)
+            .Concat(context.Semantics?.Expressions ?? [])
             .Where(fact => fact.Binding is not null && !fact.Flags.HasFlag(ValueExpressionSemanticFlags.BoundToLibrary))
             .Select(fact => fact.Node)
-            .ToHashSet();
-        // a reference outside any procedure, in this module, to a declaration of the module: Const B = A% * 2, Private Items(A%) As Long.
-        var document = context.Document.GetLeftPart(UriPartial.Path);
-        var moduleLevel = (context.Semantics?.Declarations ?? [])
-            .SelectMany(fact => (fact.ReferencedFrom ?? [])
-                .Where(site => site.Procedure is null
-                    && string.Equals(site.Location.Uri.GetLeftPart(UriPartial.Path), document, StringComparison.OrdinalIgnoreCase)))
-            .Select(site => site.Location.Range)
             .ToHashSet();
         // the name of a member access is reported with the access, which is what the host binds: Globals.gCount% is one reference.
         var memberNames = module.Descendants().OfType<MemberAccessExpressionNode>().Select(access => access.Member.Identity).ToHashSet();
@@ -79,7 +72,7 @@ internal sealed class ObsoleteTypeHintAnalyzer : IModuleAnalyzer
                         DeclarationFix(parameter.Name, parameter.TypeHint, parameter.NameRange, parameter.IsArray ? parameter.Location.Range.End : parameter.NameRange?.End)),
                 MemberDeclarationNode { TypeHint.Length: > 0 } member => (member.Name, NameOf(member.NameRange, member.SourceLocation), null),
                 SimpleNameExpressionNode { TypeHint.Length: > 0 } reference
-                    when boundToTheProject.Contains(reference.Identity) || moduleLevel.Contains(reference.Location.Range)
+                    when boundToTheProject.Contains(reference.Identity)
                     => (reference.IdentifierName, reference.Location.Range, ReferenceFix(reference)),
                 _ => (null, default, null),
             };

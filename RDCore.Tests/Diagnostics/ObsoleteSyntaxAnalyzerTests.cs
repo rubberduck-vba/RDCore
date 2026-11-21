@@ -190,7 +190,6 @@ public sealed class ObsoleteSyntaxAnalyzerTests
     }
 
     [TestMethod]
-    [Ignore("the host states no reference outside a procedure to a declaration of another module: Globals.N has no ReferencedFrom")]
     public async Task ATypeHintOnAReferenceOutsideAProcedure_ToADeclarationOfAnotherModule_IsObsolete()
     {
         var module = Module("Private Const C = Globals.N% + 1\nPrivate Const D = N% + 1\nPublic Sub Work()\n    Debug.Print C, D\nEnd Sub");
