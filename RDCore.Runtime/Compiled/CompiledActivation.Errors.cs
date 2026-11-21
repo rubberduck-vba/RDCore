@@ -1,3 +1,4 @@
+using System.Globalization;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model.Errors;
@@ -22,9 +23,32 @@ public sealed partial class CompiledActivation
         if (status is (int)PayloadStatus.Overflow or (int)PayloadStatus.DivisionByZero)
         {
             var id = (VBRuntimeErrorId)status;
-            var verbose = id is VBRuntimeErrorId.DivisionByZero ? Exceptions.VBDivisionOp_DivisionByZero : Exceptions.VBRuntimeError_ArithmeticOverflow;
+            var verbose = VerboseTexts.Of(id);
             _failed = RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(id, _body.ArithmeticSites[site], verbose));
             _body.CountRaised();
+        }
+    }
+
+    // the verbose text of error 11 and of error 6, as the interpreter's operators give it, in the language of the user interface at the call: what the
+    // thread read in that language is kept for the next error, so that an error raised in a loop is looked up once.
+    private sealed class VerboseTexts(CultureInfo culture)
+    {
+        [ThreadStatic]
+        private static VerboseTexts? t_read;
+
+        private readonly CultureInfo _culture = culture;
+        private readonly string _divisionByZero = Exceptions.VBDivisionOp_DivisionByZero;
+        private readonly string _overflow = Exceptions.VBRuntimeError_ArithmeticOverflow;
+
+        public static string Of(VBRuntimeErrorId id)
+        {
+            var culture = Exceptions.Culture ?? CultureInfo.CurrentUICulture;
+            if (t_read is not { } read || !ReferenceEquals(read._culture, culture))
+            {
+                t_read = read = new VerboseTexts(culture);
+            }
+
+            return id is VBRuntimeErrorId.DivisionByZero ? read._divisionByZero : read._overflow;
         }
     }
 
