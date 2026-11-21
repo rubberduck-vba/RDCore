@@ -55,7 +55,10 @@ internal sealed class ObjectLetToVariantPropertyAnalyzer : IModuleAnalyzer
             : null;
 
         var set = property.Accessors.HasFlag(PropertyAccessors.Set)
-            ? new EditFix { Title = RDCoreDiagnosticsResources.ObjectLetToVariantProperty_Set_Fix, Edits = [SetAssignments.MadeSet(statement)], ChangesBehavior = true }
+            ? new EditFix
+            {
+                Title = RDCoreDiagnosticsResources.ObjectLetToVariantProperty_Set_Fix, Edits = [SetAssignments.MadeSet(statement)], ChangesBehavior = true,
+            }
             : null;
 
         EditFix[] fixes = [.. new[] { named, set }.OfType<EditFix>()];

@@ -63,7 +63,8 @@ public sealed class SetAssignmentFixTests
     [TestMethod]
     public Task AnObjectLetToAPropertyWithAPropertySet_IsMadeASet()
         => AssertMadeASetAsync(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember,
-            Body("Dim h As New Holder", "Dim q As New Plain", "h.Item = q"), Body("Dim h As New Holder", "Dim q As New Plain", "Set h.Item = q"), "h.Item Is q");
+            Body("Dim h As New Holder", "Dim q As New Plain", "h.Item = q"),
+            Body("Dim h As New Holder", "Dim q As New Plain", "Set h.Item = q"), "h.Item Is q");
 
     [TestMethod]
     public Task AnObjectLetToAnObjectOfItsClass_IsMadeASet_AfterTheFixThatKeepsTheLetOfTheValues()
@@ -73,8 +74,8 @@ public sealed class SetAssignmentFixTests
     [TestMethod]
     public Task AnObjectLetToAnObjectVariable_IsMadeASet_AndNotGivenDefaultMembers()
         => AssertMadeASetAsync(RDCoreDiagnosticId.SuspiciousLetAssignment,
-            Body("Dim o As Object", "Set o = New Cell", "Dim b As New Cell", "o = b"), Body("Dim o As Object", "Set o = New Cell", "Dim b As New Cell", "Set o = b"),
-            "o Is b");
+            Body("Dim o As Object", "Set o = New Cell", "Dim b As New Cell", "o = b"),
+            Body("Dim o As Object", "Set o = New Cell", "Dim b As New Cell", "Set o = b"), "o Is b");
 
     [TestMethod]
     public Task AnObjectWithNoDefaultMemberLetToAVariant_IsMadeASet()
@@ -84,7 +85,8 @@ public sealed class SetAssignmentFixTests
     [TestMethod]
     [DataRow(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, "Dim p As New Plain|p = 5", DisplayName = "a value")]
     [DataRow(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, "Dim p As New Plain|Dim c As New Cell|p = c", DisplayName = "an object of another class")]
-    [DataRow(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, "Dim h As New Holder|Dim q As New Plain|h.Only = q", DisplayName = "a property with no Property Set")]
+    [DataRow(RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, "Dim h As New Holder|Dim q As New Plain|h.Only = q",
+        DisplayName = "a property with no Property Set")]
     [DataRow(RDCoreDiagnosticId.ValueOfObjectWithNoDefaultMember, "Dim q As New Plain|Dim n As Long|n = q", DisplayName = "an object let to a Long")]
     [DataRow(RDCoreDiagnosticId.ValueOfObjectWithNoDefaultMember, "Dim q As New Plain|Debug.Print q & \"\"", DisplayName = "an operand")]
     public Task ALetASetWouldNotAssign_IsNotMadeASet(RDCoreDiagnosticId code, string lines)

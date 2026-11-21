@@ -36,7 +36,8 @@ internal sealed class ValueOfObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ValueOfObjectWithNoDefaultMember_Message, fact.DeclaredType ?? string.Empty))
             {
                 Fixes = lets[fact.Location.Range].FirstOrDefault() is { } statement
-                    && procedure.Expressions.FirstOrDefault(target => target.Location.Range == statement.Target.SourceLocation.Range) is { TypeKind: DeclaredTypeKind.Variant } target
+                    && procedure.Expressions.FirstOrDefault(target => target.Location.Range == statement.Target.SourceLocation.Range)
+                        is { TypeKind: DeclaredTypeKind.Variant } target
                     && SetAssignments.Fix(statement, target, fact) is { } fix
                     ? new DiagnosticFixes { Edits = [fix] }
                     : null,

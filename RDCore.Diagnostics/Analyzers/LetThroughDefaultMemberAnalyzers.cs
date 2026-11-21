@@ -86,7 +86,9 @@ internal sealed class LetToAnObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
             RDCoreDiagnosticId.LetToAnObjectWithNoDefaultMember, _ => RDCoreDiagnosticsResources.LetToAnObjectWithNoDefaultMember_Message,
             // the Let of an object, which has no default member to take it, made a Set.
             (statement, target, procedure) => SetAssignments.Fix(statement, target, procedure.Expressions
-                .FirstOrDefault(fact => fact.Location.Range == statement.Value.SourceLocation.Range)) is { } fix ? new DiagnosticFixes { Edits = [fix] } : null);
+                .FirstOrDefault(fact => fact.Location.Range == statement.Value.SourceLocation.Range)) is { } fix
+                    ? new DiagnosticFixes { Edits = [fix] }
+                    : null);
 }
 
 // a finding at the expression of each Let target that the facts say is assigned through a default member, named as the code writes it, with the declared type
@@ -115,7 +117,8 @@ internal static class LetThroughDefaultMember
                 var (expression, statement) = expressions[fact.Node];
                 if (NameOf(expression!) is { } name)
                 {
-                    yield return new AnalyzerFinding(id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty))
+                    yield return new AnalyzerFinding(
+                        id.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning, AnalyzerMessages.Format(message(fact), name, fact.DeclaredType ?? string.Empty))
                     {
                         Fixes = fixes?.Invoke(statement, fact, procedure),
                     };
