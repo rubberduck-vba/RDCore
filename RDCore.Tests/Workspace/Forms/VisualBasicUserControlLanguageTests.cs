@@ -130,11 +130,17 @@ public sealed class VisualBasicUserControlLanguageTests
     [DataRow(UserControlRoot, "BackColor = &HFF&", DisplayName = "BackColor =, unqualified")]
     [DataRow(UserControlRoot, "s = hWnd", DisplayName = "hWnd, unqualified")]
     [DataRow(UserControlRoot, "s = Extender.Name", DisplayName = "Extender, unqualified")]
-    [DataRow(UserControlRoot, "s = Me.Answer", DisplayName = "Me.Answer")]
     [DataRow(PropertyPageRoot, "Changed = True", DisplayName = "Changed =, unqualified")]
     [DataRow(PropertyPageRoot, "s = Caption", DisplayName = "Caption, unqualified")]
     public async Task WhatTheBaseClassHas_IsInScope(string root, string line)
         => await AssertNoErrorAsync(root, line);
+
+    // what the Me rows above are errors against: Me reaches the class's own members.
+    [TestMethod]
+    [DataRow(UserControlRoot, DisplayName = "a UserControl")]
+    [DataRow(PropertyPageRoot, DisplayName = "a PropertyPage")]
+    public async Task MeDotAMemberOfTheClass_IsNoError(string root)
+        => await AssertNoErrorAsync(root, "s = Me.Answer");
 
     [TestMethod]
     public async Task ASettingUnqualified_IsNoName()
