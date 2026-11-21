@@ -68,8 +68,8 @@ public static class SymbolNavigation
     public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
         => NamesOf(context, module, position, includeDeclaration, byAccess: true, includeResults: true);
 
-    // what uses the symbol, as a lens counts it: its references, but the result a Function or a Property Get assigns or reads in its own body, which is no
-    // use of the procedure - one that only sets its result is called by nothing.
+    // what uses the symbol, as a lens counts it: its references, except the result a Function or a Property Get assigns or reads in its own body, which is
+    // no use of the procedure: one that only sets its result is called by nothing.
     public static SymbolNavigationTarget? UsersAt(RenameContext context, Uri module, SourcePosition position)
         => NamesOf(context, module, position, includeDeclaration: false, byAccess: true, includeResults: false);
 
@@ -139,7 +139,8 @@ public static class SymbolNavigation
                 {
                     OccurrenceKind.Declaration => called is null || occurrence.Binding == accessor,
                     OccurrenceKind.Attribute => true,
-                    // the result a Function or a Property Get assigns or reads is the procedure's own name: a use of it, as its calls are, and of the Get.
+                    // the result a Function or a Property Get assigns or reads is the procedure's own name, listed as its calls are; a property's is a read,
+                    // so a use of its Property Get.
                     _ => AccessOf(occurrence.Module, occurrence.Range.Start) is var access && (includeResults || access != NameAccess.Result)
                         && (called is null || (accessor is not null && (access == NameAccess.Result ? NameAccess.Read : access) == called)),
                 };
