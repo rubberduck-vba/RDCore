@@ -23,9 +23,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// The blocks are tried in order, and the first whose clause matches runs. The analyzer reads the declared type of the selector (its
 /// <c>ExpressionFactDto</c>): <c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c> or an <c>Enum</c>, which is a <c>Long</c>, and <c>Boolean</c>. A
 /// clause is known when its values are literals or constants (<c>ConstantValue</c>) of an integral type, negated or not, that the selector's type holds,
-/// and, for a <c>Boolean</c> selector, a value clause of <c>True</c> or <c>False</c>. Such a value is compared with the selector as it is. A clause of any
-/// other value is converted to the selector's type first, and is not known: it matches nothing the analyzer counts, and a block with one is reported only
-/// when the blocks before it match every value of the type. Nothing is reported for a selector of another type.
+/// and, for a <c>Boolean</c> selector, only a value clause of <c>True</c> or <c>False</c>. Such a value is compared with the selector as it is. A clause
+/// of any other value is converted to the selector's type first, and is not known: it matches nothing the analyzer counts, and a block with one is
+/// reported only when the blocks before it match every value of the type. Nothing is reported for a selector of another type.
 /// </remarks>
 internal sealed class UnreachableCaseAnalyzer : IModuleAnalyzer
 {
