@@ -54,7 +54,7 @@ public sealed class ReDimSizeLimitTests
                 "Debug.Print TypeName(v)"));
 
     [TestMethod]
-    [DataRow("Dim b(100000000) As Byte", DisplayName = "a local (C12)")]
+    [DataRow("Dim b(100000000) As Byte", DisplayName = "a local")]
     [DataRow("Dim b(1 To 4097, 1 To 4097) As Integer", DisplayName = "two dimensions")]
     [DataRow("Static b(16777216) As Byte", DisplayName = "a Static local")]
     [DataRow("Dim b(16777216) As Byte", DisplayName = "one more than the most, from the Option Base 0")]

@@ -45,14 +45,14 @@ public sealed class ForNullCounterTests
     private const string Caught = "    acc = acc & \"E\" & Err.Number & \"@\" & Erl & \"|\" & TypeName(k) & \"|\"";
 
     [TestMethod]
-    [DataRow("1 To 3", "1|2|E94@50|Null|", DisplayName = "N01 counting up")]
-    [DataRow("3 To 1 Step -1", "3|2|E94@50|Null|", DisplayName = "N03 counting down")]
+    [DataRow("1 To 3", "1|2|E94@50|Null|", DisplayName = "counting up")]
+    [DataRow("3 To 1 Step -1", "3|2|E94@50|Null|", DisplayName = "counting down")]
     public async Task ANullCounter_IsError94AtTheNext_WhichTheHandlerCatches(string header, string expected)
         => await AssertRunsAsync(Probe("On Error GoTo H", header, Caught), $"| {expected} |");
 
     [TestMethod]
-    [DataRow("1 To 3", "1|2|after|E94|Null|2", DisplayName = "N02 counting up")]
-    [DataRow("3 To 1 Step -1", "3|2|after|E94|Null|2", DisplayName = "N04 counting down")]
+    [DataRow("1 To 3", "1|2|after|E94|Null|2", DisplayName = "counting up")]
+    [DataRow("3 To 1 Step -1", "3|2|after|E94|Null|2", DisplayName = "counting down")]
     public async Task ANullCounter_GonePastUnderResumeNext_GoesOnAfterTheLoop(string header, string expected)
         => await AssertRunsAsync(Probe("On Error Resume Next", header), $"| {expected} |");
 

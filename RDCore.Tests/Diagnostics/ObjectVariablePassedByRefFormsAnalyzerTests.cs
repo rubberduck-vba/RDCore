@@ -62,22 +62,22 @@ public sealed class ObjectVariablePassedByRefFormsAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("    SetFirst b.Field", "b.Field", DisplayName = "s58 F01 a ParamArray")]
-    [DataRow("    With b\n        SetFirst .Field\n    End With", ".Field", DisplayName = "s58 F01 a ParamArray, relative to a With block")]
+    [DataRow("    SetFirst b.Field", "b.Field", DisplayName = "a ParamArray")]
+    [DataRow("    With b\n        SetFirst .Field\n    End With", ".Field", DisplayName = "a ParamArray, relative to a With block")]
     [DataRow("    Tail 1, 2, b.Field", "b.Field", DisplayName = "a ParamArray, past a ByVal parameter")]
-    [DataRow("    QueryPerformanceCounter b.C", "b.C", DisplayName = "s58 F02 a Declare'd procedure")]
+    [DataRow("    QueryPerformanceCounter b.C", "b.C", DisplayName = "a Declare'd procedure")]
     [DataRow("    BumpV x:=b.Field", "b.Field", DisplayName = "a named argument")]
     [DataRow("    Call BumpV(x:=b.Field)", "b.Field", DisplayName = "a named argument, in a Call statement")]
-    [DataRow("    BumpV b.V(0)", "b.V(0)", DisplayName = "s58 B01 an element of an object's variable")]
-    [DataRow("    With b\n        BumpV .V(0)\n    End With", ".V(0)", DisplayName = "s58 B01 an element, relative to a With block")]
-    [DataRow("    With b\n        BumpV .Inner.V(0)\n    End With", ".Inner.V(0)", DisplayName = "s59 M04 an element of an inner object's variable")]
+    [DataRow("    BumpV b.V(0)", "b.V(0)", DisplayName = "an element of an object's variable")]
+    [DataRow("    With b\n        BumpV .V(0)\n    End With", ".V(0)", DisplayName = "an element, relative to a With block")]
+    [DataRow("    With b\n        BumpV .Inner.V(0)\n    End With", ".Inner.V(0)", DisplayName = "an element of an inner object's variable")]
     public async Task AnObjectsVariable_ForAByRefParameter_IsAWarning(string body, string argument)
         => AssertOneFindingAt(await RunAsync("Program", body), body, argument, RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy, DiagnosticSeverity.Warning,
             RDCoreDiagnosticsResources.ObjectVariablePassedByRefIsACopy_Message);
 
     [TestMethod]
-    [DataRow("    Set o = New Box\n    o.Twice b.Field", "b.Field", DisplayName = "s58 F04 a member of an Object")]
-    [DataRow("    Set v = New Box\n    v.Twice b.Field", "b.Field", DisplayName = "s58 F04 a member of a Variant")]
+    [DataRow("    Set o = New Box\n    o.Twice b.Field", "b.Field", DisplayName = "a member of an Object")]
+    [DataRow("    Set v = New Box\n    v.Twice b.Field", "b.Field", DisplayName = "a member of a Variant")]
     [DataRow("    Set o = New Box\n    o.Twice n:=b.Field", "b.Field", DisplayName = "a member of an Object, a named argument")]
     [DataRow("    Set o = New Box\n    With o\n        .Twice b.Field\n    End With", "b.Field", DisplayName = "a member of an Object, relative to a With block")]
     [DataRow("    Set o = New Box\n    Call o.Twice(b.V(0))", "b.V(0)", DisplayName = "an element, to a member of an Object")]
@@ -117,6 +117,6 @@ public sealed class ObjectVariablePassedByRefFormsAnalyzerTests
         CollectionAssert.AreEquivalent(
             new[] { "    RaiseEvent Changed(o.Field)", "    RaiseEvent Changed(Me.Field)", "    BumpV Me.V(0)" },
             findings.Select(finding => lines[finding.Range.Start.Line]).ToArray(),
-            "s58 F05: o.Field and Me.Field are copies, Field is the variable; s58 B01: Me.V(0) is a copy, V(0) the element; ShowMe's parameter is ByVal");
+            "o.Field and Me.Field are copies, Field is the variable; Me.V(0) is a copy, V(0) the element; ShowMe's parameter is ByVal");
     }
 }

@@ -343,8 +343,8 @@ public sealed class FormLanguageTests
             "Public Sub Main()\r\n    Form1.Caption = \"b\"\r\n    Form1.Move 1, 2\r\n    Form1.Show\r\n    Debug.Print Form1.Name\r\nEnd Sub"));
 
     [TestMethod]
-    [DataRow("Debug.Print Form1.ShowModal", DisplayName = "s32b M14 a designer property, not a member")]
-    [DataRow("Debug.Print Form1.Parent", DisplayName = "s32b M19")]
+    [DataRow("Debug.Print Form1.ShowModal", DisplayName = "a designer property, not a member")]
+    [DataRow("Debug.Print Form1.Parent", DisplayName = "the form's Parent")]
     public async Task WhatTheFormObjectDoesNotHave_IsMethodOrDataMemberNotFound(string statement)
         => Assert.AreEqual(VBCompileErrorId.MethodOrDataMemberNotFound, Assert.ContainsSingle(await DeclarationErrorsAsync(Form(), $"Public Sub Main()\r\n    {statement}\r\nEnd Sub")).Id);
 

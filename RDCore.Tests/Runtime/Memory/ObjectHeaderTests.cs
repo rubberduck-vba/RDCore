@@ -129,7 +129,7 @@ public sealed class ObjectHeaderTests
 
     // V16: a Variant's type is its first two bytes, its data eight bytes in.
     [TestMethod]
-    [DataRow(3, 1234, DisplayName = "V16 a Long")]
+    [DataRow(3, 1234, DisplayName = "a Long")]
     public void AVariantsBytes_AreItsTypeAndItsData(int type, int data)
     {
         var storage = Storage([]);

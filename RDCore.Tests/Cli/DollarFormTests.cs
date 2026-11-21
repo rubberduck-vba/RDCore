@@ -22,18 +22,18 @@ public sealed class DollarFormTests
         string.Empty)));
 
     [TestMethod]
-    [DataRow("Len$(\"abc\")", "3|Long", DisplayName = "F18a Len$ is Len")]
-    [DataRow("CVar$(5)", "5|Integer", DisplayName = "F18b CVar$ is CVar")]
-    [DataRow("LenB$(\"ab\")", "4|Long", DisplayName = "D02 LenB$")]
-    [DataRow("Abs$(-3)", "3|Integer", DisplayName = "D04 Abs$")]
-    [DataRow("Fix$(2.5)", "2|Double", DisplayName = "D05 Fix$")]
-    [DataRow("Sgn$(-3)", "-1|Integer", DisplayName = "D07 Sgn$")]
-    [DataRow("CInt$(2.6)", "3|Integer", DisplayName = "D08 CInt$")]
-    [DataRow("CBool$(1)", "True|Boolean", DisplayName = "D11 CBool$")]
-    [DataRow("CStr$(1)", "1|String", DisplayName = "D12 CStr$")]
-    [DataRow("Len%(\"abc\")", "3|Long", DisplayName = "D16 another character, %")]
-    [DataRow("Len&(\"abc\")", "3|Long", DisplayName = "D17 &")]
-    [DataRow("CVar%(5)", "5|Integer", DisplayName = "D18 CVar%")]
+    [DataRow("Len$(\"abc\")", "3|Long", DisplayName = "Len$ is Len")]
+    [DataRow("CVar$(5)", "5|Integer", DisplayName = "CVar$ is CVar")]
+    [DataRow("LenB$(\"ab\")", "4|Long", DisplayName = "LenB$")]
+    [DataRow("Abs$(-3)", "3|Integer", DisplayName = "Abs$")]
+    [DataRow("Fix$(2.5)", "2|Double", DisplayName = "Fix$")]
+    [DataRow("Sgn$(-3)", "-1|Integer", DisplayName = "Sgn$")]
+    [DataRow("CInt$(2.6)", "3|Integer", DisplayName = "CInt$")]
+    [DataRow("CBool$(1)", "True|Boolean", DisplayName = "CBool$")]
+    [DataRow("CStr$(1)", "1|String", DisplayName = "CStr$")]
+    [DataRow("Len%(\"abc\")", "3|Long", DisplayName = "another character, %")]
+    [DataRow("Len&(\"abc\")", "3|Long", DisplayName = "another character, &")]
+    [DataRow("CVar%(5)", "5|Integer", DisplayName = "CVar%")]
     public async Task ATypeCharacterOnAReservedFunctionOfTheLibrary_IsIgnored(string expression, string expected)
         => Assert.AreEqual(expected, await PrintedAsync(expression));
 

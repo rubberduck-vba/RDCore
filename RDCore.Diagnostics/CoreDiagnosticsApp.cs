@@ -132,6 +132,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedLateAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, JumpIntoForLoopAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ForEachControlEmptiedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, CollectionSetToNothingInItsOwnLoopAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IIfSideEffectAnalyzer>();

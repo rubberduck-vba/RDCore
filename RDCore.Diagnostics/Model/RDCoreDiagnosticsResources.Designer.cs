@@ -1511,6 +1511,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to This {0} jumps into a For loop from outside it, and the statement that opens the loop does not run: MS-VBAL says its Next raises run-time error 92 (For loop not initialized). MS-VBA raises it for a For Each loop, and for a counter declared Variant; it steps any other counter on a loop that ends at 0, and so does RD-VBA..
+        /// </summary>
+        public static string JumpIntoForLoop_Message {
+            get {
+                return ResourceManager.GetString("JumpIntoForLoop_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This public variable of an object, or element of one, is passed as a copy to a procedure called late, as MS-VBA passes it: if the procedure takes it ByRef, what it assigns to the parameter is not written back to it..
         /// </summary>
         public static string ObjectVariablePassedLateIsACopy_Message {

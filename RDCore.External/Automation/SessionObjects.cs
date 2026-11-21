@@ -1,4 +1,6 @@
-﻿namespace RDCore.External.Automation;
+﻿using RDCore.SDK.Runtime.Stdole;
+
+namespace RDCore.External.Automation;
 
 /// <summary>
 /// A value that stands for an object of the session - an object of a class module of the program's, or of the standard library's (<c>Collection</c>) - wherever
@@ -27,6 +29,12 @@ public sealed record class SessionObjectReference(string SessionObject, ISession
     /// server draws. <see langword="null"/> for any other object.
     /// </summary>
     public SessionPicture? Picture { get; init; }
+
+    /// <summary>
+    /// What the object holds, when it is a font of the session's (a <c>StdFont</c>): what the server's side makes a font of its own from, which a server draws.
+    /// <see langword="null"/> for any other object.
+    /// </summary>
+    public SessionFont? Font { get; init; }
 }
 
 /// <summary>
@@ -39,6 +47,48 @@ public sealed record class SessionObjectReference(string SessionObject, ISession
 /// Whether the picture is a <c>New StdPicture</c>, which holds none: a picture of its own to MS-VBA, unlike the empty one <c>LoadPicture()</c> returns.
 /// </param>
 public sealed record class SessionPicture(byte[] Bytes, int Width, int Height, bool IsNew);
+
+/// <summary>
+/// The values of a font of the session's, as they read when it is handed over.
+/// </summary>
+/// <param name="Name">The face name.</param>
+/// <param name="IsNamed">Whether the font's name was ever set: a font never named is drawn in a scalable face (<see cref="StdFontObject.IsNamed"/>).</param>
+/// <param name="Size">The size in points, as it reads.</param>
+/// <param name="Weight">The weight: 400 or 700.</param>
+/// <param name="Charset">The character set.</param>
+/// <param name="Italic">Whether the font is italic.</param>
+/// <param name="Underline">Whether the font is underlined.</param>
+/// <param name="Strikethrough">Whether the font is struck through.</param>
+public sealed record class SessionFont(string Name, bool IsNamed, decimal Size, short Weight, short Charset, bool Italic, bool Underline, bool Strikethrough)
+{
+    /// <summary>
+    /// The values of <paramref name="font"/>. Its size is read, which is what a size set and not read yet snaps on.
+    /// </summary>
+    /// <param name="font">The font.</param>
+    public static SessionFont Of(StdFontObject font)
+        => new(font.Name, font.IsNamed, font.Size, font.Weight, font.Charset, font.Italic, font.Underline, font.Strikethrough);
+
+    /// <summary>
+    /// A new font that holds these values.
+    /// </summary>
+    public StdFontObject ToStdFont()
+    {
+        // the values are a font's, which takes each of them back.
+        var font = new StdFontObject();
+        if (IsNamed)
+        {
+            _ = font.TrySetName(Name);
+        }
+
+        _ = font.TrySetSize(Size);
+        _ = font.TrySetWeight(Weight);
+        _ = font.TrySetCharset(Charset);
+        font.Italic = Italic;
+        font.Underline = Underline;
+        font.Strikethrough = Strikethrough;
+        return font;
+    }
+}
 
 /// <summary>
 /// An object of the session, by its identity alone: what a stand-in is when it comes back across the external host, which the session finds its object by.
