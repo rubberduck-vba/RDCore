@@ -119,6 +119,9 @@ public enum RDCoreDiagnosticId
     KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
     Win64IsABitnessTest = 1019, // #If Win64 Then: 1 on a 64-bit Mac too, as in Excel for Mac; Is64BitEnv tests the bitness
     UndefinedConditionalConstant = 1020, // #If DEV Then, DEV defined nowhere: 0, so False; a retired predefined one (Linux64) names its replacement
+    UnassignedVariableUsage = 1021, // [RD2:UnassignedVariableUsageInspection] Dim n As Long: Debug.Print n: always the default value
+    AssignmentNotUsed = 1022, // [RD2:AssignmentNotUsedInspection] n = 1: n = 2: the value 1 is never read
+    ParameterCanBeByVal = 1023, // [RD2:ParameterCanBeByValInspection] Sub Show(n As Long) that never assigns n nor passes it on ByRef
     ProcedureNotUsed = 1025, // a procedure or a property no code calls, its own calls aside
 
     // execution pass diagnostics [00000]

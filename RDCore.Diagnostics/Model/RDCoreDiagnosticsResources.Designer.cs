@@ -1556,6 +1556,42 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is read before anything assigns it: it always has the default value of its type here..
+        /// </summary>
+        public static string UnassignedVariableUsage_Message {
+            get {
+                return ResourceManager.GetString("UnassignedVariableUsage_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The value assigned to &apos;{0}&apos; here is never read..
+        /// </summary>
+        public static string AssignmentNotUsed_Message {
+            get {
+                return ResourceManager.GetString("AssignmentNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by reference, and its procedure neither assigns it nor passes it on by reference: it can be passed by value..
+        /// </summary>
+        public static string ParameterCanBeByVal_Message {
+            get {
+                return ResourceManager.GetString("ParameterCanBeByVal_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Pass &apos;{0}&apos; by value.
+        /// </summary>
+        public static string ParameterCanBeByVal_Fix {
+            get {
+                return ResourceManager.GetString("ParameterCanBeByVal_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is never used..
         /// </summary>
         public static string ParameterNotUsed_Message {
