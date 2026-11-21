@@ -36,22 +36,41 @@ public sealed partial class CompiledActivation
             return null;
         }
 
-        // the cell the body found last of the field of the same object, which keeps it for as long as it lives (CompiledBody.ObjectFields).
-        var known = _body.ObjectFields;
-        if (known is null || !known.Object.Equals(instance.ObjectId))
+        // the field by its index in the fields the object holds, found once for the list it indexes (CompiledBody.ObjectFieldIndices); a Static local, which
+        // no such list holds, by its symbol.
+        var fields = instance.Fields;
+        var known = _body.ObjectFieldIndices;
+        if (known is null || !ReferenceEquals(known.Fields, fields))
         {
-            known = new FieldCells(instance.ObjectId, new object?[_body.Fields.Count]);
-            _body.ObjectFields = known;
+            known = new FieldIndices(fields, IndicesIn(fields));
+            _body.ObjectFieldIndices = known;
         }
 
-        if (known.Cells[number] is { } cached)
+        var index = known.Indices[number];
+        return (index < 0 ? instance.TryResolve(field.Symbol, out var held) : instance.TryResolve(index, out held)) ? CellOfKind(field, held) : null;
+    }
+
+    // the index of each field of Me the body reaches in fields, by the number the body knows it by; -1 for any other.
+    private int[] IndicesIn(IReadOnlyList<SDK.Model.Symbols.Abstract.Symbol> fields)
+    {
+        var indices = new int[_body.Fields.Count];
+        for (var number = 0; number < indices.Length; number++)
         {
-            return cached;
+            indices[number] = -1;
+            if (_body.Fields[number] is { Scope: FieldScope.Object, Symbol: var symbol })
+            {
+                for (var index = 0; index < fields.Count; index++)
+                {
+                    if (fields[index].SemanticId == symbol.SemanticId)
+                    {
+                        indices[number] = index;
+                        break;
+                    }
+                }
+            }
         }
 
-        var found = instance.TryResolve(field.Symbol, out var held) ? CellOfKind(field, held) : null;
-        known.Cells[number] = found;
-        return found;
+        return indices;
     }
 
     // the session's cell, found as the interpreter finds a variable of the session (RuntimeExpressionEvaluator.BindingOf): where the session holds it, and

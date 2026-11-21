@@ -38,6 +38,7 @@ public enum RDCoreDiagnosticId
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
     ImplicitForStep = 116, // a For loop with no Step, under the convention that writes Step 1
     ImplicitConstantType = 117, // a Const with no As and no type character: its type is the one the reader works out from its value
+    VariantStringFunction = 118, // [RD2:UntypedFunctionUsageInspection] Left(s, 1) returns a Variant: Left$ is the same function returning a String
     ImplicitDefaultMemberAccess = 119, // an object of a known class used as a value, or assigned one without Set: its default member, not named
     ImplicitUnboundDefaultMemberAccess = 120, // an Object used as a value, or assigned one without Set: its default member is known only at run time
     IndexedDefaultMemberAccess = 121, // an argument list given to an object of a known class: its default member takes it, not named
@@ -67,6 +68,7 @@ public enum RDCoreDiagnosticId
     FunctionReturnValueDiscarded = 216, // [RD2:FunctionReturnValueDiscardedInspection] a Function of the project called as a statement: the value it returns is discarded
     FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
+    UnreachableCase = 219, // [RD2:UnreachableCaseInspection] a Case block, or the Case Else, that the Cases before it leave no value of the selector for
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -119,6 +121,10 @@ public enum RDCoreDiagnosticId
     KeywordUsedAsMemberName = 1018, // an Enum member or a member of a user-defined type named with a reserved identifier
     Win64IsABitnessTest = 1019, // #If Win64 Then: 1 on a 64-bit Mac too, as in Excel for Mac; Is64BitEnv tests the bitness
     UndefinedConditionalConstant = 1020, // #If DEV Then, DEV defined nowhere: 0, so False; a retired predefined one (Linux64) names its replacement
+    UnassignedVariableUsage = 1021, // [RD2:UnassignedVariableUsageInspection] Dim n As Long: Debug.Print n: always the default value
+    AssignmentNotUsed = 1022, // [RD2:AssignmentNotUsedInspection] n = 1: n = 2: the value 1 is never read
+    ParameterCanBeByVal = 1023, // [RD2:ParameterCanBeByValInspection] Sub Show(n As Long) that never assigns n nor passes it on ByRef
+    DefaultProjectName = 1024, // [RD2:DefaultProjectNameInspection] a project named VBAProject, reported against its .rdproj at the name
     ProcedureNotUsed = 1025, // a procedure or a property no code calls, its own calls aside
 
     // execution pass diagnostics [00000]

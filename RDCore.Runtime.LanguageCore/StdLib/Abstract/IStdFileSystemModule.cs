@@ -33,7 +33,7 @@ public interface IStdFileSystemModule
     RuntimeSemanticsEvaluationResult<VBVariantValue> CurDir(VBVariantValue? drive = default);
 
     /// <inheritdoc cref="CurDir"/>
-    [StdLibMember("CurDir$")]
+    [StdLibMember("CurDir$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> CurDirString(VBVariantValue? drive = default);
 
     /// <summary>

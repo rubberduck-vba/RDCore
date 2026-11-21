@@ -15,6 +15,9 @@ using System.Runtime.CompilerServices;
 // pulls out to it over rdcore/diagnostics/document.
 [assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]
 
+// and of the projects of the workspace, over rdcore/diagnostics/project, which the language server reports against each project's .rdproj.
+[assembly: ProvidesCorePlatformClientCapability<DiagnoseProject>]
+
 // the core diagnostics are reported under RDC codes: no other extension of the platform is started with that prefix.
 [assembly: DiagnosticPrefix(RDCoreDiagnosticCode.CorePrefix)]
 

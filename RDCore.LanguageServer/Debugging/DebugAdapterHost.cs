@@ -1,4 +1,3 @@
-using CommandLine;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -25,7 +24,15 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
 
     protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
-        var parsed = Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args).Value
+        configuration.AddInMemoryCollection(Arguments(args).ToConfigurationOverrides());
+        configuration.AddInMemoryCollection([new("Configuration:Server:CaptureChildOutput", bool.TrueString)]);
+    }
+
+    // the command line as the platform's applications parse it: a relative workspace is read against the current directory, where whoever started the
+    // adapter is.
+    internal static SdkAppCommandLineArgs Arguments(string[] args)
+    {
+        var parsed = SdkCommandLine.Parse(args)
             ?? throw new ArgumentException($"Could not parse command-line arguments: {string.Join(" ", args)}");
 
         // a debug adapter debugs a workspace, and cannot start without one.
@@ -33,10 +40,7 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
 
         // the components of the platform are told the workspace as a URI, which writes the drive of a path in lower case; and every symbol is addressed by the root it
         // was defined under. The root is said once, the way they will all say it.
-        parsed = parsed with { WorkspaceUri = ((DocumentUri)workspace).GetFileSystemPath() };
-
-        configuration.AddInMemoryCollection(parsed.ToConfigurationOverrides());
-        configuration.AddInMemoryCollection([new("Configuration:Server:CaptureChildOutput", bool.TrueString)]);
+        return parsed with { WorkspaceUri = ((DocumentUri)workspace).GetFileSystemPath() };
     }
 
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)

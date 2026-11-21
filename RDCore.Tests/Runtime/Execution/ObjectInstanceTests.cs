@@ -146,6 +146,48 @@ public sealed class ObjectInstanceTests
     }
 
     [TestMethod]
+    public void TryGetBinding_IsNone_UntilTheFieldsBindingIsAskedFor_ThenIsThatBinding()
+    {
+        var classModule = ClassModule();
+        var sut = Sut(classModule, out _);
+        var field = Field(classModule.Uri, "State");
+        sut.Push(field, new VBLongValue(0));
+
+        // a field holds its initial value, which holds no object, until something asks for its binding.
+        Assert.IsFalse(sut.TryGetBinding(field, out _));
+
+        var binding = sut.GetValue(field);
+
+        Assert.IsTrue(sut.TryGetBinding(field, out var made));
+        Assert.AreSame(binding, made);
+        Assert.AreSame(binding, sut.GetValue(field), "the binding made is the field's from then on");
+    }
+
+    [TestMethod]
+    public void TryResolve_ByIndex_IsTheBindingOfTheFieldAtThatIndexInFields()
+    {
+        var classModule = ClassModule();
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var first = Field(classModule.Uri, "First");
+        var counter = new VBLocalVariableSymbol(Root, classModule.Uri, "Counter", ScopeKind.Local, R, R, IsStatic: true, ResolvedType: VBLongType.TypeInfo);
+        var second = Field(classModule.Uri, "Second");
+
+        // a field of the class's layout, then a Static local of a member and a field the class was given since: the object holds the Static, but it is
+        // none of its Fields.
+        var sut = new ObjectInstance(new VBRuntimeObjectId(), classModule, storage, null, new ObjectLayout([first]));
+        sut.Hold(0, new VBLongValue(1));
+        sut.Push(counter, new VBLongValue(7));
+        sut.Push(second, new VBLongValue(2));
+
+        CollectionAssert.AreEqual(new[] { first, second }, sut.Fields.ToArray());
+        Assert.IsTrue(sut.TryResolve(0, out var atFirst));
+        Assert.IsTrue(sut.TryResolve(1, out var atSecond));
+        Assert.AreSame(sut.GetValue(first), atFirst);
+        Assert.AreSame(sut.GetValue(second), atSecond);
+        Assert.IsFalse(sut.TryResolve(2, out _), "no field is at an index past Fields");
+    }
+
+    [TestMethod]
     public void TwoInstancesOfTheSameClass_GetIndependentBindingsForTheSameDeclaredField()
         // the whole point: the "same" declared field, on two separate instances, must never alias.
     {

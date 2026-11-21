@@ -309,6 +309,9 @@
   <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
     <value>Chaque appel de la fonction &apos;{0}&apos; perd la valeur qu&apos;elle renvoie : elle peut être une Sub.</value>
   </data>
+  <data name="FunctionMadeASub_Fix" xml:space="preserve">
+    <value>Faire de &apos;{0}&apos; une Sub</value>
+  </data>
   <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
     <value>La variable &apos;{0}&apos; du module n&apos;est utilisée que dans &apos;{1}&apos; : elle peut y être déclarée.</value>
   </data>
@@ -392,6 +395,9 @@
   </data>
   <data name="HungarianNotation_Message" xml:space="preserve">
     <value>'{0}' commence par un préfixe qui indique son type. Le type est déclaré : le nom devrait dire ce qu'est la chose, pas de quoi elle est faite.</value>
+  </data>
+  <data name="AllowName_Fix" xml:space="preserve">
+    <value>Autoriser le nom '{0}'</value>
   </data>
   <data name="MisleadingByRefParameter_Message" xml:space="preserve">
     <value>ByRef n'a aucun effet sur '{0}', le paramètre de valeur d'une propriété Let ou Set : il est toujours passé ByVal.</value>
@@ -609,11 +615,26 @@
   <data name="AssignedByValParameter_Fix" xml:space="preserve">
     <value>Copier &apos;{0}&apos; dans une variable locale &apos;{1}&apos;, et l&apos;utiliser à la place du paramètre</value>
   </data>
+  <data name="UnassignedVariableUsage_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; est lue avant d&apos;avoir reçu une valeur : elle a toujours ici la valeur par défaut de son type.</value>
+  </data>
+  <data name="AssignmentNotUsed_Message" xml:space="preserve">
+    <value>La valeur affectée ici à &apos;{0}&apos; n&apos;est jamais lue.</value>
+  </data>
+  <data name="ParameterCanBeByVal_Message" xml:space="preserve">
+    <value>Le paramètre &apos;{0}&apos; est passé par référence, et sa procédure ne l&apos;affecte ni ne le passe par référence : il peut être passé par valeur.</value>
+  </data>
+  <data name="ParameterCanBeByVal_Fix" xml:space="preserve">
+    <value>Passer &apos;{0}&apos; par valeur</value>
+  </data>
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>La constante &apos;{0}&apos; n&apos;est jamais utilisée.</value>
   </data>
   <data name="ConstantNotUsed_Fix" xml:space="preserve">
     <value>Supprimer la déclaration de &apos;{0}&apos;</value>
+  </data>
+  <data name="DefaultProjectName_Message" xml:space="preserve">
+    <value>Le projet est nommé &apos;{0}&apos;, le nom que MS-VBA donne à un nouveau projet : donnez-lui un nom qui lui est propre.</value>
   </data>
   <data name="VariableNotUsed_Fix" xml:space="preserve">
     <value>Supprimer la déclaration de &apos;{0}&apos;</value>
@@ -705,6 +726,12 @@
   <data name="ImplicitConstantType_Message" xml:space="preserve">
     <value>La constante &apos;{0}&apos; n&apos;indique aucun type : une clause As dit lequel elle a.</value>
   </data>
+  <data name="VariantStringFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; renvoie un Variant : &apos;{1}&apos; est la même fonction, et renvoie un String.</value>
+  </data>
+  <data name="VariantStringFunction_Fix" xml:space="preserve">
+    <value>Utiliser &apos;{0}&apos;</value>
+  </data>
   <data name="UnderscoreInPublicClassMember_Message" xml:space="preserve">
     <value>&apos;{0}&apos; a un trait de soulignement dans son nom : aucune classe ne peut implémenter celle-ci.</value>
   </data>
@@ -752,6 +779,15 @@
   </data>
   <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
     <value>Chaque branche affecte un littéral Boolean à &apos;{0}&apos; : lui affecter la condition, ou Not la condition, dit la même chose.</value>
+  </data>
+  <data name="UnreachableCase_Message" xml:space="preserve">
+    <value>Ce Case n'est jamais atteint : les Case qui le précèdent couvrent toutes les valeurs qu'il couvre.</value>
+  </data>
+  <data name="UnreachableCase_Inverted_Message" xml:space="preserve">
+    <value>Ce Case n'est jamais atteint : sa plage commence au-delà de sa fin.</value>
+  </data>
+  <data name="UnreachableCase_Else_Message" xml:space="preserve">
+    <value>Ce Case Else n'est jamais atteint : les Case qui le précèdent couvrent toutes les valeurs du type du sélecteur.</value>
   </data>
   <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
     <value>Affecter la condition à &apos;{0}&apos;</value>

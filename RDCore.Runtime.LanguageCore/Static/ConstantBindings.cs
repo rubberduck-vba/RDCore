@@ -17,7 +17,7 @@ namespace RDCore.Runtime.LanguageCore.Static;
 // MS-VBAL §5.2.3.2: the constant binding of a constant is the data value of its constant expression, Let-coerced to its declared type. It is known here where
 // the expression is a literal, a negated or parenthesized one, or the name of another constant whose binding is known; and where the Let-coercion is to
 // Boolean (MS-VBAL §5.5.1.2.2), to a Byte, an Integer, a Long, a LongLong, a LongPtr, a Single or a Double from a number that fits it (§5.5.1.2.1,
-// rounding to even), or to the value's own type or a Variant.
+// rounding to even), or to the value's own type or a Variant. A member of an Enum (MS-VBAL §5.2.3.4) is known the same way, as a Long.
 internal static class ConstantBindings
 {
     // the most constants a binding is looked for through, each naming the next: past them, the binding is not known.
@@ -29,8 +29,29 @@ internal static class ConstantBindings
     {
         VBLocalConstantSymbol { Value: { } value } local => LetCoerced(ValueOf(context, value, depth), local.ResolvedType),
         VBConstantMemberSymbol { Value: { } value } member => LetCoerced(ValueOf(context, value, depth), member.ResolvedType),
+        VBEnumConstMemberSymbol library when library.TryGetProperty(SymbolProperties.EnumValue, out var stated) => new VBLongValue(unchecked((int)stated)),
+        VBEnumConstMemberSymbol { DeclaredValue: { } declared } => EnumMemberValueOf(context, declared),
         _ => null,
     };
+
+    // MS-VBAL §5.2.3.4: a member of a workspace Enum is the nearest expression at or before it, Let-coerced to Long, plus how far past that member it is, or
+    // that distance alone. The expression binds its names from the Enum's module, which need not be the one the member is read from: a name in it is not
+    // looked up, and leaves the value unknown.
+    private static VBTypedValue? EnumMemberValueOf(StaticEvaluationContext context, EnumMemberValue declared)
+    {
+        Int128 value = declared.Offset;
+        if (declared.BaseValue is { } expression)
+        {
+            if (LetCoerced(ValueOf(context, expression, Depth), VBLongType.TypeInfo) is not VBLongValue folded)
+            {
+                return null;
+            }
+
+            value += folded.Value;
+        }
+
+        return value <= int.MaxValue ? new VBLongValue((int)value) : null;
+    }
 
     private static VBTypedValue? ValueOf(StaticEvaluationContext context, ExpressionNode expression, int depth) => expression switch
     {

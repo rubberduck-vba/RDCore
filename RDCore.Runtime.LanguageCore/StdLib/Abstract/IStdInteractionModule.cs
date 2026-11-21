@@ -65,7 +65,7 @@ public interface IStdInteractionModule
     /// Gets a <see cref="VBStringValue"/> containing the <em>command-line arguments</em> (if any) that were used to initiate the execution of the currently running <em>workspace application</em>.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember("Command$")]
+    [StdLibMember("Command$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> CommandString();
 
     /// <summary>
@@ -119,7 +119,7 @@ public interface IStdInteractionModule
     /// </remarks>
     /// <param name="key">A <see cref="VBStringValue"/>, or a data value that is let-coercible to <see cref="VBLongValue"/>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember("Environ$")]
+    [StdLibMember("Environ$", IsStringForm = true)]
     RuntimeSemanticsEvaluationResult<VBStringValue> EnvironString(VBVariantValue key);
 
     /// <summary>

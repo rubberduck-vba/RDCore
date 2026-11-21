@@ -42,6 +42,7 @@ internal static class ExpressionFactDescriber
                         symbol.SemanticId, FlagsOf(symbol, name.IdentifierName) | BindingFlagsOf(symbol), error)
                     {
                         ConstantValue = ConstantBindings.Of(context, symbol),
+                        StringForm = symbol.GetProperty(SymbolProperties.StringForm),
                     }, symbol);
             }
 
@@ -108,6 +109,7 @@ internal static class ExpressionFactDescriber
                 new(expression.Identity, expression.Location, type, classification, binding?.SemanticId, flags | BindingFlagsOf(binding), error)
                 {
                     ConstantValue = ConstantBindings.Of(context, binding),
+                    StringForm = binding?.GetProperty(SymbolProperties.StringForm),
                 }, binding);
 
         // an access with no owner is relative to the object of the enclosing With block.

@@ -160,6 +160,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("HungarianNotation_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Allow the name &apos;{0}&apos;.
+        /// </summary>
+        public static string AllowName_Fix {
+            get {
+                return ResourceManager.GetString("AllowName_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private..
@@ -671,6 +680,15 @@ namespace RDCore.Diagnostics.Model {
         public static string FunctionReturnValueAlwaysDiscarded_Message {
             get {
                 return ResourceManager.GetString("FunctionReturnValueAlwaysDiscarded_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Make &apos;{0}&apos; a Sub.
+        /// </summary>
+        public static string FunctionMadeASub_Fix {
+            get {
+                return ResourceManager.GetString("FunctionMadeASub_Fix", resourceCulture);
             }
         }
 
@@ -1556,6 +1574,42 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is read before anything assigns it: it always has the default value of its type here..
+        /// </summary>
+        public static string UnassignedVariableUsage_Message {
+            get {
+                return ResourceManager.GetString("UnassignedVariableUsage_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The value assigned to &apos;{0}&apos; here is never read..
+        /// </summary>
+        public static string AssignmentNotUsed_Message {
+            get {
+                return ResourceManager.GetString("AssignmentNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by reference, and its procedure neither assigns it nor passes it on by reference: it can be passed by value..
+        /// </summary>
+        public static string ParameterCanBeByVal_Message {
+            get {
+                return ResourceManager.GetString("ParameterCanBeByVal_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Pass &apos;{0}&apos; by value.
+        /// </summary>
+        public static string ParameterCanBeByVal_Fix {
+            get {
+                return ResourceManager.GetString("ParameterCanBeByVal_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is never used..
         /// </summary>
         public static string ParameterNotUsed_Message {
@@ -1615,6 +1669,15 @@ namespace RDCore.Diagnostics.Model {
         public static string ConstantNotUsed_Fix {
             get {
                 return ResourceManager.GetString("ConstantNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project is named &apos;{0}&apos;, the name MS-VBA gives a new project: give it a name of its own..
+        /// </summary>
+        public static string DefaultProjectName_Message {
+            get {
+                return ResourceManager.GetString("DefaultProjectName_Message", resourceCulture);
             }
         }
 
@@ -1860,6 +1923,22 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; returns a Variant: &apos;{1}&apos; is the same function, and returns a String..
+        /// </summary>
+        public static string VariantStringFunction_Message {
+            get {
+                return ResourceManager.GetString("VariantStringFunction_Message", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Use &apos;{0}&apos;.
+        /// </summary>
+        public static string VariantStringFunction_Fix {
+            get {
+                return ResourceManager.GetString("VariantStringFunction_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; has an underscore in its name: no class can implement this one..
         /// </summary>
         public static string UnderscoreInPublicClassMember_Message {
@@ -1918,6 +1997,33 @@ namespace RDCore.Diagnostics.Model {
         public static string BooleanAssignedInIfElse_Message {
             get {
                 return ResourceManager.GetString("BooleanAssignedInIfElse_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This Case is never reached: the Cases before it match every value it matches..
+        /// </summary>
+        public static string UnreachableCase_Message {
+            get {
+                return ResourceManager.GetString("UnreachableCase_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This Case is never reached: its range starts above where it ends..
+        /// </summary>
+        public static string UnreachableCase_Inverted_Message {
+            get {
+                return ResourceManager.GetString("UnreachableCase_Inverted_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This Case Else is never reached: the Cases before it match every value of the selector&apos;s type..
+        /// </summary>
+        public static string UnreachableCase_Else_Message {
+            get {
+                return ResourceManager.GetString("UnreachableCase_Else_Message", resourceCulture);
             }
         }
 

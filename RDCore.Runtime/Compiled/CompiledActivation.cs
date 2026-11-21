@@ -2338,11 +2338,10 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<CompiledField> Fields { get; init; } = [];
 
     /// <summary>
-    /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
-    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The cache keeps the object's
-    /// identity and holds no reference to it.
+    /// Where the fields of <c>Me</c> the body reaches are in the fields the object an activation of it was last on holds (<see cref="FieldIndices"/>):
+    /// the same for every object of its class laid out at the same version, found again for an object that holds another list.
     /// </summary>
-    internal FieldCells? ObjectFields { get; set; }
+    internal FieldIndices? ObjectFieldIndices { get; set; }
 
     /// <summary>
     /// The cells of the fields of the session the body found last: those of the storage an activation of it last ran in, for as long as

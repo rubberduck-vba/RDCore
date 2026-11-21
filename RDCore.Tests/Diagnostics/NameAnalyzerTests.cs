@@ -307,7 +307,7 @@ public sealed class NameAnalyzerTests
 
         Assert.AreEqual(name, Names([finding]).Single());
         Assert.AreEqual(0, finding.Range.Start.Line);
-        Assert.IsNull(finding.Fixes, "a module is renamed where the project names it");
+        Assert.IsNull(finding.Fixes?.Rename, "a module is renamed where the project names it");
     }
 
     [TestMethod]
@@ -407,7 +407,7 @@ public sealed class NameAnalyzerTests
         var finding = Run(new HungarianNotationAnalyzer(Options()), $"Attribute VB_Name = \"{name}\"\nPrivate customer As Long").Single();
 
         Assert.AreEqual(name, Names([finding]).Single());
-        Assert.IsNull(finding.Fixes, "a module is renamed where the project names it");
+        Assert.IsNull(finding.Fixes?.Rename, "a module is renamed where the project names it");
     }
 
     [TestMethod]
@@ -437,9 +437,56 @@ public sealed class NameAnalyzerTests
         var diagnostic = new DiagnosticFactory().FromAnalyzerFinding(finding);
         var sent = Newtonsoft.Json.JsonConvert.DeserializeObject<Diagnostic>(Newtonsoft.Json.JsonConvert.SerializeObject(diagnostic))!;
 
-        Assert.AreEqual("""{"rename":{"suggestions":["Name"]}}""", diagnostic.Data!.ToString(Newtonsoft.Json.Formatting.None));
+        Assert.AreEqual("""{"suggestions":["Name"]}""", diagnostic.Data!["rename"]!.ToString(Newtonsoft.Json.Formatting.None));
         CollectionAssert.AreEqual(new[] { "Name" }, DiagnosticFixes.Of(sent)?.Rename?.Suggestions.ToArray());
+        Assert.AreEqual("strName", DiagnosticFixes.Of(sent)?.Setting?.Value, "the name to allow travels too");
         Assert.IsNull(DiagnosticFixes.Of(new Diagnostic { Data = Newtonsoft.Json.Linq.JToken.FromObject(new ErrorDiagnosticMetadata(13, "")) }), "the metadata of an error is no fix");
+    }
+
+    // the settings of the extension with the item the fix adds, as the platform's settings carry them: its key, of dotted sections.
+    private static IOptions<DiagnosticsOptions> Allowing(SettingFix fix)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { [$"{fix.Key.Replace('.', ':')}:0"] = fix.Value })
+            .Build();
+        return Microsoft.Extensions.Options.Options.Create(configuration.GetSection(DiagnosticsOptions.Section).Get<DiagnosticsOptions>()!);
+    }
+
+    [TestMethod]
+    [DataRow("Private x As Long", DisplayName = "a variable")]
+    [DataRow("Attribute VB_Name = \"Mod1\"\nPrivate customer As Long", DisplayName = "a module, which has no rename")]
+    public void AMeaninglessName_IsOfferedToBeAllowed_AndOnceAllowedIsNotReported(string source)
+    {
+        var finding = Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), source).First();
+        var fix = finding.Fixes?.Setting;
+
+        Assert.IsNotNull(fix, "the finding offers to allow its name");
+        Assert.AreEqual(Names([finding])[0], fix.Value);
+        Assert.IsFalse(Run(new UseMeaningfulIdentifierNamesAnalyzer(Allowing(fix)), source).Any(each => Names([each])[0] == fix.Value),
+            "allowed, it is not reported");
+    }
+
+    [TestMethod]
+    [DataRow("Private strName As String", DisplayName = "a variable")]
+    [DataRow("Attribute VB_Name = \"clsCustomer\"\nPrivate customer As Long", DisplayName = "a module, which has no rename")]
+    public void AHungarianName_IsOfferedToBeAllowed_AndOnceAllowedIsNotReported(string source)
+    {
+        var finding = Run(new HungarianNotationAnalyzer(Options()), source).First();
+        var fix = finding.Fixes?.Setting;
+
+        Assert.IsNotNull(fix, "the finding offers to allow its name");
+        Assert.AreEqual(Names([finding])[0], fix.Value);
+        Assert.IsFalse(Run(new HungarianNotationAnalyzer(Allowing(fix)), source).Any(each => Names([each])[0] == fix.Value),
+            "allowed, it is not reported");
+    }
+
+    [TestMethod]
+    public void AllowingAName_ForOneRule_DoesNotAllowItForTheOther()
+    {
+        var hungarian = Run(new HungarianNotationAnalyzer(Options()), "Private strX As String").Single().Fixes!.Setting!;
+
+        Assert.IsNotEmpty(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), "Private strX As String"), "the premise: strX is meaningless too");
+        Assert.IsNotEmpty(Run(new UseMeaningfulIdentifierNamesAnalyzer(Allowing(hungarian)), "Private strX As String"), "its own list is the other rule's");
     }
 
     #endregion

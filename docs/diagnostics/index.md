@@ -261,6 +261,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00115](rdc00115.md)|Implicit result local|A function that reads its own return value, as the local variable it implicitly is|
 |[RDC00116](rdc00116.md)|Implicit For step|A For loop that states no Step, under the convention that writes Step 1|
 |[RDC00117](rdc00117.md)|Implicit constant type|A constant with no As clause and no type character|
+|[RDC00118](rdc00118.md)|Variant form of a String function|`Left` and the like, which return a Variant where their `$` form returns a String|
 |[RDC00119](rdc00119.md)|Implicit default member access|An object of a known class used as a value, or assigned one without `Set`, through a default member the code does not name|
 |[RDC00120](rdc00120.md)|Implicit unbound default member access|An `Object` used as a value, or assigned one without `Set`: its default member is known only at run time|
 |[RDC00121](rdc00121.md)|Indexed default member access|An argument list given to an object of a known class, which its default member takes|
@@ -289,6 +290,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00216](rdc00216.md)|Function result discarded|A `Function` of the project called as a statement|
 |[RDC00217](rdc00217.md)|Function result always discarded|A `Function` that every call of the project calls as a statement|
 |[RDC00218](rdc00218.md)|IsMissing of a Variant that is not Optional|IsMissing of a required Variant parameter, or of a Variant variable|
+|[RDC00219](rdc00219.md)|Unreachable Case|A `Case` or `Case Else` block that no value of the selector reaches|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
 |[RDC00304](rdc00304.md)|Obsolete error syntax|An Error statement|
@@ -330,6 +332,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
 |[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
 |[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
+|[RDC01021](rdc01021.md)|Unassigned variable usage|A local variable read where nothing has assigned it|
+|[RDC01022](rdc01022.md)|Assignment not used|A value assigned to a variable that nothing reads|
+|[RDC01023](rdc01023.md)|Parameter can be passed by value|A parameter passed by reference that its procedure never changes|
+|[RDC01024](rdc01024.md)|Default project name|A project named `VBAProject`, the name MS-VBA gives a new project|
 |[RDC01025](rdc01025.md)|Procedure not used|A procedure or a property that no code calls|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|

@@ -44,6 +44,7 @@ internal class CoreDiagnosticsApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DiagnoseDocumentHandler>();
+        builder.WithHandler<DiagnoseProjectHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -108,11 +109,15 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, RedundantByRefModifierAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantModuleOptionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BooleanAssignedInIfElseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnreachableCaseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, StopStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotAssignedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ParameterNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AssignedByValParameterAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnassignedVariableUsageAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, AssignmentNotUsedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ParameterCanBeByValAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ConstantNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LineLabelNotUsedAnalyzer>();
@@ -122,6 +127,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, OnErrorGoToMinusOneAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnrestoredOnErrorResumeNextAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitConstantTypeAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, VariantStringFunctionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnderscoreInPublicClassMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();
@@ -186,6 +192,9 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, EmptyCodeBlockAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyProcedureAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyModuleAnalyzer>();
+
+        // every project analyzer, which the project handler calls for each project of the workspace.
+        services.AddSingleton<IProjectAnalyzer, DefaultProjectNameAnalyzer>();
     }
 
     protected override void Dispose(bool disposing)

@@ -309,6 +309,9 @@
   <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
     <value>Every call of function &apos;{0}&apos; discards the value it returns: it can be a Sub.</value>
   </data>
+  <data name="FunctionMadeASub_Fix" xml:space="preserve">
+    <value>Make &apos;{0}&apos; a Sub</value>
+  </data>
   <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
     <value>Variable &apos;{0}&apos; of the module is used only in &apos;{1}&apos;: it can be declared there.</value>
   </data>
@@ -392,6 +395,9 @@
   </data>
   <data name="HungarianNotation_Message" xml:space="preserve">
     <value>'{0}' begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of.</value>
+  </data>
+  <data name="AllowName_Fix" xml:space="preserve">
+    <value>Allow the name '{0}'</value>
   </data>
   <data name="MisleadingByRefParameter_Message" xml:space="preserve">
     <value>ByRef has no effect on '{0}', the value parameter of a property Let or Set: it is always passed ByVal.</value>
@@ -609,11 +615,26 @@
   <data name="AssignedByValParameter_Fix" xml:space="preserve">
     <value>Copy &apos;{0}&apos; into a local variable &apos;{1}&apos;, and use it in place of the parameter</value>
   </data>
+  <data name="UnassignedVariableUsage_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is read before anything assigns it: it always has the default value of its type here.</value>
+  </data>
+  <data name="AssignmentNotUsed_Message" xml:space="preserve">
+    <value>The value assigned to &apos;{0}&apos; here is never read.</value>
+  </data>
+  <data name="ParameterCanBeByVal_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is passed by reference, and its procedure neither assigns it nor passes it on by reference: it can be passed by value.</value>
+  </data>
+  <data name="ParameterCanBeByVal_Fix" xml:space="preserve">
+    <value>Pass &apos;{0}&apos; by value</value>
+  </data>
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; is never used.</value>
   </data>
   <data name="ConstantNotUsed_Fix" xml:space="preserve">
     <value>Remove the declaration of &apos;{0}&apos;</value>
+  </data>
+  <data name="DefaultProjectName_Message" xml:space="preserve">
+    <value>The project is named &apos;{0}&apos;, the name MS-VBA gives a new project: give it a name of its own.</value>
   </data>
   <data name="VariableNotUsed_Fix" xml:space="preserve">
     <value>Remove the declaration of &apos;{0}&apos;</value>
@@ -705,6 +726,12 @@
   <data name="ImplicitConstantType_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; states no type: an As clause says which one it has.</value>
   </data>
+  <data name="VariantStringFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; returns a Variant: &apos;{1}&apos; is the same function, and returns a String.</value>
+  </data>
+  <data name="VariantStringFunction_Fix" xml:space="preserve">
+    <value>Use &apos;{0}&apos;</value>
+  </data>
   <data name="UnderscoreInPublicClassMember_Message" xml:space="preserve">
     <value>&apos;{0}&apos; has an underscore in its name: no class can implement this one.</value>
   </data>
@@ -752,6 +779,15 @@
   </data>
   <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
     <value>Each branch assigns a Boolean literal to &apos;{0}&apos;: assigning it the condition, or Not the condition, says the same.</value>
+  </data>
+  <data name="UnreachableCase_Message" xml:space="preserve">
+    <value>This Case is never reached: the Cases before it match every value it matches.</value>
+  </data>
+  <data name="UnreachableCase_Inverted_Message" xml:space="preserve">
+    <value>This Case is never reached: its range starts above where it ends.</value>
+  </data>
+  <data name="UnreachableCase_Else_Message" xml:space="preserve">
+    <value>This Case Else is never reached: the Cases before it match every value of the selector's type.</value>
   </data>
   <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
     <value>Assign the condition to &apos;{0}&apos;</value>

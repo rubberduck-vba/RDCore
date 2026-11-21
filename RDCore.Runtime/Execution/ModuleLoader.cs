@@ -156,8 +156,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                 ? new HashSet<SemanticId>()
                 : scope.Declarations.OfType<VBLocalVariableSymbol>().Where(local => local is { IsStatic: false } and not VBParameterSymbol)
                     .Select(local => local.SemanticId).ToHashSet();
+            var (initialValueReads, unreadAssignments) = VariableFlowAnalysis.Of(model, lowering.InstructionList, session.Symbols.Scopes, automaticLocals);
             procedureModels.Add(model with
             {
+                InitialValueReads = initialValueReads,
+                UnreadAssignments = unreadAssignments,
                 // a body that has no statement has its End statement all the same.
                 ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList) is { } returned
                     ? returned with { IsEmpty = lowering.InstructionList.Items.Length == 1 }
@@ -215,6 +218,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             UndefinedConditionalConstants = PrecompilerLiveBranchEvaluator.UndefinedConstantsOf(session, parseResult.PrecompilerTrivia),
             ProjectConditionalConstants = ProjectConditionalConstants.FactsOf(session),
             Win64OnlySetOnWindows = session.Environment.Win64OnlySetOnWindows,
+            Expressions = (declarationFacts ?? ModuleDeclarationFacts.None).Expressions,
         };
 
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
