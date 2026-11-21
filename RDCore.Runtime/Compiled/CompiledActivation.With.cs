@@ -13,14 +13,19 @@ public sealed partial class CompiledActivation
     /// </summary>
     /// <param name="opener">The offset of the <c>With</c> statement.</param>
     /// <param name="cell">The cell of the object variable, or of the object field, the call or the <c>New</c> the statement reads.</param>
+    /// <param name="makesObject">
+    /// Whether the cell is the one of an object variable declared <c>As New</c>, which the interpreter reads while it holds <c>Nothing</c>: reading it
+    /// makes the object the variable is given (MS-VBAL §5.2.3.1.4).
+    /// </param>
     /// <returns>
     /// <see langword="false"/> when the interpreter runs the statement: under a debugger or an analysis, a cell that holds no reference compiled code reads,
-    /// or a block opened again before its <c>End With</c> whose letting go of what it held would destroy an object, whose <c>Terminate</c> is the
-    /// interpreter's to run (MS-VBAL §5.3.1.10).
+    /// one of a variable declared <c>As New</c> that holds <c>Nothing</c>, or a block opened again before its <c>End With</c> whose letting go of what it
+    /// held would destroy an object, whose <c>Terminate</c> is the interpreter's to run (MS-VBAL §5.3.1.10).
     /// </returns>
-    public bool TryWith(int opener, object? cell)
+    public bool TryWith(int opener, object? cell, bool makesObject)
     {
-        if (FailsAccessAtRandom() || _executor.Observation is not null || _halt.Gate is not null || !ObjectOperations.TryRead(cell, out var instance))
+        if (FailsAccessAtRandom() || _executor.Observation is not null || _halt.Gate is not null || !ObjectOperations.TryRead(cell, out var instance)
+            || makesObject && instance.Equals(VBObjectValue.Nothing.Value))
         {
             return false;
         }
