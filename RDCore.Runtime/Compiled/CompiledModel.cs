@@ -687,7 +687,8 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// For each parameter, the slot of the callee's layout a <c>String</c> parameter of variable length is held in, whose <see cref="Parameters"/> kind is
     /// <see langword="null"/> (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>); -1 for any other. Empty when the call has no
     /// <c>String</c> parameter. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeText"/>,
-    /// <see cref="CompiledActivation.TakeTextReference"/>).
+    /// <see cref="CompiledActivation.TakeTextReference"/>). A call of a member of an object is made through its binding, which is given the argument
+    /// (<see cref="CompiledActivation.SetText"/>, <see cref="CompiledActivation.SetTextReference"/>): the slot is the one of the member it was bound to.
     /// </summary>
     public IReadOnlyList<int> TextSlots { get; init; } = [];
 

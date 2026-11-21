@@ -1095,9 +1095,10 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a String of a procedure of a standard module, given its text or the cell of a String of the activation, in the slot of the callee's layout
-            // that holds the parameter (CompiledCallee.TextSlots).
-            if (parameters[i] is not ParamArrayParameterSymbol && site is null && defaultOf is null && receiver is null && IsText(parameters[i].ResolvedType))
+            // a String, given its text or the cell of a String of the activation, in the slot of the callee's layout that holds the parameter
+            // (CompiledCallee.TextSlots). A member of an object, which is called through its binding, is given it as the interpreter gives it
+            // (CompiledActivation.SetText, SetTextReference), to the parameter of the member the object's class invokes.
+            if (parameters[i] is not ParamArrayParameterSymbol && IsText(parameters[i].ResolvedType))
             {
                 if (TextArgumentOf(arguments[i]) is not { } text)
                 {
@@ -1110,7 +1111,7 @@ internal sealed partial class ProcedureAnalysis
                     Array.Fill(texts, -1);
                 }
 
-                texts[i] = FrameLayout.For(procedure).ParameterSlots[i];
+                texts[i] = FrameLayout.For(procedure).ParameterSlots[RuntimeProcedureInvoker.GetParameters(procedure).IndexOf(parameters[i])];
                 kinds.Add(null);
                 byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
                 values.Add(text);
