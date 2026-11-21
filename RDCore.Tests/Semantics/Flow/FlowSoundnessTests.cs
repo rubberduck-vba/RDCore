@@ -123,7 +123,7 @@ public sealed class FlowSoundnessTests
     // ---------------- soundness: errors ----------------
 
     [TestMethod]
-    public void S01_AnErrorRaisedToTheCaller_ExposesAByRefParameter_AnExpressionThatMayFail()
+    public voidAnErrorRaisedToTheCaller_ExposesAByRefParameter_AnExpressionThatMayFail()
     {
         // Run's caller, with a handler, sees r = 1 when 10 \ n divides by zero. No call: a call reads whatever outlives the activation, and would keep r live
         // whatever the exit edge does.
@@ -132,21 +132,21 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S02_AnErrorStatementRaisedToTheCaller_ExposesAByRefParameter()
+    public voidAnErrorStatementRaisedToTheCaller_ExposesAByRefParameter()
     {
         var analyzed = Analyze("r = 1\nError 5", header: "Public Sub Run(ByRef r As Long)");
         Assert.Contains(analyzed.Variable("r"), analyzed.Live.LiveAfter(analyzed.Lines(0, 0)));
     }
 
     [TestMethod]
-    public void S03_AnErrorStatementUnderResumeNext_ContinuesAtTheNextStatement()
+    public voidAnErrorStatementUnderResumeNext_ContinuesAtTheNextStatement()
     {
         var analyzed = Analyze("Dim x As Long\nOn Error Resume Next\nx = 1\nError 5\nDebug.Print x");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(2, 2)));
     }
 
     [TestMethod]
-    public void S04_OnErrorGoToMinusOne_KeepsTheHandler_Liveness()
+    public voidOnErrorGoToMinusOne_KeepsTheHandler_Liveness()
     {
         // Excel-verified: inside handler H, On Error GoTo -1 then a raise goes to H again.
         var analyzed = Analyze("Dim x As Long\nOn Error GoTo H\nx = G()\nExit Sub\nH:\nDebug.Print x\nOn Error GoTo -1\nx = 1\nx = G()\nExit Sub");
@@ -154,14 +154,14 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S05_OnErrorGoToMinusOne_KeepsTheHandler_States()
+    public voidOnErrorGoToMinusOne_KeepsTheHandler_States()
     {
         var analyzed = Analyze("Dim x As Long\nOn Error GoTo H\nx = G()\nExit Sub\nH:\nDebug.Print x\nOn Error GoTo -1\nx = 1\nx = G()\nExit Sub");
         Assert.IsNotEmpty(analyzed.States.HandlersAt(analyzed.Line(8)), "H is still the handler");
     }
 
     [TestMethod]
-    public void S06_StatementsReachedOnlyByResumeNext_AreProtectedByTheHandler()
+    public voidStatementsReachedOnlyByResumeNext_AreProtectedByTheHandler()
     {
         var analyzed = Analyze("Dim x As Long\nOn Error GoTo H\nError 5\nx = 1\nx = G()\nExit Sub\nH:\nDebug.Print x\nResume Next");
         Assert.IsNotEmpty(analyzed.States.HandlersAt(analyzed.Line(4)), "the states know H is in effect");
@@ -169,14 +169,14 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S07_AnErrorInsideTheHandler_ExposesAByRefParameterToTheCaller()
+    public voidAnErrorInsideTheHandler_ExposesAByRefParameterToTheCaller()
     {
         var analyzed = Analyze("On Error GoTo H\nr = 10 \\ n\nExit Sub\nH:\nr = 1\nr = 10 \\ n", header: "Public Sub Run(ByRef r As Long, ByVal n As Long)");
         Assert.Contains(analyzed.Variable("r"), analyzed.Live.LiveAfter(analyzed.Lines(4, 4)));
     }
 
     [TestMethod]
-    public void S08_AnErrorInsideTheHandler_LeavesTheActivation()
+    public voidAnErrorInsideTheHandler_LeavesTheActivation()
     {
         var analyzed = Analyze("On Error GoTo H\nr = 10 \\ n\nExit Sub\nH:\nr = 10 \\ n", header: "Public Sub Run(ByRef r As Long, ByVal n As Long)");
         var edges = analyzed.States.Edges.SuccessorsOf(analyzed.Line(4));
@@ -184,7 +184,7 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S09_AnErrorStatementUnderResumeNext_ReachesTheNextStatement_InTheSameState()
+    public voidAnErrorStatementUnderResumeNext_ReachesTheNextStatement_InTheSameState()
     {
         // `Error 5` never completes, so the next statement is reached only by its error edge - and was unreachable.
         var analyzed = Analyze("Dim x As Long\nOn Error Resume Next\nError 5\nx = 1\nx = 10 \\ n\nDebug.Print x");
@@ -196,7 +196,7 @@ public sealed class FlowSoundnessTests
     [TestMethod]
     [DataRow("Return", DisplayName = "a Return")]
     [DataRow("Resume Next", DisplayName = "a Resume Next")]
-    public void S0A_AReturnOrAResume_CanRaise(string statement)
+    public voidAReturnOrAResume_CanRaise(string statement)
     {
         var analyzed = Analyze($"Dim x As Long\nOn Error Resume Next\nx = 1\n{statement}\nDebug.Print x");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(2, 2)), $"{statement} raises, and Resume Next goes on to read x");
@@ -205,7 +205,7 @@ public sealed class FlowSoundnessTests
     // measured in MS-VBA (Excel-verified): an error in the expression of a Select Case goes on after End Select, with no Case run, the Case Else
     // included - as RD-VBA's runtime does.
     [TestMethod]
-    public void S0B_AnErrorInTheExpressionOfASelectCase_UnderResumeNext_GoesOnAtEndSelect()
+    public voidAnErrorInTheExpressionOfASelectCase_UnderResumeNext_GoesOnAtEndSelect()
     {
         var analyzed = Analyze("Dim x As Long\nOn Error Resume Next\nSelect Case 10 \\ n\nCase Else\nx = 2\nEnd Select\nDebug.Print x");
         Assert.IsTrue(analyzed.Reaching.ReachingBefore(analyzed.Line(6), analyzed.Variable("x")).Any(definition => definition.Kind is VariableDefinitionKind.Entry),
@@ -225,7 +225,7 @@ public sealed class FlowSoundnessTests
     // a post-test loop's condition is its LoopBack, which is of the loop statement and written where it starts: -1 names it.
     [DataRow("Do\nx = 1\nLoop Until 10 \\ n\nDebug.Print x", -1, 3, DisplayName = "a Loop Until condition: out of the loop")]
     [DataRow("Do\nx = 1\nLoop While 10 \\ n\nDebug.Print x", -1, 3, DisplayName = "a Loop While condition: out of the loop")]
-    public void S0C_AnErrorInACondition_UnderResumeNext_GoesOnWhereMsVbaGoesOn(string code, int raises, int goesOn)
+    public voidAnErrorInACondition_UnderResumeNext_GoesOnWhereMsVbaGoesOn(string code, int raises, int goesOn)
     {
         var analyzed = Analyze($"Dim x As Long\nOn Error Resume Next\n{code}");
         var at = raises < 0
@@ -240,7 +240,7 @@ public sealed class FlowSoundnessTests
     [DataRow("For i = 10 \\ n To 2", DisplayName = "the start")]
     [DataRow("For i = 1 To 10 \\ n", DisplayName = "the end")]
     [DataRow("For i = 1 To 3 Step 10 \\ n", DisplayName = "the step")]
-    public void S0D_AnErrorInTheHeaderOfAFor_UnderResumeNext_EntersTheBody_WithTheCounterAsItWas(string header)
+    public voidAnErrorInTheHeaderOfAFor_UnderResumeNext_EntersTheBody_WithTheCounterAsItWas(string header)
     {
         var analyzed = Analyze($"Dim i As Long\nOn Error Resume Next\ni = 7\n{header}\nDebug.Print i\nNext");
         var errors = analyzed.States.Edges.SuccessorsOf(analyzed.Line(3)).Where(edge => edge.Kind is ControlFlowEdgeKind.Error).Select(edge => edge.To).ToArray();
@@ -253,7 +253,7 @@ public sealed class FlowSoundnessTests
     // ---------------- soundness: definitions ----------------
 
     [TestMethod]
-    public void S10_AnArgumentOfRaiseEvent_IsADefinition()
+    public voidAnArgumentOfRaiseEvent_IsADefinition()
     {
         const string cls = """
             Public Event Changing(ByRef Cancel As Boolean)
@@ -263,63 +263,63 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S11_AMemberOfAnElementOfAnArrayOfTypes_IsAPartialDefinition()
+    public voidAMemberOfAnElementOfAnArrayOfTypes_IsAPartialDefinition()
     {
         var analyzed = Analyze("Dim a(1 To 3) As Point\na(1).X = 5\nDebug.Print a(1).X");
         Assert.IsTrue(analyzed.Defines(1, analyzed.Variable("a")));
     }
 
     [TestMethod]
-    public void S12_AnElementOfAnArrayMemberOfAType_IsAPartialDefinition()
+    public voidAnElementOfAnArrayMemberOfAType_IsAPartialDefinition()
     {
         var analyzed = Analyze("Dim o As Outer\no.Arr(1) = 5\nDebug.Print o.Arr(1)");
         Assert.IsTrue(analyzed.Defines(1, analyzed.Variable("o")));
     }
 
     [TestMethod]
-    public void S13_AMemberOfAnElement_InAWithBlock_IsAPartialDefinition()
+    public voidAMemberOfAnElement_InAWithBlock_IsAPartialDefinition()
     {
         var analyzed = Analyze("Dim a(1 To 3) As Point\nWith a(1)\n.X = 5\nEnd With\nDebug.Print a(1).X");
         Assert.IsTrue(analyzed.Defines(2, analyzed.Variable("a")));
     }
 
     [TestMethod]
-    public void S14_AReadOfAMember_InAWithBlockOnAType_IsAUse()
+    public voidAReadOfAMember_InAWithBlockOnAType_IsAUse()
     {
         var analyzed = Analyze("Dim p As Point\nWith p\n.Y = 1\nDebug.Print .Y\nEnd With");
         Assert.Contains(analyzed.Variable("p"), analyzed.Live.LiveAfter(analyzed.Lines(2, 2)), "Debug.Print .Y reads p.Y");
     }
 
     [TestMethod]
-    public void S15_NestedWith_OnAMemberOfAType_DoesNotRecurseForever()
+    public voidNestedWith_OnAMemberOfAType_DoesNotRecurseForever()
     {
         var analyzed = Analyze("Dim o As Outer\nWith o\nWith .Inner\n.X = 1\nEnd With\nEnd With");
         Assert.IsTrue(analyzed.Defines(3, analyzed.Variable("o")));
     }
 
     [TestMethod]
-    public void S16_NestedWith_OnAnObject_DoesNotRecurseForever()
+    public voidNestedWith_OnAnObject_DoesNotRecurseForever()
     {
         var analyzed = Analyze("Dim c As Collection\nSet c = New Collection\nWith c\nWith .Item(1)\n.Foo = 1\nEnd With\nEnd With");
         Assert.IsNotNull(analyzed.Accesses);
     }
 
     [TestMethod]
-    public void S17_ALateBoundArgument_IsADefinition()
+    public voidALateBoundArgument_IsADefinition()
     {
         var analyzed = Analyze("Dim o As Object\nDim x As Long\no.Foo x\nDebug.Print x");
         Assert.IsTrue(analyzed.Defines(2, analyzed.Variable("x")));
     }
 
     [TestMethod]
-    public void S18_AnArgumentOfANestedCall_IsADefinition()
+    public voidAnArgumentOfANestedCall_IsADefinition()
     {
         var analyzed = Analyze("Dim x As Long\nBump F(x)\nDebug.Print x");
         Assert.IsTrue(analyzed.Defines(1, analyzed.Variable("x")));
     }
 
     [TestMethod]
-    public void S19_TheResult_ReadAndWritten_IsLiveAfterAnEarlierWrite()
+    public voidTheResult_ReadAndWritten_IsLiveAfterAnEarlierWrite()
     {
         var analyzed = Analyze("Run = 1\nRun = Run + 1", header: "Public Function Run() As Long", end: "End Function");
         Assert.Contains(analyzed.Model.Procedure, analyzed.Live.LiveAfter(analyzed.Lines(0, 0)));
@@ -327,7 +327,7 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S20_AFieldReadByACallee_IsLive()
+    public voidAFieldReadByACallee_IsLive()
     {
         var analyzed = Analyze("field = 1\nShowField\nfield = 2");
         Assert.Contains(analyzed.Variable("field"), analyzed.Live.LiveAfter(analyzed.Lines(0, 0)), "ShowField reads it");
@@ -335,7 +335,7 @@ public sealed class FlowSoundnessTests
 
     // what is written in the argument list of a function that returns an array is an argument, not an index.
     [TestMethod]
-    public void S22_AnArgumentOfAFunctionThatReturnsAnArray_IsADefinition()
+    public voidAnArgumentOfAFunctionThatReturnsAnArray_IsADefinition()
     {
         const string parse = Others + "\n\nPrivate Function Parse(ByRef pos As Long) As String()\n    pos = pos + 1\nEnd Function";
         var analyzed = Analyze("Dim parts() As String\nDim p As Long\nparts = Parse(p)\nDebug.Print p", others: parse);
@@ -347,7 +347,7 @@ public sealed class FlowSoundnessTests
     [DataRow("Public Static Sub Run(ByVal n As Long)", "End Sub", DisplayName = "a Static Sub")]
     [DataRow("Public Static Function Run(ByVal n As Long) As Long", "End Function", DisplayName = "a Static Function")]
     [DataRow("Static Sub Run(ByVal n As Long)", "End Sub", DisplayName = "a Static Sub with no access modifier")]
-    public void S28_ALocalOfAStaticProcedure_OutlivesTheActivation(string header, string end)
+    public voidALocalOfAStaticProcedure_OutlivesTheActivation(string header, string end)
     {
         var analyzed = Analyze("Dim k As Long\nk = k + n", header: header, end: end);
         Assert.Contains(analyzed.Variable("k"), analyzed.Accesses.OutliveTheActivation);
@@ -357,7 +357,7 @@ public sealed class FlowSoundnessTests
     // what a function that returns an array returns is indexed after its own argument list, `Rows()(i)`: the index is no argument the function may write to.
     // `Rows(i)` is a call with an argument, which a function that has no parameters is not compiled with.
     [TestMethod]
-    public void S26_AnIndexOfWhatAParameterlessArrayFunctionReturns_IsNoDefinition()
+    public voidAnIndexOfWhatAParameterlessArrayFunctionReturns_IsNoDefinition()
     {
         const string rows = Others + "\n\nPrivate Function Rows() As Long()\nEnd Function";
         var analyzed = Analyze("Dim x As Long\nDim i As Long\nx = Rows()(i)\nDebug.Print i", others: rows);
@@ -378,7 +378,7 @@ public sealed class FlowSoundnessTests
     [DataRow("Dim k As Long\nk = \"1\"", true, DisplayName = "a string to a number")]
     [DataRow("Dim x As Long\nx = G()", true, DisplayName = "a call")]
     [DataRow("Dim x As Long\nx = 1 + 1", true, DisplayName = "an expression that is not a literal")]
-    public void S27_AnAssignmentOfALiteral_CanRaise_OnlyWhereTheTypeMayNotHoldIt(string body, bool canRaise)
+    public voidAnAssignmentOfALiteral_CanRaise_OnlyWhereTheTypeMayNotHoldIt(string body, bool canRaise)
     {
         var analyzed = Analyze(body);
         Assert.AreEqual(canRaise, analyzed.Graph.CanRaise(analyzed.Line(1)));
@@ -387,7 +387,7 @@ public sealed class FlowSoundnessTests
     // a field named through its module, or through Me, is the field.
     [TestMethod]
     [DataRow("field = 1\nDebug.Print Main.field\nfield = 2", DisplayName = "read through the module")]
-    public void S23_AFieldReadThroughItsModule_IsAUse(string body)
+    public voidAFieldReadThroughItsModule_IsAUse(string body)
     {
         var analyzed = Analyze(body, others: PublicField);
         Assert.IsTrue(analyzed.Uses(1, analyzed.Variable("field")));
@@ -397,14 +397,14 @@ public sealed class FlowSoundnessTests
     private const string PublicField = "Public field As Long";
 
     [TestMethod]
-    public void S24_AFieldWrittenThroughItsModule_IsADefinition()
+    public voidAFieldWrittenThroughItsModule_IsADefinition()
     {
         var analyzed = Analyze("Main.field = 1\nDebug.Print field", others: PublicField);
         Assert.IsTrue(analyzed.Defines(0, analyzed.Variable("field")));
     }
 
     [TestMethod]
-    public void S25_AFieldReadAndWrittenThroughMe_IsTheField()
+    public voidAFieldReadAndWrittenThroughMe_IsTheField()
     {
         var analyzed = Analyze("field = 1\nDebug.Print Me.field\nMe.field = 2", others: PublicField, moduleType: ModuleType.ClassModule);
         Assert.IsTrue(analyzed.Uses(1, analyzed.Variable("field")));
@@ -412,7 +412,7 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    public void S21_AnArgumentOfADefaultMemberCall_OnAnObject_IsADefinition()
+    public voidAnArgumentOfADefaultMemberCall_OnAnObject_IsADefinition()
     {
         // Collection.Item(index): index is ByRef Variant in the type library.
         var analyzed = Analyze("Dim c As Collection\nDim k As Variant\nSet c = New Collection\nDebug.Print c(k)\nDebug.Print k");
@@ -422,63 +422,63 @@ public sealed class FlowSoundnessTests
     // ---------------- soundness: control flow ----------------
 
     [TestMethod]
-    public void S30_GoSub_TheReturnGoesBackAfterTheSite()
+    public voidGoSub_TheReturnGoesBackAfterTheSite()
     {
         var analyzed = Analyze("Dim x As Long\nGoSub S\nDebug.Print x\nExit Sub\nS:\nx = 1\nReturn");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(5, 5)));
     }
 
     [TestMethod]
-    public void S31_OnGoSub_TheReturnGoesBackAfterTheSite()
+    public voidOnGoSub_TheReturnGoesBackAfterTheSite()
     {
         var analyzed = Analyze("Dim x As Long\nOn n GoSub S, T\nDebug.Print x\nExit Sub\nS:\nx = 1\nReturn\nT:\nReturn");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(5, 5)));
     }
 
     [TestMethod]
-    public void S32_OnGoTo_EachTarget()
+    public voidOnGoTo_EachTarget()
     {
         var analyzed = Analyze("Dim x As Long\nx = 1\nOn n GoTo A, B\nExit Sub\nA:\nExit Sub\nB:\nDebug.Print x");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(1, 1)));
     }
 
     [TestMethod]
-    public void S33_SelectCase_ACaseThatDoesNotAssign()
+    public voidSelectCase_ACaseThatDoesNotAssign()
     {
         var analyzed = Analyze("Dim x As Long\nx = 1\nSelect Case n\nCase 1\nx = 2\nCase Else\nEnd Select\nDebug.Print x");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(1, 1)));
     }
 
     [TestMethod]
-    public void S34_ExitDo_FromANestedFor()
+    public voidExitDo_FromANestedFor()
     {
         var analyzed = Analyze("Dim x As Long, i As Long\nDo\nFor i = 1 To n\nx = x + i\nIf x > 5 Then Exit Do\nNext\nLoop\nDebug.Print x");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(3, 3)));
     }
 
     [TestMethod]
-    public void S35_ABackEdgeToALineNumber()
+    public voidABackEdgeToALineNumber()
     {
         var analyzed = Analyze("Dim x As Long\n10 x = x + 1\nIf x < n Then GoTo 10\nDebug.Print \"done\"");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(1, 1)));
     }
 
     [TestMethod]
-    public void S36_ForEach_TheElementAfterTheLoop()
+    public voidForEach_TheElementAfterTheLoop()
     {
         var analyzed = Analyze("Dim v As Variant\nDim c As Collection\nSet c = New Collection\nv = 0\nFor Each v In c\nNext\nDebug.Print v");
         Assert.Contains(analyzed.Variable("v"), analyzed.Live.LiveAfter(analyzed.Lines(3, 3)), "an empty collection assigns nothing");
     }
 
     [TestMethod]
-    public void S37_Stop_ContinuesAfterIt()
+    public voidStop_ContinuesAfterIt()
     {
         var analyzed = Analyze("Dim x As Long\nx = 1\nStop\nDebug.Print x");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(1, 1)));
     }
 
     [TestMethod]
-    public void S38_ReachingInto_ALoopBody_FromTheBodyItself()
+    public voidReachingInto_ALoopBody_FromTheBodyItself()
     {
         var analyzed = Analyze("Dim x As Long, i As Long\nFor i = 1 To n\nDebug.Print x\nx = i\nNext");
         var body = analyzed.Lines(2, 3);
@@ -490,14 +490,14 @@ public sealed class FlowSoundnessTests
 
     // precision, not soundness: an argument counted as a possible definition makes a variable ByRef that could be ByVal.
     [TestMethod]
-    public void P01_AnArgumentForAByValParameter_IsNoDefinition()
+    public voidAnArgumentForAByValParameter_IsNoDefinition()
     {
         var analyzed = Analyze("Dim x As Long\nTakesByVal x");
         Assert.IsFalse(analyzed.Defines(1, analyzed.Variable("x")));
     }
 
     [TestMethod]
-    public void P02_AnArgumentOfAStdlibFunction_IsNoDefinition()
+    public voidAnArgumentOfAStdlibFunction_IsNoDefinition()
     {
         var analyzed = Analyze("Dim s As String\nDebug.Print Len(s)");
         Assert.IsFalse(analyzed.Defines(1, analyzed.Variable("s")));

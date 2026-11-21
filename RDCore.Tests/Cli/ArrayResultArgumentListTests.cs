@@ -50,9 +50,9 @@ public sealed class ArrayResultArgumentListTests
 
     // A02, A03, A05: an empty argument list is the call itself, and the result is indexed by the next; the function's result is an array UBound takes.
     [TestMethod]
-    [DataRow("x = F()(1)", "7", DisplayName = "A02 the result of a function that takes none, indexed")]
-    [DataRow("x = G(1)(0)", "10", DisplayName = "A03 the result of a function that takes one, indexed")]
-    [DataRow("x = UBound(F)", "2", DisplayName = "A05 the bound of the result of a function that takes none")]
+    [DataRow("x = F()(1)", "7", DisplayName = "the result of a function that takes none, indexed")]
+    [DataRow("x = G(1)(0)", "10", DisplayName = "the result of a function that takes one, indexed")]
+    [DataRow("x = UBound(F)", "2", DisplayName = "the bound of the result of a function that takes none")]
     public async Task TheResultOfAFunctionThatReturnsAnArray_IsIndexedByTheNextArgumentList(string statement, string printed)
         => CollectionAssert.AreEqual(new[] { printed }, await RunAsync([], [], Program(statement)));
 }

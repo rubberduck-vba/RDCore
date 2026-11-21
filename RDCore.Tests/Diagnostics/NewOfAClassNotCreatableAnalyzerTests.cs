@@ -29,8 +29,8 @@ public sealed class NewOfAClassNotCreatableAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("", "    Dim e As ErrObject\r\n    Set e = New ErrObject", "    Set e = New ErrObject", DisplayName = "s62 X04 New ErrObject")]
-    [DataRow("", "    Dim x As Object\r\n    Set x = New VBA.ErrObject", "    Set x = New VBA.ErrObject", DisplayName = "s62 X08 New VBA.ErrObject, Set to an Object")]
+    [DataRow("", "    Dim e As ErrObject\r\n    Set e = New ErrObject", "    Set e = New ErrObject", DisplayName = "New ErrObject")]
+    [DataRow("", "    Dim x As Object\r\n    Set x = New VBA.ErrObject", "    Set x = New VBA.ErrObject", DisplayName = "New VBA.ErrObject, Set to an Object")]
     public async Task NewOfErrObject_IsAWarning(string declarations, string body, string line)
     {
         var (findings, lines) = await FindingsAsync(declarations, body);
@@ -70,7 +70,7 @@ public sealed class NewOfAClassNotCreatableAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("", "    Dim x As New ErrObject\r\n    Debug.Print x.Number", "    Dim x As New ErrObject", DisplayName = "s62 X09 a local")]
+    [DataRow("", "    Dim x As New ErrObject\r\n    Debug.Print x.Number", "    Dim x As New ErrObject", DisplayName = "a local")]
     [DataRow("Private x As New ErrObject", "    Debug.Print x.Number", "Private x As New ErrObject", DisplayName = "a variable of the module")]
     [DataRow("", "    Dim a(1) As New ErrObject", "    Dim a(1) As New ErrObject", DisplayName = "an array of them")]
     public async Task AVariableDeclaredAsNewErrObject_IsAWarning(string declarations, string body, string line)
@@ -84,7 +84,7 @@ public sealed class NewOfAClassNotCreatableAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("    Dim c As New Collection\r\n    Dim d As Collection\r\n    Set d = New Collection", DisplayName = "s62 X11 a Collection is created")]
+    [DataRow("    Dim c As New Collection\r\n    Dim d As Collection\r\n    Set d = New Collection", DisplayName = "a Collection is created")]
     [DataRow("    Dim e As ErrObject\r\n    Set e = Err", DisplayName = "the one ErrObject, Err")]
     public async Task WhatIsCreated_IsNotReported(string body)
         => Assert.IsEmpty((await FindingsAsync("", body)).Findings);

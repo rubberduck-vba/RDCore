@@ -162,11 +162,11 @@ public sealed class InStrAndInStrBTests
 
     // MS-VBA, observed in Excel: a zero-length String or pattern takes no Compare, and a start past the end still does.
     [TestMethod]
-    [DataRow(1, "", "", -2, 0, DisplayName = "S05 two zero-length Strings")]
-    [DataRow(1, "a", "", 2, 1, DisplayName = "S05 a zero-length pattern")]
-    [DataRow(1, "", "a", -2, 0, DisplayName = "S05 a zero-length String")]
-    [DataRow(3, "", "a", 2, 0, DisplayName = "S05 a zero-length String, from past its end")]
-    [DataRow(5, "abc", "", 2, 5, DisplayName = "D04 a zero-length pattern, from past the end")]
+    [DataRow(1, "", "", -2, 0, DisplayName = "two zero-length Strings")]
+    [DataRow(1, "a", "", 2, 1, DisplayName = "a zero-length pattern")]
+    [DataRow(1, "", "a", -2, 0, DisplayName = "a zero-length String")]
+    [DataRow(3, "", "a", 2, 0, DisplayName = "a zero-length String, from past its end")]
+    [DataRow(5, "abc", "", 2, 5, DisplayName = "a zero-length pattern, from past the end")]
     public void InStr_WithACompareThatIsNoModeNorLocale_ThatComparesNothing_IsWhatItFinds(int start, string searched, string pattern, int compare, int expected)
         => Assert.AreEqual(expected, LongOf(Module().InStr(V(start), V(searched), V(pattern), (VBCompareMethod)compare)));
 

@@ -239,27 +239,27 @@ public sealed class CallByNameTests
             string.Empty));
 
     [TestMethod]
-    [DataRow("Dim x As Long: x = 3: CallByName b, \"Twice\", VbMethod, x: P x", "6|", DisplayName = "C01 a variable of the parameter's type")]
-    [DataRow("Dim a(1) As Long: a(1) = 5: CallByName b, \"Twice\", VbMethod, a(1): P a(1)", "10|", DisplayName = "C02 an element of an array")]
-    [DataRow("Dim x As Long: x = 4: CallByName b, \"Twice\", VbMethod, (x): P x", "4|", DisplayName = "C02 a variable in parentheses is a value")]
-    [DataRow("b.Field = 3: CallByName b, \"Twice\", VbMethod, b.Field: P b.Field", "3|", DisplayName = "C02 a public variable of an object is a value")]
-    [DataRow("Dim v As Variant: v = 3: CallByName b, \"BumpV\", VbMethod, v: P v: P TypeName(v)", "4|Integer|", DisplayName = "C06 a Variant, to a Variant")]
-    [DataRow("Dim x As Long: x = 3: CallByName b, \"BumpV\", VbMethod, x: P x: P TypeName(x)", "4|Long|", DisplayName = "C05 a Long, to a Variant")]
-    [DataRow("Dim x As Long: x = 3: P CallByName(b, \"TN\", VbMethod, x)", "Long3|", DisplayName = "D05 a Long, read through a Variant")]
-    [DataRow("Dim x As Long: x = 1: CallByName b, \"SetV\", VbMethod, x, 2.7: P x: P TypeName(x)", "3|Long|", DisplayName = "D05 a Double written into a Long")]
-    [DataRow("Dim s As String: s = \"a\": CallByName b, \"SetV\", VbMethod, s, 5: P s: P TypeName(s)", "5|String|", DisplayName = "D05 a number written into a String")]
-    [DataRow("Dim x As Long: x = 3: CallByName b, \"SetV\", VbMethod, x, \"40000\": P x", "40000|", DisplayName = "D05 a String written into a Long")]
-    [DataRow("Dim c As New Collection: c.Add 3: CallByName b, \"Twice\", VbMethod, c(1): P c(1)", "3|", DisplayName = "C06 an item of a Collection is a value")]
+    [DataRow("Dim x As Long: x = 3: CallByName b, \"Twice\", VbMethod, x: P x", "6|", DisplayName = "a variable of the parameter's type")]
+    [DataRow("Dim a(1) As Long: a(1) = 5: CallByName b, \"Twice\", VbMethod, a(1): P a(1)", "10|", DisplayName = "an element of an array")]
+    [DataRow("Dim x As Long: x = 4: CallByName b, \"Twice\", VbMethod, (x): P x", "4|", DisplayName = "a variable in parentheses is a value")]
+    [DataRow("b.Field = 3: CallByName b, \"Twice\", VbMethod, b.Field: P b.Field", "3|", DisplayName = "a public variable of an object is a value")]
+    [DataRow("Dim v As Variant: v = 3: CallByName b, \"BumpV\", VbMethod, v: P v: P TypeName(v)", "4|Integer|", DisplayName = "a Variant, to a Variant")]
+    [DataRow("Dim x As Long: x = 3: CallByName b, \"BumpV\", VbMethod, x: P x: P TypeName(x)", "4|Long|", DisplayName = "a Long, to a Variant")]
+    [DataRow("Dim x As Long: x = 3: P CallByName(b, \"TN\", VbMethod, x)", "Long3|", DisplayName = "a Long, read through a Variant")]
+    [DataRow("Dim x As Long: x = 1: CallByName b, \"SetV\", VbMethod, x, 2.7: P x: P TypeName(x)", "3|Long|", DisplayName = "a Double written into a Long")]
+    [DataRow("Dim s As String: s = \"a\": CallByName b, \"SetV\", VbMethod, s, 5: P s: P TypeName(s)", "5|String|", DisplayName = "a number written into a String")]
+    [DataRow("Dim x As Long: x = 3: CallByName b, \"SetV\", VbMethod, x, \"40000\": P x", "40000|", DisplayName = "a String written into a Long")]
+    [DataRow("Dim c As New Collection: c.Add 3: CallByName b, \"Twice\", VbMethod, c(1): P c(1)", "3|", DisplayName = "an item of a Collection is a value")]
     public async Task AVariable_IsGivenByReference_AsMSVBAGivesIt(string statements, string printed)
         => CollectionAssert.AreEqual(new[] { printed }, await ProbeBox(statements.Split(": ")));
 
     [TestMethod]
-    [DataRow("Dim i As Integer: i = 3: CallByName b, \"Twice\", VbMethod, i: P i", "3|e13|", DisplayName = "C05 an Integer, to a Long")]
-    [DataRow("Dim s As String: s = \"3\": CallByName b, \"Twice\", VbMethod, s: P s", "3|e13|", DisplayName = "C05 a String, to a Long")]
-    [DataRow("Dim v As Variant: v = CLng(3): CallByName b, \"Twice\", VbMethod, v: P v", "3|e13|", DisplayName = "C05 a Variant holding a Long, to a Long")]
-    [DataRow("Dim x As Long: x = 3: CallByName b, \"SetV\", VbMethod, x, \"x\": P x", "3|e13|", DisplayName = "D05 what a Long cannot hold, written into one")]
-    [DataRow("Dim x As Long: x = 3: CallByName b, \"SetV\", VbMethod, x, Null: P x", "3|e94|", DisplayName = "D05 Null written into a Long")]
-    [DataRow("Dim i As Integer: CallByName b, \"SetV\", VbMethod, i, 40000: P i", "0|e6|", DisplayName = "D05 what overflows an Integer, written into one")]
+    [DataRow("Dim i As Integer: i = 3: CallByName b, \"Twice\", VbMethod, i: P i", "3|e13|", DisplayName = "an Integer, to a Long")]
+    [DataRow("Dim s As String: s = \"3\": CallByName b, \"Twice\", VbMethod, s: P s", "3|e13|", DisplayName = "a String, to a Long")]
+    [DataRow("Dim v As Variant: v = CLng(3): CallByName b, \"Twice\", VbMethod, v: P v", "3|e13|", DisplayName = "a Variant holding a Long, to a Long")]
+    [DataRow("Dim x As Long: x = 3: CallByName b, \"SetV\", VbMethod, x, \"x\": P x", "3|e13|", DisplayName = "what a Long cannot hold, written into one")]
+    [DataRow("Dim x As Long: x = 3: CallByName b, \"SetV\", VbMethod, x, Null: P x", "3|e94|", DisplayName = "Null written into a Long")]
+    [DataRow("Dim i As Integer: CallByName b, \"SetV\", VbMethod, i, 40000: P i", "0|e6|", DisplayName = "what overflows an Integer, written into one")]
     public async Task AVariableOfAnotherType_IsTheErrorMSVBARaises_AndLeftAsItWas(string statements, string printed)
         => CollectionAssert.AreEqual(new[] { printed }, await ProbeBox([.. statements.Split(": "), "P \"e\" & Err.Number"]));
 
@@ -268,9 +268,9 @@ public sealed class CallByNameTests
     [DataRow("CallByName b, \"Twice\", VbLet, 1", "450", DisplayName = "a Sub let")]
     [DataRow("CallByName b, \"Twice\", VbSet, 1", "450", DisplayName = "a Sub set")]
     [DataRow("CallByName b, \"Half\", VbSet, 1", "450", DisplayName = "a Function set")]
-    [DataRow("CallByName b, \"Half\", VbLet, 4", "450", DisplayName = "C04 a Function let")]
+    [DataRow("CallByName b, \"Half\", VbLet, 4", "450", DisplayName = "a Function let")]
     [DataRow("CallByName b, \"Field\", VbMethod, 1", "438", DisplayName = "a variable called")]
-    [DataRow("CallByName b, \"Nope\", VbGet", "438", DisplayName = "C04 no such member")]
+    [DataRow("CallByName b, \"Nope\", VbGet", "438", DisplayName = "no such member")]
     public async Task AMember_CalledAsWhatItIsNot_IsTheErrorMSVBARaises(string statement, string expected)
         => CollectionAssert.AreEqual(new[] { $"e{expected}|" }, await ProbeBox(statement, "P \"e\" & Err.Number"));
 
