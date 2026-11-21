@@ -189,7 +189,8 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     IOptions<SdkAppOptions>? options = null,
     RDCore.SDK.Server.StagedFiles? staged = null) : IWorkspaceDocumentService
 {
-    // a module file is read in its own encoding (ModuleFileText): a file VBA exported is in the environment's ANSI code page.
+    // a module file is read in its own encoding (ModuleFileText): the one its byte order mark names, else UTF-8 where its bytes are valid UTF-8, else the
+    // environment's ANSI code page, which a file VBA exported is in.
     private async Task<ModuleFileText> DecodeModuleAsync(string path)
         => ModuleFileText.Decode(await ioFile.ReadAllBytesAsync(path), options?.Value.Environment.AnsiCodePage ?? ModuleFileText.DefaultAnsiCodePage);
 
