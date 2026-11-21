@@ -531,9 +531,7 @@ internal sealed class SuspiciousLetAssignmentAnalyzer : IModuleAnalyzer
         }
 
         // the default member of the value's class, by where the value is: what the Let reads.
-        var values = semantics.Procedures.SelectMany(procedure => procedure.Expressions)
-            .Where(fact => fact.DefaultMember is not null)
-            .ToLookup(fact => fact.Location.Range, fact => fact.DefaultMember!);
+        var values = semantics.Procedures.SelectMany(procedure => procedure.Expressions).ToLookup(fact => fact.Location.Range);
         return DefaultMemberAccesses.AssignmentsToObjects(semantics, module)
             .Where(assignment => assignment.ValueIsAnObject)
             .Select(assignment => new AnalyzerFinding(
@@ -542,22 +540,24 @@ internal sealed class SuspiciousLetAssignmentAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.SuspiciousLetAssignment_Message)
             {
-                Fixes = FixOf(assignment.Statement, assignment.DefaultMember, values[assignment.Statement.Value.SourceLocation.Range].FirstOrDefault()),
+                Fixes = FixesOf(assignment.Statement, assignment.Target, assignment.DefaultMember, values[assignment.Statement.Value.SourceLocation.Range]
+                    .OrderBy(fact => fact.DefaultMember is null).FirstOrDefault()),
             });
     }
 
-    // the Let as it is, with both default members named: h = h2 is h.Value = h2.Value. It keeps what the code does; Set, which assigns the object, would
-    // change it. None for a target declared Object, whose default member is known only at run time, nor for a value whose default member requires an
-    // argument.
-    private static DiagnosticFixes? FixOf(AssignmentStatementNode statement, string? target, DefaultMemberFact? value)
-        => DefaultMemberAccesses.Written(target) is { } writtenTarget && value is { RequiredParameters: 0 }
-            && DefaultMemberAccesses.Written(value.Name) is { } writtenValue
-            ? new DiagnosticFixes
-            {
-                Edits = [SyntaxEdits.Fix(
-                    RDCoreDiagnosticsResources.SuspiciousLetAssignment_Fix,
-                    SyntaxEdits.Insert(statement.Target.SourceLocation.Range.End, $".{writtenTarget}"),
-                    SyntaxEdits.Insert(statement.Value.SourceLocation.Range.End, $".{writtenValue}"))],
-            }
+    // the Let as it is, with both default members named: h = h2 is h.Value = h2.Value. It keeps what the code does, and comes first. None for a target
+    // declared Object, whose default member is known only at run time, nor for a value whose default member requires an argument. Then the Let made a Set,
+    // which assigns the object and changes what the code does.
+    private static DiagnosticFixes? FixesOf(AssignmentStatementNode statement, ExpressionFactDto targetFact, string? target, ExpressionFactDto? value)
+    {
+        var named = DefaultMemberAccesses.Written(target) is { } writtenTarget && value?.DefaultMember is { RequiredParameters: 0 } member
+            && DefaultMemberAccesses.Written(member.Name) is { } writtenValue
+            ? SyntaxEdits.Fix(
+                RDCoreDiagnosticsResources.SuspiciousLetAssignment_Fix,
+                SyntaxEdits.Insert(statement.Target.SourceLocation.Range.End, $".{writtenTarget}"),
+                SyntaxEdits.Insert(statement.Value.SourceLocation.Range.End, $".{writtenValue}"))
             : null;
+        EditFix[] fixes = [.. new[] { named, SetAssignments.Fix(statement, targetFact, value) }.OfType<EditFix>()];
+        return fixes is [] ? null : new DiagnosticFixes { Edits = fixes };
+    }
 }

@@ -54,15 +54,10 @@ internal sealed class ObjectLetToVariantPropertyAnalyzer : IModuleAnalyzer
             }
             : null;
 
-        // the keyword of an explicit Let starts the statement.
         var set = property.Accessors.HasFlag(PropertyAccessors.Set)
             ? new EditFix
             {
-                Title = RDCoreDiagnosticsResources.ObjectLetToVariantProperty_Set_Fix,
-                Edits = [statement.Kind is AssignmentKind.ExplicitLet
-                    ? SyntaxEdits.Replace(SyntaxEdits.Following(statement.SourceLocation.Range.Start, 3), "Set")
-                    : SyntaxEdits.Insert(statement.SourceLocation.Range.Start, "Set ")],
-                ChangesBehavior = true,
+                Title = RDCoreDiagnosticsResources.ObjectLetToVariantProperty_Set_Fix, Edits = [SetAssignments.MadeSet(statement)], ChangesBehavior = true,
             }
             : null;
 
