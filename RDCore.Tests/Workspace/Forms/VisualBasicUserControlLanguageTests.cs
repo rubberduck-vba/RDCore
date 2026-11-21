@@ -20,8 +20,9 @@ namespace RDCore.Tests.Workspace.Forms;
 /// <summary>
 /// The code of a Visual Basic 6.0 UserControl and PropertyPage. The VB library's <c>VB.UserControl</c> and <c>VB.PropertyPage</c> declare no <c>Left</c>,
 /// <c>Top</c> or designer setting (<c>CanGetFocus</c>, <c>InvisibleAtRuntime</c> and the rest), so a bare <c>Left</c> is VBA's function. The base class's
-/// members are names in scope in the root's code, unqualified or through the base class's name (<c>UserControl.BackColor</c>), and no members of the root's
-/// class: Me has only the class's own. A declaration of the root's code shadows the base member of its name. The base class's name is not a value.
+/// members are names in scope in the root's code, unqualified or through the base class's name (<c>UserControl.BackColor</c>), but they are not members
+/// of the root's class: <c>Me</c> has only the class's own (<c>Me.BackColor</c> is an error).
+/// A declaration of the root's code shadows the base member of its name. The base class's name is not a value.
 /// </summary>
 [TestClass]
 public sealed class VisualBasicUserControlLanguageTests
@@ -96,7 +97,7 @@ public sealed class VisualBasicUserControlLanguageTests
         => await AssertNoErrorAsync(root, "s = Left(\"ab\", 1)");
 
     [TestMethod]
-    [Ignore("a function named with no argument list is not checked for its required parameters: `s = Left` is no error in any module")]
+    [Ignore("not implemented: a function named with no argument list is not checked for its required arguments: `Debug.Print Left` is no error")]
     [DataRow(UserControlRoot, DisplayName = "a UserControl")]
     [DataRow(PropertyPageRoot, DisplayName = "a PropertyPage")]
     public async Task ABareLeft_IsVBAsLeft_WithoutItsArguments(string root)
