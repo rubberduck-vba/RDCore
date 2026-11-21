@@ -3,6 +3,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.Tests.Parser;
 
@@ -34,6 +35,19 @@ public sealed class SourceNormalizationTests
         Assert.ContainsSingle(result.SyntaxTree!.Children.OfType<ModuleOptionDirectiveNode>());
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         Assert.AreEqual("Foo", member.Name);
+    }
+
+    // a U+2028 or a U+2029 ends a physical line (MS-VBAL §3.2.1), but LSP 3.17 ends a line only at CR, LF or CRLF: what follows one is on the same
+    // line a position counts.
+    [TestMethod]
+    [DataRow("\u2028", DisplayName = "U+2028 line separator")]
+    [DataRow("\u2029", DisplayName = "U+2029 paragraph separator")]
+    public void AStatementAfterAUnicodeSeparator_IsOnTheSameLspLine(string separator)
+    {
+        var result = Parse($"Option Explicit{separator}Public Sub Foo()\r\nEnd Sub");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual(new SourcePosition(0, "Option Explicit".Length + 1), member.SourceLocation.Range.Start);
     }
 
     [TestMethod]
