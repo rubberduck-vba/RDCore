@@ -366,8 +366,8 @@ public static class DeclarationUsage
 
     // MS-VBAL §5.2.4.1.1: a referencing project cannot name a class that is not exposed, and holds an object of it only as a library gives it one: as what
     // a member that the project can use (ReferencedProjectSymbols.IsAccessible) is declared as or returns, or as an argument of one, an event's included,
-    // given to its own code. Each can carry one when it is declared as a Variant, an Object or a class, or as a user-defined type with such a field; and so
-    // can one whose type did not resolve.
+    // given to its own code. Each can carry one when it is declared as a Variant, an Object or a class, as an array of one, or as a user-defined type with
+    // such a field; and so can one whose type did not resolve.
     private static bool HandsOutObjects(List<VBModuleSymbol> project, Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
         => project.Where(ReferencedProjectSymbols.IsAccessible)
             .SelectMany(module => membersOf(module).Where(member => ReferencedProjectSymbols.IsAccessible(member, module)))
