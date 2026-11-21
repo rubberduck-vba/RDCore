@@ -97,6 +97,40 @@ public sealed class ProjectReferenceCountTests
         Assert.AreEqual("Counter.Again", SymbolUri.QualifiedNameOf(again.ReferencedFrom.Value[0].Procedure!), "the site is in the function itself");
     }
 
+    // MS-VBAL §5.4.2.1: a call statement invokes the procedure its expression refers to, with or without the Call keyword or an argument list; and a member
+    // access names the member of its object, never the function result variable of the enclosing function (MS-VBAL §5.6.12), which only its simple name is.
+    [TestMethod]
+    [DataRow("Again n - 1", DisplayName = "a call statement with arguments and no Call keyword")]
+    [DataRow("Again", DisplayName = "a call statement with no arguments")]
+    [DataRow("Call Again", DisplayName = "the Call keyword with no argument list")]
+    [DataRow("Call Again(n - 1)", DisplayName = "the Call keyword with an argument list")]
+    [DataRow("Me.Again n - 1", DisplayName = "a call statement of Me's member")]
+    [DataRow("Again = Me.Again", DisplayName = "Me's member read with no argument list")]
+    [DataRow("Again = Me.Again(n - 1)", DisplayName = "Me's member read with an argument list")]
+    public async Task AFunctionThatCallsItself_IsReferencedByTheCall_HoweverItIsWritten(string call)
+    {
+        (string, string) recursive = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Friend Function Again(Optional ByVal n As Long) As Long", "If n > 0 Then", call, "End If", "End Function"));
+        var again = Declaration(await ModelOfAsync("Counter", Program("Public Sub Main()", "End Sub"), classes: [recursive]), "Again");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), again.References, "the call, and not the result it assigns");
+        Assert.AreEqual("Counter.Again", SymbolUri.QualifiedNameOf(again.ReferencedFrom!.Value.Single().Procedure!), "the site is in the function itself");
+    }
+
+    [TestMethod]
+    [DataRow("Again n - 1", DisplayName = "a call statement with arguments")]
+    [DataRow("Again", DisplayName = "a call statement with no arguments")]
+    [DataRow("Me.Again n - 1", DisplayName = "a call statement of Me's member")]
+    public async Task ASubThatCallsItself_IsReferencedByTheCall(string call)
+    {
+        (string, string) recursive = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Friend Sub Again(Optional ByVal n As Long)", "If n > 0 Then", call, "End If", "End Sub"));
+        var again = Declaration(await ModelOfAsync("Counter", Program("Public Sub Main()", "End Sub"), classes: [recursive]), "Again");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), again.References);
+        Assert.AreEqual("Counter.Again", SymbolUri.QualifiedNameOf(again.ReferencedFrom!.Value.Single().Procedure!), "the site is in the procedure itself");
+    }
+
     [TestMethod]
     public async Task AFriendProcedureThatAnExcludedBranchOfAnotherModuleCalls_HasNoCount()
     {

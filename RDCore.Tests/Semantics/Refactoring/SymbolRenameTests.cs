@@ -192,6 +192,34 @@ public sealed class SymbolRenameTests
             "End Sub"), Renamed(context, plan, "Main"));
     }
 
+    // MS-VBAL §5.4.2.1, §5.3.1: a function's name in its own body is its call, in a call statement however it is written, and its result elsewhere: a rename
+    // renames both.
+    [TestMethod]
+    public void AFunction_IsRenamedInTheCallStatementsOfItsOwnBody_AndWhereItAssignsItsResult()
+    {
+        var context = Compose(("Maths", Module("Maths",
+            "Public Function Loop1(Optional ByVal n As Long) As Long",
+            "    If n > 0 Then",
+            "        Loop1 n - 1",
+            "        Loop1",
+            "        Call Loop1(n - 1)",
+            "    End If",
+            "    Loop1 = n",
+            "End Function")));
+
+        var plan = Rename(context, "Maths", "Function Loop1", "Loop1", "Countdown");
+
+        Assert.AreEqual(Module("Maths",
+            "Public Function Countdown(Optional ByVal n As Long) As Long",
+            "    If n > 0 Then",
+            "        Countdown n - 1",
+            "        Countdown",
+            "        Call Countdown(n - 1)",
+            "    End If",
+            "    Countdown = n",
+            "End Function"), Renamed(context, plan, "Maths"));
+    }
+
     [TestMethod]
     public void TheCounterOfAForLoop_IsRenamedInTheNextThatNamesIt()
     {

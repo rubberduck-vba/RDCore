@@ -56,7 +56,7 @@ public static class SymbolLenses
     }
 
     public static IReadOnlyList<SymbolSite> ReferencesOf(RenameContext context, Uri module, SourcePosition namePosition)
-        => SymbolNavigation.ReferencesAt(context, module, namePosition, includeDeclaration: false)?.Sites ?? [];
+        => SymbolNavigation.UsersAt(context, module, namePosition)?.Sites ?? [];
 
     // the procedures that implement the member, as Go to Implementation finds them.
     public static IReadOnlyList<SymbolSite> ImplementationsOf(RenameContext context, Uri module, SourcePosition namePosition)

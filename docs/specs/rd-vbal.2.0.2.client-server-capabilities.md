@@ -529,6 +529,8 @@ symbol named at the position (`SymbolNavigation.ReferencesAt`): the names a rena
 symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
 declarations declare are references when the client asks for them (`context.includeDeclaration`), and so are the attributes of a member
 (`Attribute Foo.VB_Description`). A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to it, and is not a reference.
+The result a `Function` or a `Property Get` assigns or reads in its own body (`Compute = n`) is a reference too: of the function, or of the
+`Property Get`.
 
 Each procedure of a property is referred to by the names that call it (**MS-VBAL §5.3.1.7**), although a rename renames all of them:
 
@@ -745,7 +747,7 @@ It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project'
 
 The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares (`SymbolLenses`): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
 
-A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`. The result a function or a `Property Get` assigns or reads in its own body is no reference; a recursive call is.
+A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name (`SymbolNavigation.UsersAt`), except its declarations and the result a function or a `Property Get` assigns or reads in its own body: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`, and a function that only assigns its result shows `0 references`. A recursive call counts, with or without `Call`, and as the member of a member access (`Me.Compute`, `.Compute` in a `With` block).
 
 |Resolved lens|Is|
 |---|---|

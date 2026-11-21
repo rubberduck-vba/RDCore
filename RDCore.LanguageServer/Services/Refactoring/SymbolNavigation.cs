@@ -64,16 +64,22 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
-    // MS-VBAL §5.3.1.7, §5.6.2.1
+    // MS-VBAL §5.3.1.7, §5.6.2.1: every use of the symbol's name, the result a Function or a Property Get assigns or reads in its own body included.
     public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
-        => NamesOf(context, module, position, includeDeclaration, byAccess: true);
+        => NamesOf(context, module, position, includeDeclaration, byAccess: true, includeResults: true);
+
+    // what uses the symbol, as a lens counts it: its references, except the result a Function or a Property Get assigns or reads in its own body, which is
+    // no use of the procedure: one that only sets its result is called by nothing.
+    public static SymbolNavigationTarget? UsersAt(RenameContext context, Uri module, SourcePosition position)
+        => NamesOf(context, module, position, includeDeclaration: false, byAccess: true, includeResults: false);
 
     public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position)
-        => NamesOf(context, module, position, includeDeclaration: true, byAccess: false);
+        => NamesOf(context, module, position, includeDeclaration: true, byAccess: false, includeResults: true);
 
     // a call through an interface binds to the interface's member (MS-VBAL §5.2.4.2): it is a reference of that member, and of none of the procedures that
     // implement it, which Go to Implementation finds.
-    private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess)
+    private static SymbolNavigationTarget? NamesOf(
+        RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess, bool includeResults)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
@@ -133,8 +139,10 @@ public static class SymbolNavigation
                 {
                     OccurrenceKind.Declaration => called is null || occurrence.Binding == accessor,
                     OccurrenceKind.Attribute => true,
-                    _ => AccessOf(occurrence.Module, occurrence.Range.Start) is var access && access != NameAccess.Result
-                        && (called is null || (accessor is not null && access == called)),
+                    // the result a Function or a Property Get assigns or reads is the procedure's own name, listed as its calls are; a property's is a read,
+                    // so a use of its Property Get.
+                    _ => AccessOf(occurrence.Module, occurrence.Range.Start) is var access && (includeResults || access != NameAccess.Result)
+                        && (called is null || (accessor is not null && (access == NameAccess.Result ? NameAccess.Read : access) == called)),
                 };
             }
 
