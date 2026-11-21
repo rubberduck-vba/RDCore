@@ -1,5 +1,4 @@
 using RDCore.Runtime.LanguageCore.Refactoring;
-using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -7,6 +6,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Semantics.Refactoring;
 using System.Collections.Immutable;
 using System.Text;
 

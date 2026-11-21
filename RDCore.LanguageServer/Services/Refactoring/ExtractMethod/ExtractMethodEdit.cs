@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
 using System.Collections.Immutable;
@@ -76,7 +77,11 @@ internal enum ExtractionAccessibility
 /// <param name="Kind">What it writes.</param>
 /// <param name="CallStart">Where the call starts in <paramref name="NewText"/>, for a <see cref="ExtractionTextEditKind.Site"/> that writes more than the call.</param>
 /// <param name="CallLength">How long the call is from <paramref name="CallStart"/>; -1 when the call is all of <paramref name="NewText"/>.</param>
-internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind, int CallStart = 0, int CallLength = -1);
+internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind, int CallStart = 0, int CallLength = -1)
+{
+    // the edit as the SDK's text edit, which TextLines applies.
+    public RefactorTextEdit TextEdit => new() { Range = Range, NewText = NewText };
+}
 
 /// <summary>
 /// The module a selection is extracted from: its syntax, its text, and what the procedure the selection is in is.
@@ -168,7 +173,10 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
     /// The module's text with the edits made.
     /// </summary>
     /// <param name="text">The module's text, which the edits are of.</param>
-    public string ApplyTo(string text) => ExtractionText.Apply(text, Edits).Text;
+    public string ApplyTo(string text) => TextLines.Apply(text, TextEdits).Text;
+
+    // the edits as the SDK's text edits, in the same order.
+    internal RefactorTextEdit[] TextEdits => [.. Edits.Select(edit => edit.TextEdit)];
 
     /// <summary>
     /// The extraction with the lines it writes indented by the code formatter, as the module's other lines are: the lines it leaves as they were stay so.
@@ -183,20 +191,20 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
             return this;
         }
 
-        var (module, written) = ExtractionText.Apply(text, Edits);
+        var (module, written) = TextLines.Apply(text, TextEdits);
         var lines = TextLines.Of(module);
 
         // a line the edit writes from its start is indented; the first line of an edit that starts after other code keeps that code's indentation.
         var indentation = Enumerable.Range(0, Edits.Length)
             .Where(index => Edits[index].NewText.Length > 0)
-            .SelectMany(index => ModuleIndenter.Indent(edited, module, options, lines.PositionOf(written[index].Start).Line, lines.PositionOf(written[index].End).Line))
+            .SelectMany(index => ModuleIndenter.Indent(edited, module, options, written[index].Start.Line, written[index].End.Line))
             .Distinct()
             .Select(indent => (Start: lines.Offset(new SourcePosition(indent.Line, indent.Character)), End: lines.Offset(new SourcePosition(indent.EndLine, indent.EndCharacter)), indent.NewText))
             .ToArray();
 
         var edits = Edits.Select((edit, index) =>
         {
-            var (start, end) = written[index];
+            var (start, end) = (lines.Offset(written[index].Start), lines.Offset(written[index].End));
             var formatted = edit.NewText;
             var (callStart, callLength) = (edit.CallStart, edit.CallLength);
             // the line that follows an edit ending with a line break is not the edit's.
@@ -551,7 +559,7 @@ internal static class ExtractMethodEdit
                 .SelectMany(choice => choice.Names.Select(range => new ExtractionTextEdit(range, choice.Name, ExtractionTextEditKind.Call)))
                 .Where(rename => !removed.Any(range => range.Start <= rename.Range.Start && rename.Range.End <= range.End)));
 
-            var lines = text.Of(moved, edits).Split(["\r\n", "\n"], StringSplitOptions.None).ToList();
+            var lines = text.Of(moved, edits.Select(edit => edit.TextEdit)).Split(["\r\n", "\n"], StringSplitOptions.None).ToList();
             lines[0] = lineIndentation + lines[0];
             var dedent = lines.Where(line => line.Trim().Length > 0).Select(line => line.Length - line.TrimStart().Length).DefaultIfEmpty(0).Min();
             List<string> body = [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
