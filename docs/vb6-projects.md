@@ -86,8 +86,8 @@ and an assignment without `Set` raises 438.
 > **Not implemented.**
 > - A form or a PictureBox that is not shown draws nothing, and its `Point` reads -1, whatever its `AutoRedraw`. VB6 draws on one whose `AutoRedraw`
 >   is True.
-> - `TypeName` of a control's `Font` is `StdFont`, where VB6 gives `Font`.
-> - A `New StdFont` cannot be given to a control's `Font`.
+> - A control given a font of the program's (`Set Label1.Font = New StdFont`) holds a copy of its values. VB6 shares the font: `Label1.Font Is f` is
+>   True, and a change through either is seen through the other.
 
 ---
 ## Running a VB6 project

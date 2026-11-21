@@ -86,8 +86,8 @@ contrôles lèvent 425. Un Timer n'a pas de `Container` (438), et une affectatio
 > **Non implémenté.**
 > - Une feuille ou un PictureBox qui n'est pas affiché ne dessine rien, et son `Point` donne -1, quel que soit son `AutoRedraw`. VB6 dessine sur
 >   celui dont l'`AutoRedraw` est True.
-> - `TypeName` de la `Font` d'un contrôle donne `StdFont`, là où VB6 donne `Font`.
-> - Un `New StdFont` ne peut pas être affecté à la `Font` d'un contrôle.
+> - Un contrôle à qui l'on donne une police du programme (`Set Label1.Font = New StdFont`) en détient une copie des valeurs. VB6 partage la police :
+>   `Label1.Font Is f` est True, et une modification faite par l'une se voit par l'autre.
 
 ---
 ## Exécuter un projet VB6
