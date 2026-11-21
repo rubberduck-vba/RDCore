@@ -1467,7 +1467,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Clt);
         _il.Emit(OpCodes.Stloc, loop.CountsDown);
 
-        Store(start, open.Kind, _slots[open.Counter]);
+        StoreSlot(start, open.Kind, open.Counter);
         _il.Emit(OpCodes.Ldc_I4_1);
         _il.Emit(OpCodes.Stloc, loop.Opened);
         _il.Emit(OpCodes.Ldc_I4_0);
@@ -1479,39 +1479,39 @@ internal sealed partial class ProcedureEmitter
             EmitEndStatement();
         }
 
-        EmitPastTheEnd(loop, open.Counter, _instructions[open.Past]);
+        EmitPastTheEnd(loop, start, open.Kind, _instructions[open.Past]);
     }
 
     // TryStepForUnboxed: the counter given its value plus the step - computed in the extended format for a floating-point counter - and the body run again
-    // while it is not past the end.
+    // while it is not past the end. The value is the one the counter holds at the Next (MS-VBAL §5.4.2.3, step 3), what a callee given it by reference
+    // assigned it included: a counter held in a cell is read in it, and given the sum in it (EmitPayload, StoreSlot).
     private void EmitForNext(ForNextStep next)
     {
         EmitPoll(next.Offset);
         var failure = FailureAt(next.Offset);
         var loop = _loops[next.Loop];
-        var counter = _slots[next.Counter];
+        var counter = EmitPayload(new SlotNode(next.Counter, next.Kind), failure);
+        Operand stepped;
         if (ScalarKinds.IsIntegral(next.Kind))
         {
             var sum = _il.DeclareLocal(typeof(long));
             _il.Emit(OpCodes.Ldc_I4, (int)next.Kind);
-            _il.Emit(OpCodes.Ldloc, counter);
+            Load(counter, next.Kind);
             _il.Emit(OpCodes.Ldloc, loop.Step);
             _il.Emit(OpCodes.Ldloca, sum);
             _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Add))!);
             _il.Emit(OpCodes.Brtrue, failure);
-            _il.Emit(OpCodes.Ldloc, sum);
-            _il.Emit(OpCodes.Stloc, counter);
+            stepped = new Operand(sum, 0, 0);
         }
         else if (next.Kind is ScalarKind.Double or ScalarKind.Date)
         {
-            var sum = EmitExactOperation(Tokens.AdditionOp, new OperandNode(new Operand(counter, 0, 0), next.Kind), new OperandNode(new Operand(loop.Step, 0, 0), next.Kind),
+            stepped = EmitExactOperation(Tokens.AdditionOp, new OperandNode(counter, next.Kind), new OperandNode(new Operand(loop.Step, 0, 0), next.Kind),
                 next.Kind, failure);
-            Store(sum, next.Kind, counter);
         }
         else
         {
             var sum = _il.DeclareLocal(typeof(double));
-            _il.Emit(OpCodes.Ldloc, counter);
+            Load(counter, next.Kind);
             _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Extended.OfFloating))!);
             _il.Emit(OpCodes.Ldloc, loop.Step);
             _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Extended.OfFloating))!);
@@ -1520,30 +1520,31 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldloca, sum);
             _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Extended.ToFloating))!);
             _il.Emit(OpCodes.Brtrue, failure);
-            _il.Emit(OpCodes.Ldloc, sum);
-            _il.Emit(OpCodes.Stloc, counter);
+            stepped = new Operand(sum, 0, 0);
         }
+
+        StoreSlot(stepped, next.Kind, next.Counter);
 
         // a loop that ends keeps its end and its step, as the interpreter's does: a Resume may go back into it, and its statement, run again, may fail.
         var exit = _il.DefineLabel();
-        EmitPastTheEnd(loop, next.Counter, exit);
+        EmitPastTheEnd(loop, stepped, next.Kind, exit);
         _il.Emit(OpCodes.Br, _instructions[next.Body]);
         _il.MarkLabel(exit);
     }
 
-    // goes to past when the counter is past the end: below it counting down, above it counting up.
-    private void EmitPastTheEnd(LoopLocals loop, int counter, Label past)
+    // goes to past when the counter, which holds the value given, is past the end: below it counting down, above it counting up.
+    private void EmitPastTheEnd(LoopLocals loop, Operand counter, ScalarKind kind, Label past)
     {
         var up = _il.DefineLabel();
         var within = _il.DefineLabel();
         _il.Emit(OpCodes.Ldloc, loop.CountsDown);
         _il.Emit(OpCodes.Brfalse, up);
-        _il.Emit(OpCodes.Ldloc, _slots[counter]);
+        Load(counter, kind);
         _il.Emit(OpCodes.Ldloc, loop.End);
         _il.Emit(OpCodes.Blt, past);
         _il.Emit(OpCodes.Br, within);
         _il.MarkLabel(up);
-        _il.Emit(OpCodes.Ldloc, _slots[counter]);
+        Load(counter, kind);
         _il.Emit(OpCodes.Ldloc, loop.End);
         _il.Emit(OpCodes.Bgt, past);
         _il.MarkLabel(within);

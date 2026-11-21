@@ -34,8 +34,8 @@ public enum IneligibilityKind
     AssignmentTarget,
 
     /// <summary>
-    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, or with a variable held in a cell - a parameter
-    /// passed by reference, a variable the procedure passes by reference.
+    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, with a field (held in a cell the interpreter and
+    /// other procedures see), or with a <c>Variant</c>, whose statement the interpreter runs.
     /// </summary>
     ForCounter,
 

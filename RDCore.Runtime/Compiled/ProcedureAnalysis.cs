@@ -298,17 +298,6 @@ internal sealed partial class ProcedureAnalysis
             }
         }
 
-        // a loop counts in a local of compiled code: one that counts with a variable held in a cell - passed by reference, by its caller or to a callee,
-        // which may be found only after the loop - is the interpreter's.
-        for (var i = 0; i < _loops.Count; i++)
-        {
-            if (_cellSlots.Contains(_counterSlots[i]))
-            {
-                Refuse(IneligibilityKind.ForCounter, _loops[i].Counter.Name, _loops[i].Control.Location);
-                return;
-            }
-        }
-
         // a body that does nothing of its own in compiled code where it spends its time is the interpreter's whole: what it steps is why, and compiled code
         // would only write its variables into the frame and read them back around each instruction it steps.
         if (_stepped.Count > 0 && !GainsAnything(list))
