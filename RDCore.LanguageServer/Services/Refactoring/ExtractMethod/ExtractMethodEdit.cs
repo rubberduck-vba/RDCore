@@ -79,7 +79,7 @@ internal enum ExtractionAccessibility
 /// <param name="CallLength">How long the call is from <paramref name="CallStart"/>; -1 when the call is all of <paramref name="NewText"/>.</param>
 internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind, int CallStart = 0, int CallLength = -1)
 {
-    // the edit as the text it writes, which TextLines makes.
+    // the edit as the SDK's text edit, which TextLines applies.
     public RefactorTextEdit TextEdit => new() { Range = Range, NewText = NewText };
 }
 
@@ -175,7 +175,7 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
     /// <param name="text">The module's text, which the edits are of.</param>
     public string ApplyTo(string text) => TextLines.Apply(text, TextEdits).Text;
 
-    // the edits as the texts they write, in the same order.
+    // the edits as the SDK's text edits, in the same order.
     internal RefactorTextEdit[] TextEdits => [.. Edits.Select(edit => edit.TextEdit)];
 
     /// <summary>
