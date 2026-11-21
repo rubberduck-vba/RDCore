@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Extensibility.Diagnostics;
+﻿using System.Globalization;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 
@@ -43,11 +44,37 @@ public static class RuntimeErrors
     private static string MessageOf(VBRuntimeErrorId errorId)
         => Text(Known.Contains(errorId) ? errorId : VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError);
 
-    // read at each call, in the language of the user interface (CultureInfo.CurrentUICulture) then: it is not the same for every thread, nor for the
-    // life of the process. Each known error has a RuntimeError_<name> entry in Exceptions.resx and in each of its translations.
+    // in the language of the user interface (CultureInfo.CurrentUICulture) at the call: it is not the same for every thread, nor for the life of the
+    // process. What the thread read in that language is kept for the next error of the same number it describes in it, so that an error raised in a loop
+    // is looked up once. Each known error has a RuntimeError_<name> entry in Exceptions.resx and in each of its translations.
     private static string Text(VBRuntimeErrorId errorId)
-        => Exceptions.ResourceManager.GetString($"RuntimeError_{errorId}", Exceptions.Culture)
-            ?? throw new InvalidOperationException($"Run-time error {errorId} has no description in Exceptions.resx.");
+    {
+        var culture = Exceptions.Culture ?? CultureInfo.CurrentUICulture;
+        if (t_read is not { } read || !ReferenceEquals(read.Culture, culture))
+        {
+            t_read = read = new ReadTexts(culture);
+        }
+
+        if (!read.Texts.TryGetValue(errorId, out var text))
+        {
+            text = Exceptions.ResourceManager.GetString($"RuntimeError_{errorId}", culture)
+                ?? throw new InvalidOperationException($"Run-time error {errorId} has no description in Exceptions.resx.");
+            read.Texts[errorId] = text;
+        }
+
+        return text;
+    }
+
+    [ThreadStatic]
+    private static ReadTexts? t_read;
+
+    // the descriptions a thread read in one language.
+    private sealed class ReadTexts(CultureInfo culture)
+    {
+        public CultureInfo Culture { get; } = culture;
+
+        public Dictionary<VBRuntimeErrorId, string> Texts { get; } = [];
+    }
 
     // the VBA run-time errors the platform knows the description of, and RD-VBA's own. Any other number is described as
     // ApplicationDefinedOrObjectDefinedError is.

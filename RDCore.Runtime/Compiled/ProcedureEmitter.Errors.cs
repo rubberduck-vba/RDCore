@@ -3,7 +3,8 @@ using System.Reflection.Emit;
 namespace RDCore.Runtime.Compiled;
 
 // what compiled code does of an error an operation it evaluates finds: at an instruction the interpreter is given alone when it fails, the error is raised
-// where compiled code found it (CompiledActivation.RaiseArithmetic), and the interpreter does not evaluate the instruction again to find it.
+// where compiled code found it (CompiledActivation.RaiseArithmetic), and the interpreter does not evaluate the instruction again to find it. An error the
+// activation's On Error Resume Next is given where compiled code is goes on at the next instruction (CompiledActivation.TryResumeNext).
 internal sealed partial class ProcedureEmitter
 {
     // whether the step being emitted raises the error an operation of it finds (RaisesErrorsIn).
@@ -78,6 +79,13 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldloc, status);
         _il.Emit(OpCodes.Ldc_I4, site);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RaiseArithmetic))!);
+
+        // an error the activation's On Error Resume Next is given where compiled code is goes on at the next instruction; any other, the interpreter's.
+        var offset = _recoveries.First(recovery => recovery.Value == failure).Key;
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryResumeNext))!);
+        _il.Emit(OpCodes.Brtrue, _instructions[offset + 1]);
         _il.Emit(OpCodes.Br, Fail(failure));
         _il.MarkLabel(succeeded);
     }

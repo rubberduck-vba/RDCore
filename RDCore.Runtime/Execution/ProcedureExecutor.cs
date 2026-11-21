@@ -1792,24 +1792,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break;
         }
 
-        // an error carries the location of what raised it, and a library member cannot know where it was called from: until its call
-        // site is given to it, its error says nowhere. The statement that faulted is where it was raised, as far as anything here knows,
-        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and is where
-        // its closing line is (Instruction.Location). The error that propagates is that one: a caller it unwinds into finds it located
-        // and leaves it be, and a debugger that waited at it does not wait at it again.
-        var faulting = list.Items[faultOffset];
-        var location = faulting.Location ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node?.SourceLocation : null);
-        if (outcome.ErrorInfo!.Location is { Uri: null } && location is { Uri: not null } statement)
-        {
-            outcome = RuntimeExecutionOutcome.Error((IVBRaisableError)(outcome.ErrorInfo.AsErrorInfo with { Location = statement }));
-        }
-
-        // every run-time error reaches the session's error state, handled or not: MS-VBAL §6.1.3.2's
-        // Err is set by the error being raised, not by anything choosing to deal with it. This is the
-        // one place every error the interpreter can raise passes through, which is why it is here.
-        // the line the fault is at travels with it, which is what Erl reports - counted as the environment
-        // says to count it.
-        session.Errors.Raise(outcome.ErrorInfo!, ErlLineOf(session, list, faultOffset, outcome.ErrorInfo!, location));
+        outcome = Raise(session, list, faultOffset, outcome);
 
         // a program under a debugger that asked to see errors waits here, where the error was raised and nothing has been unwound: the activation is the one that faulted,
         // at the statement that did. It goes on from here when it is resumed. An error a handler catches is caught; one nothing catches is not given to the
@@ -1863,6 +1846,54 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             default:
                 return outcome;
         }
+    }
+
+    // the error the instruction at faultOffset raised, located and given to Err.
+    private static RuntimeExecutionOutcome Raise(IRuntimeSession session, InstructionList list, int faultOffset, RuntimeExecutionOutcome outcome)
+    {
+        // an error carries the location of what raised it, and a library member cannot know where it was called from: until its call
+        // site is given to it, its error says nowhere. The statement that faulted is where it was raised, as far as anything here knows,
+        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and is where
+        // its closing line is (Instruction.Location). The error that propagates is that one: a caller it unwinds into finds it located
+        // and leaves it be, and a debugger that waited at it does not wait at it again.
+        var faulting = list.Items[faultOffset];
+        var location = faulting.Location ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node?.SourceLocation : null);
+        if (outcome.ErrorInfo!.Location is { Uri: null } && location is { Uri: not null } statement)
+        {
+            outcome = RuntimeExecutionOutcome.Error((IVBRaisableError)(outcome.ErrorInfo.AsErrorInfo with { Location = statement }));
+        }
+
+        // every run-time error reaches the session's error state, handled or not: MS-VBAL §6.1.3.2's
+        // Err is set by the error being raised, not by anything choosing to deal with it. Every error the interpreter can raise passes
+        // through here (InterceptError), and so does every error compiled code gives its On Error Resume Next (TryResumeNext).
+        // the line the fault is at travels with it, which is what Erl reports - counted as the environment
+        // says to count it.
+        session.Errors.Raise(outcome.ErrorInfo!, ErlLineOf(session, list, faultOffset, outcome.ErrorInfo!, location));
+        return outcome;
+    }
+
+    /// <summary>
+    /// Gives <paramref name="outcome"/>, the error the instruction at <paramref name="faultOffset"/> raised, to the activation's <c>On Error Resume Next</c>,
+    /// as <see cref="InterceptError"/> gives it, where nothing waits at it: Err is given the error, and the activation goes on at the next instruction
+    /// (MS-VBAL §5.4.4.1). It gives nothing when the activation's handler is another, when the program is to stop, when a debugger is to wait at an error
+    /// the program handles, when an error is untrappable, and at a <c>Select Case</c>, whose next statement is past its <c>End Select</c>.
+    /// </summary>
+    /// <returns>Whether the error was given: the activation goes on at the instruction after the one at <paramref name="faultOffset"/>.</returns>
+    internal static bool TryResumeNext(IRuntimeSession session, CallStackFrame activation, InstructionList list, int faultOffset,
+        RuntimeExecutionOutcome outcome)
+    {
+        // a debugger that breaks on unhandled errors does not wait at this one, which the activation's handler catches (RuntimeSession.TrySuspendOnError).
+        if (outcome.Kind is not RuntimeExecutionOutcomeKind.Error || activation.ErrorHandler.Mode is not ErrorHandlingMode.ResumeNext
+            || session.Halt.Pending is not null || session.Halt.BreakOnErrors is not (ErrorBreakMode.None or ErrorBreakMode.Unhandled)
+            || session.Errors.Untrappable is not null || list.Items[faultOffset].Kind is InstructionKind.Select)
+        {
+            return false;
+        }
+
+        outcome = Raise(session, list, faultOffset, outcome);
+        activation.ErrorHandler = activation.ErrorHandler with { ActiveError = outcome.ErrorInfo, FaultStatementOffset = faultOffset };
+        activation.Pc = faultOffset + 1;
+        return true;
     }
 
     // Returns null when the Resume succeeded (activation.Pc/ErrorHandler already updated - the loop
