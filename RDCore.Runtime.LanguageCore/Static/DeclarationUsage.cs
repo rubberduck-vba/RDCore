@@ -408,12 +408,13 @@ public static class DeclarationUsage
     private static Dictionary<string, References> Tally(IEnumerable<Code> code)
     {
         var references = new Dictionary<string, References>(StringComparer.Ordinal);
-        foreach (var (procedure, expressions, byRef) in code)
+        foreach (var (procedure, all, byRef) in code)
         {
+            var expressions = all as IReadOnlyCollection<ExpressionFact> ?? [.. all];
             var bound = Bound(expressions)
                 .GroupBy(fact => (Key: Key(fact.Binding!.Value), fact.Location.Range.Start))
                 .SelectMany(group => group.Any(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.ProcedureCall))
-                    ? Call(procedure, [.. group])
+                    ? Call(procedure, [.. group], expressions)
                     : group.Select(fact => (Fact: fact, Kind: KindOf(fact, byRef), fact.Flags)))
                 .OrderBy(reference => reference.Fact.Location.Range.Start);
             foreach (var (fact, kind, flags) in bound)
@@ -451,14 +452,18 @@ public static class DeclarationUsage
     };
 
     // a call written with an argument list is two expressions bound to what it calls, the name and the call (`Compute(1)`): one reference, at the name, that
-    // reads it or, for a Property Let or Set, writes it. MS-VBAL §5.3.1, §5.6.2.1: in a Function or a Property Get, its own name with no argument list is its
-    // function result variable, which no other code can refer to - and not a reference to the procedure.
+    // reads it or, for a Property Let or Set, writes it. MS-VBAL §5.3.1, §5.6.2.1: in a Function or a Property Get, its own simple name read or assigned is its
+    // function result variable, which no other code can refer to - and not a reference to the procedure. Its name is a call wherever else it is written: as
+    // the expression of a call statement, with the Call keyword or not, with arguments or not (MS-VBAL §5.4.2.1), and as the member a member access names
+    // (MS-VBAL §5.6.12: `Me.Compute`, `Module1.Compute`, `.Compute` in a With block), which no function result variable is.
     private static IEnumerable<(ExpressionFact Fact, DeclarationReferenceKind Kind, ValueExpressionSemanticFlags Flags)> Call(
-        SemanticId? procedure, ExpressionFact[] call)
+        SemanticId? procedure, ExpressionFact[] call, IReadOnlyCollection<ExpressionFact> expressions)
     {
         var name = call.MinBy(fact => fact.Location.Range.End)!;
         if (call.Length == 1 && procedure is not null && name.Binding == procedure
-            && name.Classification is ExpressionClassification.Function or ExpressionClassification.Property)
+            && name.Classification is ExpressionClassification.Function or ExpressionClassification.Property
+            && !name.Flags.HasFlag(ValueExpressionSemanticFlags.ResultDiscarded) && !name.Flags.HasFlag(ValueExpressionSemanticFlags.WithBlockRelative)
+            && !IsQualified(name, expressions))
         {
             yield break;
         }
@@ -466,6 +471,12 @@ public static class DeclarationUsage
         var flags = call.Aggregate(default(ValueExpressionSemanticFlags), (all, fact) => all | fact.Flags);
         yield return (name, flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) ? DeclarationReferenceKind.Write : DeclarationReferenceKind.Read, flags);
     }
+
+    // whether the expression holds another that starts where it does and ends before it: the owner of a member access (`Me` of `Me.Compute`), which a simple
+    // name, a single identifier, never holds.
+    private static bool IsQualified(ExpressionFact expression, IReadOnlyCollection<ExpressionFact> expressions)
+        => expressions.Any(other => other.Location.Range.Start == expression.Location.Range.Start && other.Location.Range.End < expression.Location.Range.End
+            && other.Location.Uri == expression.Location.Uri);
 
     // the accessors of a property are one declaration: a Property Let or Property Set is addressed with a suffix after the name it shares with the others
     // (`Item]Let`). VBA names are not case sensitive. A Let and a Set are both Writes of the one count, so the count cannot tell which accessor is never used,
