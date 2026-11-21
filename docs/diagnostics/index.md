@@ -331,10 +331,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01018](rdc01018.md)|Keyword used as a member name|An Enum member or a member of a user-defined type named with a keyword|
 |[RDC01019](rdc01019.md)|Win64 is a bitness test|A directive that reads `Win64`, which is `1` on a 64-bit Mac too|
 |[RDC01020](rdc01020.md)|Undefined conditional constant|A directive that reads a constant nothing defines, which is `0`|
-|[RDC01024](rdc01024.md)|Default project name|A project named `VBAProject`, the name MS-VBA gives a new project|
 |[RDC01021](rdc01021.md)|Unassigned variable usage|A local variable read where nothing has assigned it|
 |[RDC01022](rdc01022.md)|Assignment not used|A value assigned to a variable that nothing reads|
 |[RDC01023](rdc01023.md)|Parameter can be passed by value|A parameter passed by reference that its procedure never changes|
+|[RDC01024](rdc01024.md)|Default project name|A project named `VBAProject`, the name MS-VBA gives a new project|
 |[RDC01025](rdc01025.md)|Procedure not used|A procedure or a property that no code calls|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
