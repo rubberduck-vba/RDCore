@@ -19,6 +19,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Refactoring;
 using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Services.Refactoring.InlineMember;
@@ -106,7 +107,7 @@ internal static class InlineCall
             return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
         }
 
-        var text = new ExtractionText(syntax.Source);
+        var text = TextLines.Of(syntax.Source);
         if (RefusalOf(context, callee, procedure) is { } refused)
         {
             return (null, refused);
@@ -257,7 +258,7 @@ internal static class InlineCall
 
     // the statement is the only code of the lines it spans: no other statement on them, as one of a line of statements separated by colons, or the
     // statement of a single-line If.
-    private static bool IsAloneOnItsLines(ExtractionText text, StatementNode call)
+    private static bool IsAloneOnItsLines(TextLines text, StatementNode call)
     {
         var range = call.SourceLocation.Range;
         var before = text.Of(new SourceRange(new SourcePosition(range.Start.Line, 0), range.Start));
@@ -366,7 +367,7 @@ internal static class InlineCall
 
     // writes the inlined body at the call.
     private sealed class Writer(
-        RenameContext context, RenameModule syntax, ExtractionText text, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
+        RenameContext context, RenameModule syntax, TextLines text, Symbol callee, ExtractionProcedureAnalysis procedure, Site site)
     {
         private readonly StatementNode call = site.Statement;
         private readonly Func<ExpressionNode, SemanticId?> _bindings = NameOccurrences.BindingsOf(context, syntax);
@@ -490,11 +491,11 @@ internal static class InlineCall
             var edits = names.Where(name => _bindings(name) is { } bound && _replacements.ContainsKey(bound))
                 .Select(name => (Range: name.SourceLocation.Range, NewText: _replacements[_bindings(name)!.Value])).OrderByDescending(edit => edit.Range.Start);
             var written = text.Of(value.SourceLocation.Range).Trim();
-            var start = text.OffsetOf(value.SourceLocation.Range.Start) + (text.Of(value.SourceLocation.Range).Length - text.Of(value.SourceLocation.Range).TrimStart().Length);
+            var start = text.Offset(value.SourceLocation.Range.Start) + (text.Of(value.SourceLocation.Range).Length - text.Of(value.SourceLocation.Range).TrimStart().Length);
             foreach (var (range, newText) in edits)
             {
-                var from = text.OffsetOf(range.Start) - start;
-                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.OffsetOf(range.End) - start));
+                var from = text.Offset(range.Start) - start;
+                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.Offset(range.End) - start));
             }
 
             return (new InlinedCall(syntax.Module, callee, [new RefactorTextEdit { Range = called.SourceLocation.Range, NewText = $"({written})" }]), null);
@@ -986,14 +987,14 @@ internal static class InlineCall
             var closing = Exits(edits);
             edits.AddRange(_folds);
             var written = text.Of(body);
-            var start = text.OffsetOf(body.Start);
+            var start = text.Offset(body.Start);
             // an edit inside another one (a parameter's name in a folded IsMissing) goes with it.
             foreach (var (range, newText) in edits.DistinctBy(edit => edit.Range)
                 .Where(edit => !edits.Any(other => other.Range != edit.Range && Within(edit.Range, other.Range)))
                 .OrderByDescending(edit => edit.Range.Start))
             {
-                var from = text.OffsetOf(range.Start) - start;
-                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.OffsetOf(range.End) - start));
+                var from = text.Offset(range.Start) - start;
+                written = string.Concat(written.AsSpan(0, from), newText, written.AsSpan(text.Offset(range.End) - start));
             }
 
             return written.TrimEnd('\r', '\n').Split('\n').Select(line => line.TrimEnd('\r').TrimStart()).Concat(closing);

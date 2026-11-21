@@ -1,4 +1,5 @@
 using RDCore.Runtime.LanguageCore.Flow;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -110,7 +111,7 @@ internal static class ExtractionVerification
             return FailureOf(problem);
         }
 
-        var editedText = new ExtractionText(text);
+        var editedText = TextLines.Of(text);
         if (plan.Selection.Routine is not null)
         {
             return SitesOf(plan, edit, editedText, written, after, original, edited, extracted, name);
@@ -163,7 +164,7 @@ internal static class ExtractionVerification
         ExtractionPlan plan, ExtractionProcedureAnalysis original, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name,
         ExtractionModuleAnalysis after, string text, (int Start, int End) written)
     {
-        var editedText = new ExtractionText(text);
+        var editedText = TextLines.Of(text);
         var requested = new SourceRange(editedText.PositionOf(written.Start), editedText.PositionOf(written.End));
         if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
         {
@@ -177,7 +178,7 @@ internal static class ExtractionVerification
     // each call that replaces a GoSub of a routine takes in what the routine took in, writes nothing it did not, gives back what the code after it reads of what
     // it wrote, and leaves the source procedure where it did.
     private static ExtractionVerificationFailure? SitesOf(
-        ExtractionPlan plan, ExtractionEdit edit, ExtractionText editedText, IReadOnlyList<(int Start, int End)> written, ExtractionModuleAnalysis after,
+        ExtractionPlan plan, ExtractionEdit edit, TextLines editedText, IReadOnlyList<(int Start, int End)> written, ExtractionModuleAnalysis after,
         ExtractionProcedureAnalysis original, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name)
     {
         var known = original.Accesses.Variables.ToHashSet();

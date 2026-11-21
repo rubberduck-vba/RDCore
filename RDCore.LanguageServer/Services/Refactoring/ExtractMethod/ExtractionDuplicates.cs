@@ -1,4 +1,5 @@
 using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -93,7 +94,7 @@ internal static class ExtractionDuplicates
             return [];
         }
 
-        var selection = new Side(new ExtractionText(source.Text), NameOccurrences.BindingsOf(context, selected), source.ProcedureId);
+        var selection = new Side(TextLines.Of(source.Text), NameOccurrences.BindingsOf(context, selected), source.ProcedureId);
         var names = ExtractMethodEdit.ModuleNamesOf(plan, source, choices.Name).ToArray();
         var found = new List<ExtractionDuplicate>();
         foreach (var uri in searched)
@@ -104,7 +105,7 @@ internal static class ExtractionDuplicates
             }
 
             var bindings = NameOccurrences.BindingsOf(context, syntax);
-            var text = new ExtractionText(analysis.Text);
+            var text = TextLines.Of(analysis.Text);
             foreach (var member in tree.Children.OfType<MemberDeclarationNode>())
             {
                 if (analysis.Procedure(member.Name, member.MemberKind) is not { } procedure
@@ -168,7 +169,7 @@ internal static class ExtractionDuplicates
     private static bool Overlaps(SourceRange range, SourceRange other) => range.Start < other.End && other.Start < range.End;
 
     // a run of statements, its text and what its names bind to, in the procedure it is in.
-    private sealed record class Side(ExtractionText Text, Func<ExpressionNode, SemanticId?> Bindings, SemanticId Procedure)
+    private sealed record class Side(TextLines Text, Func<ExpressionNode, SemanticId?> Bindings, SemanticId Procedure)
     {
         public bool IsLocal(SemanticId id) => id.Uri.AbsoluteUri.StartsWith(Procedure.Uri.AbsoluteUri + ".", StringComparison.OrdinalIgnoreCase);
     }
@@ -255,7 +256,7 @@ internal static class ExtractionDuplicates
     }
 
     // what a node is written as, but for the nodes it is made of: its keywords, its operators, its literal.
-    private static string OwnText(ExtractionText text, SyntaxNode node, SyntaxNode[] children)
+    private static string OwnText(TextLines text, SyntaxNode node, SyntaxNode[] children)
     {
         var range = node.SourceLocation.Range;
         var own = new StringBuilder();

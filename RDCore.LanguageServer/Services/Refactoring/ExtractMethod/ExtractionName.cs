@@ -1,4 +1,5 @@
 using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
@@ -227,7 +228,7 @@ internal static class ExtractionName
             return $"Get{Capitalized(output.Name)}";
         }
 
-        var text = new ExtractionText(source.Text);
+        var text = TextLines.Of(source.Text);
         var call = plan.Selection.Statements
             .SelectMany(statement => (IEnumerable<SyntaxNode>)[statement, .. statement.Descendants()])
             .OfType<CallStatementNode>()
