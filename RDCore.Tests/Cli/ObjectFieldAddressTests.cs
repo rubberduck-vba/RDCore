@@ -23,4 +23,31 @@ public sealed class ObjectFieldAddressTests
     [DataRow("Dim B As New Box ;; P B.Stable", "True|", DisplayName = "in one call of a member, across the calls it makes")]
     public async Task AVariableOfAnObject_KeepsItsAddressForTheObjectsLife(string body, string expected)
         => Assert.AreEqual(expected, await ObjectArgumentOrderTests.RunAsync(body));
+
+    // a variable of each kind a class can have, each assigned by Touch: AddrOf is VarPtr of the one named.
+    private static readonly (string Name, string Source) Kinds = ("Kinds", ModuleWorkspace.ClassModule("Kinds",
+        "Option Explicit",
+        "Private Type TPoint", "    X As Long", "    Y As Long", "End Type",
+        "Private V As Variant", "Private S As String", "Private O As Object", "Private D As Double", "Private R As TPoint",
+        "Public Function AddrOf(ByVal Which As String) As LongPtr",
+        "    Select Case Which",
+        "        Case \"V\": AddrOf = VarPtr(V)", "        Case \"S\": AddrOf = VarPtr(S)", "        Case \"O\": AddrOf = VarPtr(O)",
+        "        Case \"D\": AddrOf = VarPtr(D)", "        Case \"R\": AddrOf = VarPtr(R)",
+        "    End Select",
+        "End Function",
+        "Public Sub Touch()", "    V = V & \"x\"", "    S = S & \"x\"", "    Set O = New Collection", "    D = D + 1", "    R.X = R.X + 1", "End Sub"));
+
+    [TestMethod]
+    [DataRow("V", DisplayName = "a Variant")]
+    [DataRow("S", DisplayName = "a String")]
+    [DataRow("O", DisplayName = "an object")]
+    [DataRow("D", DisplayName = "a Double")]
+    [DataRow("R", DisplayName = "a record")]
+    public async Task AVariableOfAnObject_OfAnyKind_KeepsItsAddressAcrossTheAssignmentsAndCallsOfTheObject(string which)
+        => Assert.AreEqual("True|True|", string.Join(" ", await ModuleWorkspace.RunAsync([Kinds], [],
+            "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPrivate acc As String\r\n"
+            + "Private Sub P(ByVal v As Variant)\r\n    acc = acc & CStr(v) & \"|\"\r\nEnd Sub\r\n"
+            + "Public Sub Main()\r\nDim K As New Kinds\r\nDim First As LongPtr\r\n"
+            + $"First = K.AddrOf(\"{which}\")\r\nK.Touch\r\nK.Touch\r\nP (K.AddrOf(\"{which}\") = First)\r\nP (First <> 0)\r\n"
+            + "Debug.Print acc\r\nEnd Sub\r\n")));
 }
