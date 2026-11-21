@@ -401,7 +401,7 @@ public class InlineCallTests
     }
 
     [TestMethod]
-    [Ignore("The order MS-VBA lets go of a procedure's locals in is not measured in MS-VBA; the inline is refused until it is.")]
+    [Ignore("not implemented: a call whose procedure lets go of two objects at its end; the order MS-VBA lets go of them in is not measured.")]
     public async Task TwoObjectsLetGoOfAtTheEnd_AreLetGoOfInTheOrderTheCalleeLetGoOfThem()
     {
         var (before, after, module) = await BeforeAndAfterAsync(
