@@ -128,7 +128,7 @@
     <value>« {0} » {1} désignerait la déclaration de ce nom de l'appelant.</value>
   </data>
   <data name="InlineMember_Rebound" xml:space="preserve">
-    <value>Écrit à l'appel {1}, « {0} » désignerait une autre déclaration que dans le membre.</value>
+    <value>Incorporé à l'appel {1}, « {0} » désignerait une autre déclaration que celle qu'il désigne là où il est écrit.</value>
   </data>
   <data name="InlineMember_EvaluationOrder" xml:space="preserve">
     <value>L'instruction de l'appel évalue autre chose {1} que le corps pourrait modifier, ou qui a un effet : le corps s'exécuterait d'abord.</value>
