@@ -197,7 +197,8 @@ public static class DeclarationUsage
     // A program (a project that is not a library, whose entry point is found) is run from its entry point, and no other project nor any host calls into it:
     // a Public member of any of its modules is counted as a Friend one is (PublicMembersOfAProgram), with what each module's code accesses late (lateBound,
     // by the module's address). A library's members that a referencing project can use count as used by one (isLibrary,
-    // DeclarationFact.IsUsedByReferencingProjects), and are not counted. An argument a call takes by reference is followed into the procedure called where
+    // DeclarationFact.IsUsedByReferencingProjects), and are not counted, except a class's that is not exposed when the library hands out no object
+    // (HandsOutObjects), which are counted as a program's are. An argument a call takes by reference is followed into the procedure called where
     // the module's own count follows it, and into a procedure of a standard module of the project, which is the one a call of its name runs from any module
     // of the project (byRefArguments, by the module's address, ByRefFlow): for the declarations each module's own count counted as well, once every module
     // has a model. A member of a class called through a variable may run another class's that implements it, and is not followed.
@@ -220,10 +221,13 @@ public static class DeclarationUsage
         }
 
         var projectModules = project.DistinctBy(module => module.Uri.AbsoluteUri).ToList();
-        // what a referencing project can name, or reach through an object of its class, is said whether or not the code is analyzed.
+        // what a referencing project can name, or reach through an object of its class, is said whether or not the code is analyzed. An object of a class
+        // that is not exposed reaches a referencing project only through what the library gives it (HandsOutObjects).
+        var closed = isLibrary && !HandsOutObjects(projectModules, membersOf);
         if (isLibrary)
         {
             var usedFromOutside = projectModules
+                .Where(module => !closed || ReferencedProjectSymbols.IsAccessible(module))
                 .SelectMany(module => membersOf(module).Where(member => ReferencedProjectSymbols.IsAccessible(member, module)))
                 .Select(member => member.SemanticId)
                 .ToHashSet();
@@ -285,7 +289,9 @@ public static class DeclarationUsage
             followed.GetValueOrDefault(model.Module.AbsoluteUri) ?? byRefArguments?.GetValueOrDefault(model.Module.AbsoluteUri))));
         var excluded = modules.SelectMany(module => excludedBranchNames?.GetValueOrDefault(module) ?? Enumerable.Empty<string>())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var program = !isLibrary && entryPoint is not null ? PublicMembersOfAProgram(projectModules, inProject, lateBound, membersOf) : null;
+        var program = !isLibrary && entryPoint is not null ? PublicMembersOfAProgram(projectModules, inProject, lateBound, membersOf, _ => true)
+            : closed ? PublicMembersOfAProgram(projectModules, inProject, lateBound, membersOf, module => !ReferencedProjectSymbols.IsAccessible(module))
+            : null;
         var late = projectModules.Select(module => lateBound?.GetValueOrDefault(module.Uri.AbsoluteUri)).ToList();
         var namedInStrings = late.All(names => names is not null)
             ? late.SelectMany(names => names!.NamedInStrings).Select(Normalized).ToHashSet(StringComparer.OrdinalIgnoreCase)
@@ -330,10 +336,11 @@ public static class DeclarationUsage
     // point and a handler with no event to handle are not. A member of a class can also be reached where the code runs: as the default member or the
     // enumerator of its object (VB_UserMemId 0 and -4, MS-VBAL §5.6.2.2, §5.4.2.4), through an access bound late that names it, or by CallByName
     // (LateBoundNames). Those are not counted: no member of a class is, when the program calls CallByName, or when the late accesses of a module are not
-    // known.
+    // known. A library that hands out no object counts those of its classes that are not exposed the same way (counts, the modules whose members are
+    // counted): only its own code can reach them.
     private static HashSet<SemanticId> PublicMembersOfAProgram(
         List<VBModuleSymbol> project, List<ModuleSemanticModel> models, IReadOnlyDictionary<string, LateBoundNames>? lateBound,
-        Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
+        Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf, Func<VBModuleSymbol, bool> counts)
     {
         var late = project.Select(module => lateBound?.GetValueOrDefault(module.Uri.AbsoluteUri)).ToList();
         var classMembersAreCounted = late.All(names => names is { CallsByName: false });
@@ -343,7 +350,7 @@ public static class DeclarationUsage
             .Select(fact => fact.Symbol)
             .ToHashSet();
 
-        return [.. project.SelectMany(module => membersOf(module)
+        return [.. project.Where(counts).SelectMany(module => membersOf(module)
             .Where(member => member is AccessibleTypedSymbol { AccessModifier: var access } && KindOf(member) is { } kind && access switch
             {
                 AccessModifier.Public or AccessModifier.Global => kind is not DeclarationKind.Event,
@@ -356,6 +363,28 @@ public static class DeclarationUsage
                     && !(member.TryGetProperty(SymbolProperties.UserMemId, out var id) && id is WellKnownDispIds.Value or WellKnownDispIds.NewEnum)))
             .Select(member => member.SemanticId)];
     }
+
+    // MS-VBAL §5.2.4.1.1: a referencing project cannot name a class that is not exposed, and holds an object of it only as a library gives it one: as what
+    // a member that the project can use (ReferencedProjectSymbols.IsAccessible) is declared as or returns, or as an argument of one, an event's included,
+    // given to its own code. Each can carry one when it is declared as a Variant, an Object or a class, as an array of one, or as a user-defined type with
+    // such a field; and so can one whose type did not resolve.
+    private static bool HandsOutObjects(List<VBModuleSymbol> project, Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>> membersOf)
+        => project.Where(ReferencedProjectSymbols.IsAccessible)
+            .SelectMany(module => membersOf(module).Where(member => ReferencedProjectSymbols.IsAccessible(member, module)))
+            .SelectMany(member => DeclarationStaticSemanticsEvaluator.ParametersOf(member)
+                .Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef))
+                .Cast<Symbol>()
+                .Prepend(member))
+            .Any(symbol => symbol is ITypedSymbol typed && (typed.ResolvedType is not { } type || CanHoldAnObject(type, [])));
+
+    private static bool CanHoldAnObject(VBType type, HashSet<VBType> seen) => type switch
+    {
+        VBArrayType array => CanHoldAnObject(array.ItemType, seen),
+        VBVariantType or VBObjectType or VBClassType => true,
+        VBUserDefinedType record => seen.Add(record) && record.Members.Any(field => field is not ITypedSymbol { ResolvedType: { } fieldType }
+            || CanHoldAnObject(fieldType, seen)),
+        _ => false,
+    };
 
     private static DeclarationFact Counted(DeclarationFact fact, References references)
         => fact with { References = references.Count, ReferencedFrom = references.Sites.ToImmutable() };
