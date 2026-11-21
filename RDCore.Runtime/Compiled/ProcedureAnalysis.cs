@@ -1912,7 +1912,7 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // TryOperateBinary: each operand converted to the type the plan coerces them to, then the operation of the effective type - an integral operation, a
-    // comparison or a logical one; and ^, which the boxed evaluation computes.
+    // comparison or a logical one; or ^ of two Doubles, as PayloadOperations.Power raises it.
     private PayloadNode? Operate(OperationPlan plan, PayloadNode left, PayloadNode right, BoundBinary binary)
     {
         if (ScalarKinds.Of(plan.OperandDestination) is not { } destination || ScalarKinds.Of(plan.EffectiveType) is not { } effective)

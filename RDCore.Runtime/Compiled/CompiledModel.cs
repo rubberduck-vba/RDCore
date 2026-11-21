@@ -69,7 +69,10 @@ public enum IneligibilityKind
     /// <summary>A literal that is no scalar - a <c>String</c>, <c>Nothing</c>, <c>Null</c>, <c>Empty</c>: compiled code holds only scalars.</summary>
     Literal,
 
-    /// <summary>An operator compiled code does not do: <c>^</c>, <c>&amp;</c>, <c>Like</c>, <c>Is</c>; or an operation of no scalar type. Its detail is the operator.</summary>
+    /// <summary>
+    /// An operator compiled code does not do, such as <c>Like</c> or a <c>^</c> of a <c>Variant</c>; or an operation of no scalar type. Its detail is the
+    /// operator.
+    /// </summary>
     Operator,
 
     /// <summary>A <c>GoTo</c>, a line that is jumped to: compiled code jumps only where its loops and branches go.</summary>
