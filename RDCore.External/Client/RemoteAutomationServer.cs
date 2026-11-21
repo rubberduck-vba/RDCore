@@ -153,7 +153,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         TellTheme(incarnation, onlyIfUntold: true);
         // and the program's name, which the first window of the host names its application with.
         TellName(incarnation, onlyIfUntold: true);
-        var created =Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
+        var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
         return ObjectOf(incarnation, created.Handle);
     }
 
