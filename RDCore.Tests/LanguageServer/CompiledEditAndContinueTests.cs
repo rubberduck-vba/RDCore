@@ -256,14 +256,15 @@ public sealed class CompiledEditAndContinueTests
 
     // the program, started by the test and waiting at Main's Stop, debugged through the adapter: continued until Work runs compiled; stopped at a breakpoint
     // set in Work's loop then, at line of workModule; edited there, Work's module saved as edit makes it (Edited when there is none); and continued to its end,
-    // having printed expected. Work, compiled at its first call, is compiled again - the edited body - at its first call after the edit, and runs compiled.
+    // having printed expected. Work, compiled at its first call, or before it with a compiled caller that calls it directly, is compiled again - the edited
+    // body - at its first call after the edit, and runs compiled.
     private static async Task BreakEditContinueAsync(EnvironmentSessionProvider provider, ExecuteResult first, Dictionary<string, string> modules,
         string workModule, int line, string[] expected, Func<Session, Task>? atBreak, Func<string, string>? edit = null)
     {
         // the program was started as the platform starts it, under a debugger, and waits at Main's Stop: Work is not called yet.
         Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);
 
-        var bodies = new ConcurrentQueue<CompiledBody>();
+        var bodies = new ConcurrentQueue<CompiledBody>(CompiledWork(provider));
         provider.Image.Compiler.Compiled += (procedure, result) =>
         {
             if (procedure.Name == "Work" && result.Body is { } body)
@@ -340,6 +341,11 @@ public sealed class CompiledEditAndContinueTests
     private static Task<CompiledBody> WorkLookedAsync(EnvironmentSessionProvider provider)
     {
         var looked = new TaskCompletionSource<CompiledBody>(TaskCreationOptions.RunContinuationsAsynchronously);
+        foreach (var body in CompiledWork(provider))
+        {
+            _ = body.Looked.ContinueWith(_ => looked.TrySetResult(body), TaskScheduler.Default);
+        }
+
         provider.Image.Compiler.Compiled += (procedure, result) =>
         {
             if (procedure.Name == "Work" && result.Body is { } body && !looked.Task.IsCompleted)
@@ -350,6 +356,10 @@ public sealed class CompiledEditAndContinueTests
 
         return looked.Task;
     }
+
+    // the body of Work compiled already, while the program waits at Main's Stop: one, when Main was compiled with a direct call of it, or none.
+    private static CompiledBody[] CompiledWork(EnvironmentSessionProvider provider)
+        => [.. provider.Image.Compiler.Results.Where(entry => entry.Procedure.Name == "Work").Select(entry => entry.Result.Body).OfType<CompiledBody>()];
 
     /// <summary>
     /// The workspace the adapter debugs: standard modules, a file each, run in the host's session the test was given, and the text saved in each file.
