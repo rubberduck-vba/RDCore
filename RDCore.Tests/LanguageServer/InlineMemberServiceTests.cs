@@ -1,7 +1,9 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using RDCore.LanguageServer;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Refactoring;
 using RDCore.LanguageServer.Symbols;
@@ -92,6 +94,9 @@ public sealed class InlineMemberServiceTests
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
+    private readonly IReferencedLibraryService _libraries = Substitute.For<IReferencedLibraryService>();
+    private readonly IOptions<SdkAppOptions> _options =
+        Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
     private readonly InlineMemberService _service;
 
     public InlineMemberServiceTests()
@@ -113,14 +118,40 @@ public sealed class InlineMemberServiceTests
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
-        var libraries = Substitute.For<IReferencedLibraryService>();
-        libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
+        _libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(
                 call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var rename = new RenameService(
-            _documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
-        _service = new InlineMemberService(rename, _parsing, options);
+            _documents, _parsing, new IntrinsicSymbolResolver(), _libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
+        _service = new InlineMemberService(rename, _parsing, _options);
+    }
+
+    // the service as the language server's container makes it: OmniSharp's, which looks at every constructor, the internal ones too, and fills primitive
+    // parameters itself. The workspace, the parser and the libraries are the ones above; everything else is as the language server registers it.
+    [TestMethod]
+    public async Task TheServiceOfTheLanguageServersContainer_PreparesACall()
+    {
+        var toServer = new System.IO.Pipelines.Pipe();
+        var toClient = new System.IO.Pipelines.Pipe();
+        using var server = OmniSharp.Extensions.LanguageServer.Server.LanguageServer.Create(options => options
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            .WithServices(services => services
+                .AddSingleton<System.IO.Abstractions.IFileSystem>(new System.IO.Abstractions.FileSystem())
+                .AddPlatformCoordination(new Version(1, 0))
+                .AddSingleton(_options)
+                .AddSingleton(_documents)
+                .AddSingleton(_parsing)
+                .AddSingleton(_libraries)
+                .AddSingleton(OneProject.Registry())
+                .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver>(new IntrinsicSymbolResolver())));
+
+        var service = server.GetRequiredService<IInlineMemberService>();
+        var prepared = await service.PrepareAsync(Document("Main.bas"), new SourcePosition(12, 5), CancellationToken.None);
+
+        Assert.IsInstanceOfType<InlineMemberService>(service);
+        Assert.IsTrue(prepared.Choices.Any(choice => choice.Id == InlineMemberService.SitesChoice),
+            string.Join(" | ", prepared.Notices.Select(notice => $"{notice.Code}: {notice.Message}")));
     }
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
