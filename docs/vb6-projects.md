@@ -70,7 +70,7 @@ an MSForms ListBox's, and raises 438.
 
 A control's `Font` is a `StdFont`, the same object on every read. A change through it changes every control that holds it, and
 `Set Text2.Font = Text1.Font` shares the font. So does a `Set` of a font of the program's: after `Set Label1.Font = f`, `Label1.Font Is f` is
-True, a change through either is seen through the other, and a control given another font no longer follows `f`. `Text1.Font = "Arial"` sets its
+True, a change through either is seen through the other, and a control given another font stops following `f`. `Text1.Font = "Arial"` sets its
 `Name`, its default member, and a `Set` to `Nothing` raises 380. `FontBold`, `FontItalic`, `FontName`, `FontSize`, `FontStrikethru` and
 `FontUnderline` are the `Font`'s `Bold`, `Italic`, `Name`, `Size`, `Strikethrough` and `Underline`.
 

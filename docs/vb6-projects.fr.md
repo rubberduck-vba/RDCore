@@ -70,7 +70,7 @@ affectation à `ListCount`, `NewIndex` ou `SelCount`. `Column` est un membre de 
 
 La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une modification faite par elle change chaque contrôle qui la détient, et
 `Set Text2.Font = Text1.Font` partage la police. Un `Set` d'une police du programme la partage aussi : après `Set Label1.Font = f`,
-`Label1.Font Is f` est True, une modification faite par l'une se voit par l'autre, et un contrôle à qui l'on donne une autre police ne suit plus `f`.
+`Label1.Font Is f` est True, une modification faite par l'une se voit par l'autre, et un contrôle à qui l'on donne une autre police cesse de suivre `f`.
 `Text1.Font = "Arial"` en affecte le `Name`, son membre par défaut, et un `Set` à `Nothing` lève 380. `FontBold`, `FontItalic`, `FontName`,
 `FontSize`, `FontStrikethru` et `FontUnderline` sont le `Bold`, l'`Italic`, le `Name`, le `Size`, le `Strikethrough` et l'`Underline` de la `Font`.
 
