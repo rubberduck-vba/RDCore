@@ -205,9 +205,10 @@ public sealed class CompiledObjectTests
             "    Next",
             "End Function"), "Made", recoveries: 0, classes: Things);
 
-    // a variable declared As New is made when it is read (MS-VBAL §5.2.3.1.4): its Is Nothing is the interpreter's, which makes it, and so is never True.
+    // a variable declared As New is made when it is read (MS-VBAL §5.2.3.1.4), and its Is Nothing reads it: the comparison is never True, a Set to Nothing
+    // before it notwithstanding.
     [TestMethod]
-    public async Task AnAutoInstantiatedVariable_IsMadeByTheInterpreter_WhenItIsCompared()
+    public async Task AnAutoInstantiatedVariable_IsMade_WhenItIsCompared()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Made()",
@@ -219,7 +220,7 @@ public sealed class CompiledObjectTests
             "        If T Is Nothing Then Made = Made + 1 Else Made = Made + 10",
             "        Set T = Nothing",
             "    Next",
-            "End Function"), "Made", recoveries: 3, classes: Things);
+            "End Function"), Things, expected: " 30 ");
 
     // a Variant that holds an object is compared by the interpreter: it is no object variable.
     [TestMethod]
