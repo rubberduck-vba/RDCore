@@ -12,8 +12,9 @@ namespace RDCore.Runtime.Execution;
 /// <summary>
 /// A live object instance: the activation record of one <c>New</c>-created object. Each instance field its class module declares is held in a slot of
 /// its own, numbered by the class's layout (<see cref="ObjectLayout"/>), as <see cref="Frames.CallStackFrame"/> holds a procedure's locals: this is
-/// what gives two instances of the same class module independent bindings for the "same" declared field. A field is given an address in the
-/// <see cref="ISessionStorage"/> the session's module/global symbols and call-stack frames use only when one is asked for (<see cref="TryGetAddress"/>).
+/// what gives two instances of the same class module independent bindings for the "same" declared field. A field holds its initial value until its binding
+/// is asked for (<see cref="TryResolve(Symbol, out IBindingHandle?)"/>), and is given an address in the <see cref="ISessionStorage"/> the session's
+/// module/global symbols and call-stack frames use only when one is asked for (<see cref="TryGetAddress"/>).
 /// </summary>
 /// <remarks>
 /// Given the table its class is declared in, the instance is an instance of the class as it is declared now: a class module defined again while the object
@@ -98,7 +99,7 @@ public sealed class ObjectInstance : IObjectInstance
     /// </summary>
     /// <param name="slot">The number of the field in the layout the instance was made with.</param>
     /// <param name="value">Its initial value.</param>
-    internal void Hold(int slot, VBTypedValue value) => _slots[slot] = Slot.Of(value);
+    internal void Hold(int slot, VBTypedValue value) => _slots[slot] = Slot.Holding(value);
 
     /// <inheritdoc/>
     public void Push(Symbol field, VBTypedValue value)
@@ -110,7 +111,7 @@ public sealed class ObjectInstance : IObjectInstance
 
         var slot = _slots.Length;
         Array.Resize(ref _slots, slot + 1);
-        _slots[slot] = Slot.Of(value);
+        _slots[slot] = Slot.Holding(value);
         (_added ??= [])[field.SemanticId] = slot;
         if (field is VBLocalVariableSymbol { IsStatic: true })
         {
@@ -143,7 +144,7 @@ public sealed class ObjectInstance : IObjectInstance
             return false;
         }
 
-        if (letGo is not null && TryResolve(local, out var cell))
+        if (letGo is not null && TryGetBinding(local, out var cell))
         {
             letGo(cell);
         }
@@ -163,12 +164,43 @@ public sealed class ObjectInstance : IObjectInstance
     public bool TryResolve(Symbol field, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
     {
         value = null;
-        if (!TryGetSlot(field, out var slot))
+        return TryGetSlot(field, out var slot) && TryResolveSlot(slot, out value);
+    }
+
+    /// <inheritdoc/>
+    public bool TryResolve(int field, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
+    {
+        value = null;
+        var fields = Fields;
+        if ((uint)field >= (uint)fields.Count)
         {
             return false;
         }
 
-        ref readonly var held = ref _slots[slot];
+        // a field of the layout is held in the slot of its number; one declared since, in the slot Push gave it.
+        return field < _layout.Fields.Length
+            ? IsHeld(field) && TryResolveSlot(field, out value)
+            : TryGetSlot(fields[field], out var slot) && TryResolveSlot(slot, out value);
+    }
+
+    /// <inheritdoc/>
+    public bool TryGetBinding(Symbol field, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
+    {
+        value = null;
+        return TryGetSlot(field, out var slot) && _slots[slot].Initial is null && TryResolveSlot(slot, out value);
+    }
+
+    // the binding of the field in slot: the cell it holds, made of its initial value the first time it is asked for, or what is bound at the address it was
+    // given.
+    private bool TryResolveSlot(int slot, [NotNullWhen(true)] out IBindingHandle? value)
+    {
+        ref var held = ref _slots[slot];
+        if (held.Initial is not null)
+        {
+            value = CellOf(ref held);
+            return true;
+        }
+
         if (held.Cell is { } cell)
         {
             value = cell;
@@ -176,6 +208,15 @@ public sealed class ObjectInstance : IObjectInstance
         }
 
         return _storage.TryRead(held.Address, out value);
+    }
+
+    // the cell of a field that holds its initial value, which it holds from then on: a field of a scalar type (or a Variant holding one) is held as a payload,
+    // as a local is (Frames.CallStackFrame.CellFor), which the code of the class evaluates its fields on.
+    private static IBindingHandle CellOf(ref Slot held)
+    {
+        var cell = Frames.CallStackFrame.CellFor(held.Initial!);
+        held = held with { Cell = cell, Initial = null };
+        return cell;
     }
 
     /// <inheritdoc/>
@@ -193,7 +234,8 @@ public sealed class ObjectInstance : IObjectInstance
         }
 
         ref var held = ref _slots[slot];
-        if (held.Cell is not { } cell)
+        var cell = held.Initial is not null ? CellOf(ref held) : held.Cell;
+        if (cell is null)
         {
             address = held.Address;
             return true;
@@ -210,7 +252,7 @@ public sealed class ObjectInstance : IObjectInstance
             return false;
         }
 
-        held = new Slot(true, null, address, 0);
+        held = new Slot(true, null, null, address, 0);
         return true;
     }
 
@@ -233,13 +275,15 @@ public sealed class ObjectInstance : IObjectInstance
     // a field is found by its number in the layout, or among those declared since; a slot of a layout is the object's only while it holds its fields
     // (ReleaseAll).
     private bool TryGetSlot(Symbol field, out int slot)
-        => (_layout.TryGetSlot(field, out slot) || _added is { } added && added.TryGetValue(field.SemanticId, out slot)) && (uint)slot < (uint)_slots.Length
-            && _slots[slot].IsHeld;
+        => (_layout.TryGetSlot(field, out slot) || _added is { } added && added.TryGetValue(field.SemanticId, out slot)) && IsHeld(slot);
 
-    // the address a field was given: by the object, or by a ByRef parameter of a call that was given the field's cell and asked for its address.
+    private bool IsHeld(int slot) => (uint)slot < (uint)_slots.Length && _slots[slot].IsHeld;
+
+    // the address a field was given: by the object, or by a ByRef parameter of a call that was given the field's cell and asked for its address. A field
+    // that holds its initial value was given none.
     private void Free(in Slot held)
     {
-        if (!held.IsHeld)
+        if (!held.IsHeld || held.Initial is not null)
         {
             return;
         }
@@ -254,11 +298,10 @@ public sealed class ObjectInstance : IObjectInstance
         }
     }
 
-    // a field of the object: its cell until it is given an address, and the address from then on. Size: what it is given an address for.
-    private readonly record struct Slot(bool IsHeld, IBindingHandle? Cell, MemoryAddress Address, int Size)
+    // a field of the object: its initial value until its binding is asked for, then its cell until it is given an address, and the address from then on.
+    // Size: what it is given an address for.
+    private readonly record struct Slot(bool IsHeld, IBindingHandle? Cell, VBTypedValue? Initial, MemoryAddress Address, int Size)
     {
-        // a field of a scalar type (or a Variant holding one) is held as a payload, as a local is (Frames.CallStackFrame.CellFor): what the code of the
-        // class evaluates its fields on.
-        public static Slot Of(VBTypedValue value) => new(true, Frames.CallStackFrame.CellFor(value), default, value.Size);
+        public static Slot Holding(VBTypedValue value) => new(true, null, value, default, value.Size);
     }
 }

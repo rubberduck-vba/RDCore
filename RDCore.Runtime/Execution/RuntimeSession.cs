@@ -160,11 +160,11 @@ internal sealed class RuntimeSession(
             return;
         }
 
-        // the fields the object holds, which are those of its class as it was when the object was created: a field added to the class since has no storage
-        // on it, and a field removed from it still holds what it was set to.
+        // the fields the object holds (IObjectInstance.Fields): a field removed from its class still holds what it was set to. A field whose binding nothing
+        // asked for holds its initial value, which holds no object.
         foreach (var field in live.Fields)
         {
-            if (live.TryResolve(field, out var value))
+            if (live.TryGetBinding(field, out var value))
             {
                 ObjectReferences.Release(this, value);
             }
@@ -173,7 +173,10 @@ internal sealed class RuntimeSession(
         // the Static locals of its members are the object's too (MS-VBA).
         foreach (var local in live.StaticLocals)
         {
-            ObjectReferences.Release(this, live.GetValue(local));
+            if (live.TryGetBinding(local, out var value))
+            {
+                ObjectReferences.Release(this, value);
+            }
         }
 
         // what the object holds that is no variable of its class: the members of a collection.

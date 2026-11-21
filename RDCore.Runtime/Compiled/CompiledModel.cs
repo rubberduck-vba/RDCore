@@ -814,22 +814,20 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (<see cref="CompiledBody.ObjectFields"/>), by the number compiled code knows each
-/// field by: each found as it is first asked for, and looked for again while it is none (the object holds the field in no cell of its type). The cells keep the
-/// object's identity, which no other object is ever given, and hold no reference to it: a body keeps no object alive once nothing else does. A live object keeps the cell
-/// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
-/// again, with none found.
+/// Where each field of <c>Me</c> a body reaches is in the fields an object holds (<see cref="CompiledBody.ObjectFieldIndices"/>): its index in
+/// <see cref="SDK.Runtime.Abstract.Execution.IObjectInstance.Fields"/>, by the number compiled code knows the field by, or -1 for a field no such list
+/// holds (a <c>Static</c> local of a member). Every object of a class laid out at a version of the symbol table holds the same list.
 /// </summary>
-/// <param name="Object">The object's identity.</param>
-/// <param name="Cells">The cells, by number.</param>
-internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, object?[] Cells)
+/// <param name="Fields">The list the indices are in.</param>
+/// <param name="Indices">The indices, by number.</param>
+internal sealed record class FieldIndices(IReadOnlyList<SDK.Model.Symbols.Abstract.Symbol> Fields, int[] Indices)
 {
 }
 
 /// <summary>
 /// The cells of the variables of the session a body found (<see cref="CompiledBody.SessionFields"/>), by the number compiled code knows
-/// each field by, as <see cref="FieldCells"/> are an object's. The storage is known by a weak reference: a body is shared by every session composed over the
-/// same scopes, and keeps none of them alive.
+/// each field by: each found as it is first asked for, and looked for again while it is none (the session holds the variable in no cell of its type). The
+/// storage is known by a weak reference: a body is shared by every session composed over the same scopes, and keeps none of them alive.
 /// </summary>
 /// <param name="Storage">The storage they were found in.</param>
 /// <param name="Generation">What the storage bound when they were found: a cell is the variable's for as long as that has not changed.</param>
