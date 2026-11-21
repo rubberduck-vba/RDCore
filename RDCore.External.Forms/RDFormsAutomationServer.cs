@@ -444,14 +444,21 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         return null;
     }
 
-    // Set of a font shares it: the control draws it, and a change through any reference is the control's (measured in VB6). Nothing is 380, and the font stays. A
-    // String or a number, which a Let of a font gives as its default member, sets the font's name.
+    // Set of a font shares it: the control draws it, and a change through any reference is the control's (measured in VB6). A font of the program's
+    // (New StdFont) is the session's, and only its values cross: the control holds a font made from them, which the program's font does not change. Nothing
+    // is 380, and the font stays. A String or a number, which a Let of a font gives as its default member, sets the font's name.
     private static void AssignFont(RDFormsForm form, ComponentInstance component, PropertyDefinition property, object? value, CultureInfo culture)
     {
         switch (value)
         {
             case RDFormsFont font:
                 form.Fonts.Share(component, property, font);
+                return;
+
+            case SessionObjectReference { Font: { } values } program:
+                form.Fonts.Share(component, property, new RDFormsFont(values.ToStdFont()));
+                // the control keeps no reference to the program's font: its crossing is accounted for at once.
+                program.Host.Release(program.SessionObject, 1);
                 return;
 
             // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
@@ -465,7 +472,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
                 return;
 
             default:
-                throw new AutomationException(NotImplemented, $"{component}.{property.Name}: only a font a form's control holds can be given to it.");
+                throw new AutomationException(NotImplemented, $"{component}.{property.Name}: only a font can be given to it.");
         }
     }
 

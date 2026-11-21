@@ -436,3 +436,5 @@
       href: rd-vbal.6.2.vbscript-regexp.md
     - name: "6.3 Visual Basic 6.0 App Object"
       href: rd-vbal.6.3.vb-app-object.md
+    - name: "6.4 OLE Automation Library"
+      href: rd-vbal.6.4.ole-automation-library.md
