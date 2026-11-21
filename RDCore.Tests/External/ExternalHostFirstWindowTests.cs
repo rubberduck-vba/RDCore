@@ -51,70 +51,82 @@ public sealed class ExternalHostFirstWindowTests
 
     private static FormDefinition Form() => new("Form1", ReadOnlyMemory<byte>.Empty);
 
-    // a program whose first window is a MsgBox: the dialog is shown in the theme the program said, as a form is made in it.
-    [TestMethod]
-    public void AProgramsFirstWindow_ADialog_IsShownInTheThemeTheProgramSaid()
+    /// <summary>
+    /// The first window a program opens in the external host.
+    /// </summary>
+    public enum FirstWindow
+    {
+        /// <summary>
+        /// A <c>MsgBox</c>.
+        /// </summary>
+        Dialog,
+
+        /// <summary>
+        /// A form.
+        /// </summary>
+        Form,
+    }
+
+    // what the external host's forms had been told when the program's first window was made: the theme, whether a program runs (none told), the name.
+    private sealed record Told(bool Theme, bool? Held, string Name);
+
+    // the program says what say says to the environment host's client while the external host is not running, then opens its first window there.
+    private static Told WhenTheFirstWindowIsMade(FirstWindow window, Action<IFormHost> say)
     {
         var forms = Substitute.For<IFormHost>();
         var dialogs = Substitute.For<IUserInteraction>();
-        bool? themeWhenShown = null;
+        bool? held = null;
+        Told? told = null;
+        forms.When(each => each.Hold(Arg.Any<bool>())).Do(call => held = call.Arg<bool>());
+        Told Now() => new(forms.KeepSystemTheme, held, forms.ApplicationName);
+        forms.Create(Arg.Any<FormDefinition>()).Returns(_ =>
+        {
+            told = Now();
+            return new object();
+        });
         dialogs.ShowMessage(Arg.Any<MessageBoxRequest>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
-            themeWhenShown = forms.KeepSystemTheme;
+            told = Now();
             return VBMsgBoxResult.VBOK;
         });
         using var host = HostOf(forms, dialogs);
         var servers = new RemoteAutomationServer(host);
-        ((IFormHost)servers).KeepSystemTheme = true;
-        Assert.IsNull(host.Running, "the theme is said before the external host runs, which is not started to be told it");
+        say(servers);
+        Assert.IsNull(host.Running, "the program says it before the external host runs, which is not started to be told it");
 
-        var answer = new RemoteUserInteraction(servers, NoUserInteraction.Instance).ShowMessage(new MessageBoxRequest("Sure?", "T", VBMsgBoxStyle.VBOKOnly));
-
-        Assert.AreEqual(VBMsgBoxResult.VBOK, answer, "the external host showed the dialog");
-        Assert.IsTrue(themeWhenShown, "the external host's forms keep the system's theme by the time the dialog is shown");
-    }
-
-    // a program whose first window is a form: the form is made in the theme the program said.
-    [TestMethod]
-    public void AProgramsFirstWindow_AForm_IsMadeInTheThemeTheProgramSaid()
-    {
-        var forms = Substitute.For<IFormHost>();
-        bool? themeWhenMade = null;
-        forms.Create(Arg.Any<FormDefinition>()).Returns(_ =>
+        if (window == FirstWindow.Dialog)
         {
-            themeWhenMade = forms.KeepSystemTheme;
-            return new object();
-        });
-        using var host = HostOf(forms, NoUserInteraction.Instance);
-        IFormHost servers = new RemoteAutomationServer(host);
-        servers.KeepSystemTheme = true;
-        Assert.IsNull(host.Running, "the theme is said before the external host runs, which is not started to be told it");
-
-        _ = servers.Create(Form());
-
-        Assert.IsTrue(themeWhenMade, "the external host's forms keep the system's theme by the time the form is made");
-    }
-
-    // a program whose first window is a form, made while it runs: what the form's window posts as it is made waits, as the program's messages do.
-    [TestMethod]
-    public void AProgramsFirstWindow_AForm_IsMadeWithTheMessagesHeld_WhileTheProgramRuns()
-    {
-        var forms = Substitute.For<IFormHost>();
-        bool? held = null;
-        bool? heldWhenMade = null;
-        forms.When(each => each.Hold(Arg.Any<bool>())).Do(call => held = call.Arg<bool>());
-        forms.Create(Arg.Any<FormDefinition>()).Returns(_ =>
+            var answer = new RemoteUserInteraction(servers, NoUserInteraction.Instance).ShowMessage(new MessageBoxRequest("Sure?", "T", VBMsgBoxStyle.VBOKOnly));
+            Assert.AreEqual(VBMsgBoxResult.VBOK, answer, "the external host showed the dialog");
+        }
+        else
         {
-            heldWhenMade = held;
-            return new object();
-        });
-        using var host = HostOf(forms, NoUserInteraction.Instance);
-        IFormHost servers = new RemoteAutomationServer(host);
-        servers.Hold(running: true);
-        Assert.IsNull(host.Running, "the program runs before the external host does, which is not started to be told it");
+            _ = ((IFormHost)servers).Create(Form());
+        }
 
-        _ = servers.Create(Form());
-
-        Assert.IsTrue(heldWhenMade, "the external host holds its forms' messages by the time the form is made");
+        return told ?? throw new AssertFailedException("the external host made no window");
     }
+
+    [TestMethod]
+    [DataRow(FirstWindow.Dialog, DisplayName = "a MsgBox")]
+    [DataRow(FirstWindow.Form, DisplayName = "a form")]
+    public void AProgramsFirstWindow_IsMadeInTheThemeTheProgramSaid(FirstWindow window)
+        => Assert.IsTrue(WhenTheFirstWindowIsMade(window, servers => servers.KeepSystemTheme = true).Theme,
+            "the external host's forms keep the system's theme by the time the window is made");
+
+    // made while the program runs: what the window posts as it is made waits, as the program's messages do.
+    [TestMethod]
+    [DataRow(FirstWindow.Dialog, DisplayName = "a MsgBox")]
+    [DataRow(FirstWindow.Form, DisplayName = "a form")]
+    public void AProgramsFirstWindow_IsMadeWithTheMessagesHeld_WhileTheProgramRuns(FirstWindow window)
+        => Assert.AreEqual(true, WhenTheFirstWindowIsMade(window, servers => servers.Hold(running: true)).Held,
+            "the external host holds its forms' messages by the time the window is made");
+
+    // the first window of the external host names the application of its windows (App.Title).
+    [TestMethod]
+    [DataRow(FirstWindow.Dialog, DisplayName = "a MsgBox")]
+    [DataRow(FirstWindow.Form, DisplayName = "a form")]
+    public void AProgramsFirstWindow_IsMadeUnderTheProgramsName(FirstWindow window)
+        => Assert.AreEqual("Payroll", WhenTheFirstWindowIsMade(window, servers => servers.ApplicationName = "Payroll").Name,
+            "the external host's forms have the program's name by the time the window is made");
 }
