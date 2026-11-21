@@ -51,7 +51,7 @@ public sealed class SourceNormalizationTests
         Assert.AreEqual(new SourcePosition(0, "Option Explicit".Length + 1), member.SourceLocation.Range.Start);
     }
 
-    // a directive starts a physical line (MS-VBAL §3.4), which a U+2028 or a U+2029 starts too.
+    // a directive is a logical line of its own (MS-VBAL §3.4), and a logical line starts after a U+2028 or a U+2029 too (MS-VBAL §3.2.1).
     [TestMethod]
     [DataRow("\u2028", DisplayName = "U+2028 line separator")]
     [DataRow("\u2029", DisplayName = "U+2029 paragraph separator")]
