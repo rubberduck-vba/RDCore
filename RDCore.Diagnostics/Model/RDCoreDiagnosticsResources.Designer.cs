@@ -684,6 +684,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Make &apos;{0}&apos; a Sub.
+        /// </summary>
+        public static string FunctionMadeASub_Fix {
+            get {
+                return ResourceManager.GetString("FunctionMadeASub_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value..
         /// </summary>
         public static string EncapsulatePublicField_Message {

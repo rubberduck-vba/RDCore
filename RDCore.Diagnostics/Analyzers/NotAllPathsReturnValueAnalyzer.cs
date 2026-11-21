@@ -46,12 +46,31 @@ internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
                         : RDCoreDiagnosticsResources.NotAllPathsReturnValue_Message,
                     fact.Name))
             {
-                Fixes = members.FirstOrDefault(member => member.SourceLocation.Range.Start.Line == fact.Location.Range.Start.Line
-                        && string.Equals(member.Name, fact.Name, StringComparison.OrdinalIgnoreCase)) is { } procedure
-                    && FixOf(context.ParseResult, procedure, hasDefType) is { } fix
-                    ? new DiagnosticFixes { Edits = [fix] }
-                    : null,
+                Fixes = FixesOf(context, fact, members, hasDefType) is { Count: > 0 } fixes ? new DiagnosticFixes { Edits = fixes } : null,
             });
+    }
+
+    // the default value assigned at the start; and a function that never assigns its return value, which no caller uses, made a Sub.
+    private static List<EditFix> FixesOf(ModuleAnalysisContext context, ReturnValueFact fact, MemberDeclarationNode[] members, bool hasDefType)
+    {
+        var fixes = new List<EditFix>();
+        if (members.FirstOrDefault(member => member.SourceLocation.Range.Start.Line == fact.Location.Range.Start.Line
+                && string.Equals(member.Name, fact.Name, StringComparison.OrdinalIgnoreCase)) is { } procedure
+            && FixOf(context.ParseResult, procedure, hasDefType) is { } assigned)
+        {
+            fixes.Add(assigned);
+        }
+
+        if (fact.Assignment is ReturnValueAssignment.Never
+            && context.Semantics!.Declarations.FirstOrDefault(declaration => declaration is { Kind: DeclarationKind.Procedure, Role: DeclarationRole.None }
+                && declaration.Location.Range.Start.Line == fact.Location.Range.Start.Line
+                && string.Equals(declaration.Name, fact.Name, StringComparison.OrdinalIgnoreCase)) is { } function
+            && FunctionsMadeSubs.Fix(context, function) is { } made)
+        {
+            fixes.Add(made);
+        }
+
+        return fixes;
     }
 
     // the return value assigned its default value before the first statement, which every call starts with (MS-VBAL §5.3.1.6, a fresh function result variable
