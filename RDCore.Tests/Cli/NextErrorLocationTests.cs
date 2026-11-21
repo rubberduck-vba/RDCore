@@ -12,8 +12,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// MS-VBAL §5.4.2.3: an error a <c>Next</c> raises - stepping the counter, assigning it, testing it with the end - is located at the <c>Next</c>, as MS-VBA
 /// locates it (recorded in Excel): the line <c>Erl</c> reports when it counts document lines, the line a run that ends with the error reports, and the line a
-/// program that waits at the error waits at. So is the error 92 of a <c>Next</c> whose loop was never opened. An error of the <c>For</c> statement itself is
-/// at the <c>For</c>. Each program runs in the interpreter and in compiled code alike.
+/// program that waits at the error waits at. So is the error 92 of a <c>Next</c> of a <c>Variant</c> counter whose loop was never opened. An error of the
+/// <c>For</c> statement itself is at the <c>For</c>. Each program runs in the interpreter and in compiled code alike.
 /// </summary>
 [TestClass]
 public sealed class NextErrorLocationTests
@@ -45,7 +45,7 @@ public sealed class NextErrorLocationTests
     private static readonly string[] Overflowing = ["    For i = 32766 To 32767", "    Next i"];
     private static readonly string[] OverflowingBare = ["    For i = 32766 To 32767", "    Next"];
     private static readonly string[] OverflowingOuter = ["    For i = 32766 To 32767", "    For k = 1 To 1", "    Next k, i"];
-    private static readonly string[] NeverOpened = ["    GoTo L", "    For i = 1 To 3", "L:", "    Next i"];
+    private static readonly string[] NeverOpened = ["    GoTo L", "    For k = 1 To 3", "L:", "    Next k"];
 
     [TestMethod]
     [DataRow("Null", 94, DisplayName = "94, a counter that holds Null")]
@@ -53,7 +53,7 @@ public sealed class NextErrorLocationTests
     [DataRow("Overflowing", 6, DisplayName = "6, a counter stepped past its type")]
     [DataRow("OverflowingBare", 6, DisplayName = "6, a counter stepped past its type, at a Next that names none")]
     [DataRow("OverflowingOuter", 6, DisplayName = "6, the outer counter stepped past its type, at the Next it shares")]
-    [DataRow("NeverOpened", 92, DisplayName = "92, a Next whose loop was never opened")]
+    [DataRow("NeverOpened", 92, DisplayName = "92, a Next of a Variant counter whose loop was never opened")]
     public async Task AnErrorTheNextRaises_IsAtTheNext(string loop, int number)
     {
         var (lines, next) = loop switch
@@ -63,7 +63,7 @@ public sealed class NextErrorLocationTests
             "Overflowing" => (Overflowing, "Next i"),
             "OverflowingBare" => (OverflowingBare, "Next"),
             "OverflowingOuter" => (OverflowingOuter, "Next k, i"),
-            _ => (NeverOpened, "Next i"),
+            _ => (NeverOpened, "Next k"),
         };
         var program = Probe("Dim k, i As Integer", lines);
 
