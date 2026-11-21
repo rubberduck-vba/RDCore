@@ -288,8 +288,9 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             : null;
     }
 
-    // nor is a member of the class whose members a module's code names as its own, as the resolver binds them: its host's class, for a document module, or
-    // its base class, for a UserControl, a PropertyPage or a UserDocument (an unqualified BackColor in a UserControl is VB.UserControl.BackColor).
+    // a member of the class whose members a module's code names as its own is not declared by a scope either, and is bound as the resolver binds it: the
+    // host's class, for a document module, or the base class, for a UserControl, a PropertyPage or a UserDocument (an unqualified BackColor in a
+    // UserControl is VB.UserControl.BackColor).
     private static Symbol? InheritedMemberOf(RenameContext context, SemanticId id)
         => context.Modules
             .Select(module => DeclaredOf(context, new SemanticId(module.Module)))
