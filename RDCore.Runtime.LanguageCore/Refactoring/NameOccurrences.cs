@@ -264,14 +264,16 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     }
 
     public static Symbol? SymbolOf(RenameContext context, SemanticId id)
-    {
-        if (context.ScopeTree.TryGetScope(id.Uri, out var scope)
-            && scope.SelfAndAncestors().SelectMany(outer => outer.Declarations).FirstOrDefault(symbol => symbol.SemanticId == id) is { } declared)
-        {
-            return declared;
-        }
+        => DeclaredOf(context, id) ?? TypeFieldOf(context, id) ?? InheritedMemberOf(context, id);
 
-        // a field of a Type is no scope's declaration: it is a member of the type.
+    private static Symbol? DeclaredOf(RenameContext context, SemanticId id)
+        => context.ScopeTree.TryGetScope(id.Uri, out var scope)
+            ? scope.SelfAndAncestors().SelectMany(outer => outer.Declarations).FirstOrDefault(symbol => symbol.SemanticId == id)
+            : null;
+
+    // a field of a Type is not declared by a scope: it is a member of the type.
+    private static Symbol? TypeFieldOf(RenameContext context, SemanticId id)
+    {
         var fragment = SymbolUri.PathOf(id.Uri);
         var dot = fragment.LastIndexOf('.');
         if (dot <= 0)
@@ -285,6 +287,19 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             ? field
             : null;
     }
+
+    // a member of the class whose members a module's code names as its own is not declared by a scope either, and is bound as the resolver binds it: the
+    // host's class, for a document module, or the base class, for a UserControl, a PropertyPage or a UserDocument (an unqualified BackColor in a
+    // UserControl is VB.UserControl.BackColor).
+    private static Symbol? InheritedMemberOf(RenameContext context, SemanticId id)
+        => context.Modules
+            .Select(module => DeclaredOf(context, new SemanticId(module.Module)))
+            .OfType<VBClassModuleSymbol>()
+            .Where(module => module.HostClass is not null || module.BaseClass is not null)
+            .Select(module => VBProjectSymbol.ResolveHostClass(context.Resolver, module) ?? VBProjectSymbol.ResolveBaseClass(context.Resolver, module))
+            .OfType<VBClassModuleSymbol>()
+            .SelectMany(inherited => inherited.DefaultInterfaceMembers)
+            .FirstOrDefault(member => member is not VBEventMemberSymbol && member.SemanticId == id);
 
     // a field of a Type, by its name.
     private static Symbol? FieldOf(VBUserDefinedTypeMemberSymbol type, string name)
