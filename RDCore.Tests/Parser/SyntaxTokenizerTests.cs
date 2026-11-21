@@ -68,7 +68,7 @@ public sealed class SyntaxTokenizerTests
     public void ALineNumber_IsANumber_AndWhatFollowsItStartsAStatement()
         => Assert.AreEqual("Number Keyword String", Kinds("100 Print \"hello\""));
 
-    // a line ends where LSP 3.17 ends one: at a CR, a LF or a CRLF.
+    // a line ends where LSP 3.17 ends one: at a CR, an LF or a CRLF.
     [TestMethod]
     [DataRow("\r\n", DisplayName = "CRLF")]
     [DataRow("\n", DisplayName = "LF")]

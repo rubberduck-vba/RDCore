@@ -63,7 +63,7 @@ public sealed class SemanticTokensServiceTests
     public async Task ADocumentTheServerDoesNotHold_HasNoTokens()
         => Assert.IsEmpty(await _sut.GetAsync(Mod1, CancellationToken.None));
 
-    // a line ends where LSP 3.17 ends one: at a CR, a LF or a CRLF.
+    // a line ends where LSP 3.17 ends one: at a CR, an LF or a CRLF.
     [TestMethod]
     [DataRow("\r\n", DisplayName = "CRLF")]
     [DataRow("\n", DisplayName = "LF")]

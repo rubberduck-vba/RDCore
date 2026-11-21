@@ -32,8 +32,8 @@ public sealed class SyntaxTokenizer : ISyntaxTokenizer
 
     public IReadOnlyList<SyntaxToken> Tokenize(string text)
     {
-        // a line ends where LSP 3.17 ends one, at a CR, a LF or a CRLF, and ANTLR counts a line only at a LF: the lexer reads each as a LF, so that a token is
-        // on the line its client counts. Only line ends change, so every token keeps its column.
+        // a line ends where LSP 3.17 ends one, at a CR, an LF or a CRLF, and ANTLR counts a line only at an LF: the lexer reads each as an LF, so that a
+        // token is on the line its client counts. Only line ends change, so every token keeps its column.
         var lexer = new VBALexer(new AntlrInputStream(text.Replace("\r\n", "\n").Replace('\r', '\n')));
         lexer.RemoveErrorListeners();
 
