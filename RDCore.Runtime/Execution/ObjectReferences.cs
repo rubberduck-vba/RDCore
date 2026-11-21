@@ -142,9 +142,9 @@ internal static class ObjectReferences
 
     /// <summary>
     /// Lets go of the temporaries held since <paramref name="mark"/> (<see cref="ISessionObjects.TemporaryCount"/>, read before the statement that
-    /// made them): the statement is over. <strong>MS-VBA</strong> lets go of the objects first, then the <c>Variant</c>s and the other values that hold
-    /// objects, each in the order they are held in (observed in Excel): the order they were made in, as the calls that made them put it
-    /// (<see cref="SettleCall"/>).
+    /// made them): the statement is over. <strong>MS-VBA</strong> lets go of the objects first, then the <c>Variant</c>s that hold objects, each in the
+    /// order they are held in (observed in Excel): the order they were made in, as the calls that made them put it (<see cref="SettleCall"/>). An array
+    /// or a record that holds objects is let go of with the <c>Variant</c>s.
     /// </summary>
     /// <param name="session">The session whose temporaries they are.</param>
     /// <param name="mark">How many temporaries there were before the statement.</param>
@@ -238,7 +238,8 @@ internal static class ObjectReferences
 
     /// <summary>
     /// Whether the temporary held last, since <paramref name="start"/>, is <paramref name="value"/>: what a call returned, or the object <c>New</c> made,
-    /// which an argument or a target evaluated to (<see cref="SettleCall"/>). A value that holds the object it holds is taken to be it.
+    /// which an argument or a target evaluated to (<see cref="SettleCall"/>). A temporary that holds the object <paramref name="value"/> holds is
+    /// taken to be it.
     /// </summary>
     /// <param name="session">The session whose temporaries they are.</param>
     /// <param name="start">How many temporaries there were before the value was evaluated.</param>
