@@ -371,7 +371,9 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
   found, as the interpreter finds it: a subscript is read as the call left it. When the target cannot be assigned after the call, because a subscript
   is out of range or the object variable holds `Nothing`, the interpreter raises the error, given what was evaluated, and the call is not made again;
 - a `Let` of an element whose subscripts call, whatever the value (`this.State(Position.X, Position.Y) = Hit`). A value that calls is evaluated
-  first, as above. A value that calls nothing is read after the subscripts and their calls, as the interpreter reads it;
+  first, as above. A value that calls nothing is read after the subscripts and their calls, as the interpreter reads it. An element of the array a
+  `Variant` holds is assigned as MS-VBA assigns a `Property Let`: the calls of its subscripts are made before the value is evaluated. When the value
+  calls too (`V(F(1)) = G(5)`), the interpreter runs the `Let` for compiled code;
 - a call statement;
 - the condition of an `If`, an `ElseIf` or a loop;
 - the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
@@ -393,7 +395,7 @@ returns, using `Is` (`OK = Fits(P) And Overlaps(P) Is Nothing`, **MS-VBAL §5.6.
 holds the object until it is over, and then lets go of it, as the interpreter does: if nothing else holds it, its `Class_Terminate` runs there
 (MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
 
-- after its assignment or its call;
+- after its assignment, its call, or its `Debug.Print` (`Debug.Print Make("m").Hello`);
 - for an `If`, an `ElseIf` or a loop, once its condition is evaluated, before the jump the condition decides;
 - for a `For`, once the counter is given the start, before the first test of the counter.
 

@@ -570,10 +570,17 @@ internal sealed partial class ProcedureAnalysis
         var location = instruction.Node?.SourceLocation;
         switch (instruction.Kind)
         {
-            // a Let of what a function of an object returns, indexed, which compiled code does not evaluate, is the interpreter's statement, run as a support
-            // call (IndexesWhatACallReturns).
+            // a Let of what a function of an object returns, indexed, which compiled code does not evaluate (IndexesWhatACallReturns), and a Let of an element
+            // of the array a Variant holds that calls in a subscript and in the value, which compiled code does not order (CallsAsAVariantAccessor), are the
+            // interpreter's statement, run as a support call.
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment:
                 var letMark = _reasons.Count;
+                if (CallsAsAVariantAccessor(assignment) is { } variant)
+                {
+                    Refuse(IneligibilityKind.Element, variant, location);
+                    return SupportCallOf(instruction, letMark);
+                }
+
                 return AnalyzeLet(instruction.Offset, assignment)
                     ?? (IndexesWhatACallReturns(Bind(assignment.Value)) ? SupportCallOf(instruction, letMark) : null);
 
