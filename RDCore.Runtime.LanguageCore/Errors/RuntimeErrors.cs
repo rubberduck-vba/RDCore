@@ -45,8 +45,8 @@ public static class RuntimeErrors
         => Text(Known.Contains(errorId) ? errorId : VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError);
 
     // in the language of the user interface (CultureInfo.CurrentUICulture) at the call: it is not the same for every thread, nor for the life of the
-    // process. What the thread read in that language is kept for the next error of the same number it describes in it, so that an error raised in a loop
-    // is looked up once. Each known error has a RuntimeError_<name> entry in Exceptions.resx and in each of its translations.
+    // process. A description the thread read is kept for that thread and language, so that an error raised in a loop is looked up once. Each known
+    // error has a RuntimeError_<name> entry in Exceptions.resx and in each of its translations.
     private static string Text(VBRuntimeErrorId errorId)
     {
         var culture = Exceptions.Culture ?? CultureInfo.CurrentUICulture;

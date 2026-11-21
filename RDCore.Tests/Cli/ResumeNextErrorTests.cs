@@ -10,7 +10,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An error an operation raises where <c>On Error Resume Next</c> is in effect (MS-VBAL §5.4.4.1): Err is given it, and the procedure goes on at the
-/// statement after - in a loop, at each error it raises.
+/// statement after: in a loop, at each error it raises.
 /// </summary>
 [TestClass]
 public sealed class ResumeNextErrorTests

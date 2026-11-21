@@ -56,7 +56,7 @@ public sealed partial class CompiledActivation
     /// Gives the error <see cref="RaiseArithmetic"/> found at the instruction at <paramref name="pc"/> to the activation's <c>On Error Resume Next</c> where
     /// compiled code is, as the interpreter gives it (<c>ProcedureExecutor.TryResumeNext</c>): Err is given the error, and compiled code goes on at the next
     /// instruction with its variables and its loops as they are, none of them written into the frame and read back. Where the interpreter is to have the
-    /// error - another handler, a debugger that waits at it, the program stopping, the interpreter wanted - nothing is given, and the interpreter is given
+    /// error (another handler, a debugger that waits at it, the program stopping, the interpreter wanted), nothing is given, and the interpreter is given
     /// the error at the instruction (<see cref="Recover"/>).
     /// </summary>
     /// <param name="pc">The offset of the instruction.</param>
