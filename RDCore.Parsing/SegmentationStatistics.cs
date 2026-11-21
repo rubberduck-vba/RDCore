@@ -42,6 +42,11 @@ internal sealed class SegmentationStatistics
 
         /// <summary>Whole and slowly: the parser does not segment (<see cref="ModuleParser.Segmented"/> is off).</summary>
         NotSegmented,
+
+        /// <summary>
+        /// Whole and slowly: the module has a U+2028 or a U+2029, which ends a physical line and not the line a segment is cut at.
+        /// </summary>
+        UnicodeLineSeparator,
     }
 
     private readonly long[] _counts = new long[Enum.GetValues<Path>().Length];

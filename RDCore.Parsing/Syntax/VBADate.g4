@@ -25,7 +25,7 @@ timeValuePart : DIGIT+;
 timeSeparator : WS* (COLON | DOT) WS*;
 AMPM : AM | PM | A | P;
 
-LINE_CONTINUATION : [ \t]* '_' [ \t]* '\r'? '\n';
+LINE_CONTINUATION : [ \t]* '_' [ \t]* ('\r'? '\n' | '\r' | [\u2028\u2029]);
 
 JANUARY : J A N U A R Y;
 FEBRUARY : F E B R U A R Y;

@@ -80,7 +80,7 @@ internal static partial class DirectiveStructureScanner
             }
 
             var hash = index + text.IndexOf('#');
-            var lineEnd = text.IndexOf('\n') is var newline and >= 0 ? index + newline : index + text.Length;
+            var lineEnd = text.AsSpan().IndexOfAny("\n\u2028\u2029") is var newline and >= 0 ? index + newline : index + text.Length;
             var range = RangeOf(lineStarts, hash, lineEnd);
             switch (kind)
             {
