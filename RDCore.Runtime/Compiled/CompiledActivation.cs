@@ -225,8 +225,8 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     // the payload of each scalar parameter passed by value the invoker gave an activation it made without a frame (EnterThroughInvoker), and its slot - the
-    // complement of it once compiled code read it as it began (TryReadIntegral): from then on, the parameter is compiled code's, as one given through a typed
-    // entry is.
+    // complement of it once compiled code read it as it began (TryReadIntegral, TryReadFloating): from then on, the parameter is compiled code's, as one
+    // given through a typed entry is.
     private int[] _givenSlots = [];
     private ScalarPayload[] _given = [];
     private int _givenCount;
@@ -329,8 +329,9 @@ public sealed partial class CompiledActivation : ILightActivation
     internal CallStackFrame? HeldFrame => _frame;
 
     /// <summary>
-    /// What the activation's function result variable holds, when it holds a payload.
+    /// Whether the activation's function result variable holds a payload, and the payload it holds.
     /// </summary>
+    /// <param name="payload">What the function result variable holds, when it holds a payload.</param>
     internal bool TryReadReturned(out ScalarPayload payload) => TryReadResult(out payload);
 
     // the frame given the String numbered number, when it has none in its slot: a parameter passed by reference given its caller's variable is a second name
@@ -1488,8 +1489,8 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The payload of the variable in <paramref name="slot"/>, of an integral kind, when its cell holds one it knows. When it does not, compiled code hands the
-    /// activation to the interpreter, which reads the variable where the frame has it. A parameter the invoker gave an activation without a frame its
-    /// argument is read in what it was given (<see cref="GivePayload"/>).
+    /// activation to the interpreter, which reads the variable where the frame has it. A parameter of an activation the invoker made without a frame is
+    /// read, the first time, in the payload it was given (<see cref="GivePayload"/>).
     /// </summary>
     public bool TryReadIntegral(int slot, out long value)
     {
