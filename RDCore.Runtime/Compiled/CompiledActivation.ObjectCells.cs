@@ -288,7 +288,7 @@ public sealed partial class CompiledActivation
     /// and its object variables hold let go of, as the frame of any call lets go of them (MS-VBAL §5.3.1.10), the result held as a temporary of the
     /// caller's statement first. A <c>Class_Terminate</c> that runs then may give the activation its frame, as any call does.
     /// </summary>
-    /// <returns>What the function returns; <see langword="null"/> when it returns a scalar it was never assigned, or the procedure is no function.</returns>
+    /// <returns>What the function returns; <see langword="null"/> when it returns a scalar it was never assigned, or the procedure is not a function.</returns>
     internal VBTypedValue? EndWithoutFrame()
     {
         var returned = _body.ResultIsObject ? OwnResult() : TryReadResult(out var payload) ? payload.Typed() : null;
