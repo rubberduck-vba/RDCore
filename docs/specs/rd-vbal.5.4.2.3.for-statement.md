@@ -70,8 +70,9 @@ Every error a `Next` raises is located at the `Next`, as MS-VBA locates it. That
 steps the counter (6), and a counter that holds no number (13). An overflow leaves the counter as it was, and a `Next`
 that closes two loops (`Next j, i`) raises the outer loop's overflow there too. The position the error reports, the line
 a program waits at when it waits at the error, and `Erl` are all the `Next`'s, whether `Erl` counts document lines or
-line-number labels. Error 92, of a `Next` whose loop was never opened, is located at the `Next` too. An error of the
-`start-value`, the `end-value` or the `step-increment` is the `For` statement's, and is located there.
+line-number labels. Error 92, of a `Next` of a `Variant` counter whose loop was never opened, is located at the `Next`
+too. An error of the `start-value`, the `end-value` or the `step-increment` is the `For` statement's, and is located
+there.
 
 ### The type a loop counts in
 
@@ -120,13 +121,14 @@ VBA-visible comparison expression.
 
 ### Errors
 
-A label is scoped to the whole procedure, so a `GoTo` can land directly on the `Next` closer
-([**RD-VBAL §5.4.1.1** Statement Labels](rd-vbal.5.4.1.1.statement-labels.md)). When `ForNext` finds no stored
-state for its `Matching` offset, its `ForOpener` never ran in this activation.
+A label is scoped to the whole procedure, so a `GoTo` or a `Resume` can land in a loop's body, or directly on its `Next`
+closer ([**RD-VBAL §5.4.1.1** Statement Labels](rd-vbal.5.4.1.1.statement-labels.md)). When `ForNext` finds no stored
+state for its `Matching` offset, its `ForOpener` never ran in this activation
+([A jump into the loop](#a-jump-into-the-loop)).
 
 |Condition|Run-time error|
 |---|---|
-|`ForNext` finds no stored `ForLoopState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 (For loop not initialized)|
+|`ForNext` finds no stored `ForLoopState` for its `Matching` offset, and the counter is declared `Variant`.|92 (For loop not initialized)|
 |The addition of `step` to the counter overflows.|6 (Overflow)|
 |The start, the end or the step is no number: `"abc"`, an `Error`, an array, a `String` that is no date in a loop that counts in `Date`.|13 (Type mismatch)|
 |The start, the end or the step is `Null`.|94 (Invalid use of Null)|
@@ -146,13 +148,32 @@ MS-VBAL does not say what a loop is when its start, end or step raises an error 
 - Nothing the header evaluated is kept. The counter is not given the start, and neither the end nor the step is stored,
   even one evaluated before the error.
 - The loop keeps the end and the step it had: what an earlier pass through the same `For` stored, in the same
-  activation. With none, the end is 0, and so is the step of a loop that writes a `Step` clause; a loop that writes
-  none steps by 1.
+  activation. With none, the end is 0, and so is the step, except that a loop that writes no `Step` clause steps an
+  `Integer`, a `Long` or a `LongLong` counter by 1.
 - Its `Next` steps the counter and tests it with that end and that step, as it does any other loop's.
 
 `For i = 1 To 10 \ n`, with `n` 0 on a first pass, runs its body with `i` as it was, and steps it by 1 until it exceeds
 0: once, for an `i` of 0 or more. A faulted
 `Step` leaves a step of 0: the loop runs until something in its body leaves it.
+
+### A jump into the loop
+
+**MS-VBAL §5.4.2.3** has the `Next` of a loop whose `For` statement never ran raise error 92 (For loop not initialized).
+Microsoft's documentation of error 92 says only that the code jumped into the loop. MS-VBA raises 92 for a counter
+declared `Variant`, and for every `For Each` loop ([**RD-VBAL §5.4.2.4**](rd-vbal.5.4.2.4.for-each-statement.md)). A
+`Next` of any other counter steps it on the loop that a header error leaves (see above). RD-VBA does what MS-VBA does,
+as observed in Excel (64-bit, en-US):
+
+- With no earlier pass through the `For`, the end is 0. The step is 1 for an `Integer`, a `Long` or a `LongLong`
+  counter in a loop that writes no `Step` clause, and 0 otherwise.
+  `GoTo L`, with `L` the first line of the body of `For i = 1 To 3` and `i` a `Long` of 0, runs the body once, and
+  the loop ends with `i` 1. With `i` 7 it runs once too, and with `i` -3 it runs for -3 to 0.
+- A step of 0 leaves the counter as it is: a `Byte`, `Single`, `Double`, `Currency` or `Date` counter, or a loop that
+  writes `Step 2`, runs until something in its body leaves it.
+- A loop that an earlier pass through its `For` opened, in the same activation, keeps the end and the step that pass
+  stored.
+- A `Resume` to a label in the body does what a `GoTo` does.
+- A `Variant` counter raises 92 at the `Next`, after the body has run.
 
 ## Implementation
 
