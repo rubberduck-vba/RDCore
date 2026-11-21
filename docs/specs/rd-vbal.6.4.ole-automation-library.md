@@ -56,8 +56,10 @@ An icon or a cursor loads the image of the size asked for, or its first.
 |---|---|
 |`LoadPicture` given `Null`, or a value that is not a `String`|13|
 |A file that is not a picture `LoadPicture` reads, or an empty one|481 ([VBR00481](../diagnostics/vbr00481.md))|
-|A name that is a folder|76|
+|A name that is a folder|75|
+|A name that ends in a path separator|76|
 |A name that is a pattern|75|
+|`SavePicture` to a folder that does not exist|76|
 |`SavePicture` given no picture|380|
 |`SavePicture` given no file name|53|
 |`SavePicture` of a format it does not write|445|

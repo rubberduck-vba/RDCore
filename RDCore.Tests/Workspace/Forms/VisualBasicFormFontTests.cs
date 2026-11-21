@@ -131,7 +131,7 @@ public sealed class VisualBasicFormFontTests
             "Debug.Print Form7.Text1.FontName & \" \" & Form7.Text1.FontSize & \" \" & Form7.Text1.FontBold");
 
     [TestMethod]
-    [Ignore("not implemented: VB6's shared Set font across the external host's boundary; the control holds a copy of the program's font")]
+    [Ignore("not implemented: a font Set to a control's Font is not shared across the external host's boundary, as VB6 shares it; the control holds a copy")]
     public Task SetOfANewStdFont_SharesIt()
         => AssertPrintsAsync(["True", "True", "True"],
             "Set f = New StdFont",
