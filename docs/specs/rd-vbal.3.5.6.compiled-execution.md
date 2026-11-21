@@ -137,9 +137,10 @@ a `String` is the interpreter's.
 
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
-variable given. Either way the callee holds its own frame, which the interpreter makes. A whole number given by value is given its digits, and a
-`Variant` variable the text it is let-coerced to, as above. Any other number given to a `String` parameter, a `Variant` that holds anything else, a
-fixed-length `String`, a field and an element of an array are the interpreter's to give, and it makes the call.
+variable given. Either way the callee gets the frame the interpreter would make once something needs it (see What compiled code does itself,
+below). A whole number given by value is given its digits, and a `Variant` variable the text it is let-coerced to, as above. Any other number
+given to a `String` parameter, a `Variant` that holds anything else, a fixed-length `String`, a field and an element of an array are the
+interpreter's to give, and it makes the call.
 
 ### `Debug.Print`
 
@@ -576,8 +577,16 @@ A procedure whose frame holds something compiled code does not hold, such as the
 the interpreter's call, never through the compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is
 compiled and what keeps it in the interpreter, and, for a compiled procedure, what the interpreter runs of it.
 
-No procedure runs compiled during an analysis. Under a debugger, compiled code writes its variables into its frame before each call, so the debugger sees
-every activation while the program waits.
+A compiled procedure whose frame would hold nothing compiled code does not hold runs without a frame however it is called: by the interpreter, by an
+event, or by the compiled code of a caller that calls it through the interpreter's call. Each argument must be what compiled code holds the parameter
+as: a value of the parameter's scalar type, a `String`, or, for a `ByRef` parameter, the cell of the caller's variable. Any other argument is given as
+the interpreter gives it, with the frame. The objects its parameters and variables hold are let go of when it returns, in the order the frame would
+let go of them (MS-VBAL §5.3.1.10), and the object a function returns is held until the caller's statement is over. The activation gets the frame
+the interpreter would have made as soon as anything needs it: an error, a break or a `Stop`, a statement the interpreter runs, an edit made while a
+call waits, or the call stack an error's trace or a debugger reads.
+
+No procedure runs compiled during an analysis. Under a debugger, every procedure gets its frame when it is called, and compiled code writes its
+variables into its frame before each call, so the debugger sees every activation while the program waits.
 
 ## Parameters passed by reference
 

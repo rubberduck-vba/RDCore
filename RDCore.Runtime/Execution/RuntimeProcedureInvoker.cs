@@ -143,6 +143,23 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
+        // a program that starts is not stopped by what a Class_Terminate left unhandled in the last one (ISessionErrorState.Untrappable).
+        if (Session.CallStack.Depth == 0)
+        {
+            Session.Errors.ClearUntrappable();
+        }
+
+        // a body whose compiled code holds every variable of its own runs without a frame, as a call compiled code makes directly does, when nothing is to
+        // see one: no debugger is attached, and each argument is what the parameter holds as compiled code does - a payload of its scalar type, a String, or
+        // the cell of the caller's variable. The frame is made when something is to see it (RuntimeCallStack.MaterializeLights): the interpreter given the
+        // activation - at an error, a break, a Stop, an edit while a call waits - an error's trace, or a call made through the invoker with its frame.
+        var compiled = sweep ? null : CompiledNow(procedure, body);
+        if (compiled?.Body is { NeedsFrame: false } code && Session.Halt.Gate is null && Session.CallStack is RuntimeCallStack stack
+            && GivesWithoutFrame(parameters, arguments))
+        {
+            return ActivateWithoutFrame(procedure, activation, body, code, stack, parameters, arguments, payloads);
+        }
+
         var frame = (CallStackFrame)Session.Symbols.CreateFrame(activation.NodeId, activation.Symbol, activation.Directives);
 
         // the first parameter of a member of a class is its Me, and the object the member is a call on is what its
@@ -154,12 +171,6 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         (frame.Procedure, frame.Body) = (procedure, body);
         frame.LayOut(activation.Layout);
-
-        // a program that starts is not stopped by what a Class_Terminate left unhandled in the last one (ISessionErrorState.Untrappable).
-        if (!Session.CallStack.Frames.Any())
-        {
-            Session.Errors.ClearUntrappable();
-        }
 
         if (!Session.CallStack.TryPush(frame))
         {
@@ -225,7 +236,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         var context = new RuntimeEvaluationContext(procedure.Uri);
         var outcome = !sweep
-            ? Run(procedure, frame, body, context)
+            ? Run(frame, body, context, compiled)
             : Executor.Sweep(Session, frame, body, context) ? RuntimeExecutionOutcome.ExitProcedure : RuntimeExecutionOutcome.InternalError;
 
         // a program that was stopped does not unwind: the objects its locals held are not let go of, because that is where a Terminate would run, and an End
@@ -266,17 +277,14 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // the body run compiled when the session runs compiled code and the procedure is compiled, and in the interpreter otherwise: an
     // analysis, a debugger attached, an error a Class_Terminate left unhandled and a break asked for that is not answered yet are the interpreter's, which
     // breaks before the first instruction, where compiled code would look only at the back edge of a loop. A procedure is not compiled when payloads are not
-    // used, and the compiler says so.
-    private RuntimeExecutionOutcome Run(VBTypeMemberSymbol procedure, CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context)
+    // used, and the compiler says so (CompiledNow).
+    private RuntimeExecutionOutcome Run(CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context, CompilationResult? compiled)
     {
-        if (CompiledExecution.EngineFor(Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
-            || Executor.Observation is not null || Session.Halt.WantsInterpreter || Session.Errors.Untrappable is not null || Executor.IsCancellationPending
-            || Bodies is not ProgramImage image)
+        if (compiled is null)
         {
             return Executor.Run(Session, frame, body, context);
         }
 
-        var compiled = image.Compiler.Compile(Session, Executor.Expressions, procedure, body);
         if (compiled.Body is { } code)
         {
             // the activation of the body that last returned from a call the invoker made of it, which this call is made in (CompiledBody.Spares): each call
@@ -308,6 +316,138 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         // a test that expects every procedure it runs to be compiled fails the call of one that is not, rather than run it interpreted unnoticed.
         return CompiledExecution.IsStrict ? RuntimeExecutionOutcome.InternalError : Executor.Run(Session, frame, body, context);
+    }
+
+    // what the compiler made of the procedure's body when the session runs compiled code now (Run); null when the interpreter runs it.
+    private CompilationResult? CompiledNow(VBTypeMemberSymbol procedure, InstructionList body)
+        => CompiledExecution.EngineFor(Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
+            || Executor.Observation is not null || Session.Halt.WantsInterpreter || Session.Errors.Untrappable is not null || Executor.IsCancellationPending
+            || Bodies is not ProgramImage image
+            ? null
+            : image.Compiler.Compile(Session, Executor.Expressions, procedure, body);
+
+    // whether each argument is what compiled code holds its parameter as, with no let-coercion to make (MS-VBAL §5.3.1.11): a payload of the scalar type of a
+    // parameter passed by value, or of one passed by reference given a value; the cell of the caller's variable, for one passed by reference given it; a
+    // String, or the cell of the caller's String variable. Arguments given as payloads are of their parameters' types (InvokeScalars).
+    private static bool GivesWithoutFrame(ImmutableArray<VBParameterSymbol> parameters, IRuntimeValue[]? arguments)
+    {
+        if (arguments is null)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var (parameter, argument) = (parameters[i], arguments[i]);
+            var given = ScalarPayload.IsScalar(parameter.ResolvedType)
+                ? IsAliased(parameter, argument)
+                    ? argument is CellReference { Cell: ScalarCell, ReferencedType: null }
+                    : ScalarPayload.TryOf(parameter.ResolvedType, argument, out _)
+                : ProcedureAnalysis.IsText(parameter.ResolvedType)
+                    && (IsAliased(parameter, argument)
+                        ? argument is CellReference { Cell: TextCell, ReferencedType: null }
+                        : argument is VBRuntimeValue<string>);
+            if (!given)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // the activation of a call of a procedure whose compiled code holds every variable of its own, on the stack without a frame (Activate): its parameters
+    // given their arguments as compiled code holds them, and its body run. It ends as a call compiled code made directly ends (PopCompiledActivation) - and,
+    // when it was given its frame while it ran, as Activate ends any: what the frame holds let go of, unless the program was stopped in it.
+    private RuntimeSemanticsEvaluationResult ActivateWithoutFrame(VBTypeMemberSymbol procedure, Activation activation, InstructionList body, CompiledBody code,
+        RuntimeCallStack stack, ImmutableArray<VBParameterSymbol> parameters, IRuntimeValue[]? arguments, ReadOnlySpan<ScalarPayload> payloads)
+    {
+        if (CompiledActivation.EnterThroughInvoker(Session, stack, procedure, body, Executor, code, this, out var made) is not { } light)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfStackSpace,
+                default, Exceptions.VBProcedureCall_OutOfStackSpace_Verbose));
+        }
+
+        if (made)
+        {
+            code.CountInvokerActivationMade();
+        }
+
+        var slots = activation.Layout.ParameterSlots;
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var (parameter, slot) = (parameters[i], slots[i]);
+            if (arguments is null)
+            {
+                light.GivePayload(slot, payloads[i]);
+            }
+            else if (arguments[i] is VBRuntimeValue<string> text)
+            {
+                light.TakeText(slot, text.Value);
+            }
+            else if (arguments[i] is CellReference { Cell: TextCell variable })
+            {
+                light.TakeTextReference(slot, variable);
+            }
+            else if (arguments[i] is CellReference { Cell: ScalarCell cell })
+            {
+                light.GiveReference(slot, cell);
+            }
+            else if (ScalarPayload.TryOf(parameter.ResolvedType, arguments[i], out var payload) && IsByRef(parameter.ParameterKind))
+            {
+                // a value given to a parameter passed by reference is held in a cell of the activation's own, as the frame holds it (HoldArgument).
+                var own = ScalarCell.Of(payload);
+                own.IsGivenValue = true;
+                light.GiveReference(slot, own);
+            }
+            else
+            {
+                light.GivePayload(slot, payload);
+            }
+        }
+
+        var outcome = code.Run(light);
+
+        // a call that failed or was stopped while holding objects without a frame ends in its frame, which says what is let go of (EndsTheProgram).
+        if (light.HeldFrame is null && outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure && light.HoldsObjects)
+        {
+            stack.MaterializeLights();
+        }
+
+        VBTypedValue result = VBVoidValue.Void;
+        if (light.HeldFrame is { } frame)
+        {
+            if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break) && !EndsTheProgram(outcome))
+            {
+                ReleaseLocals(frame, GetLocals(procedure), parameters, arguments);
+            }
+
+            if (procedure is VBReturningMemberSymbol returning)
+            {
+                result = frame.ReturnValue ?? returning.ResolvedType.DefaultValue;
+            }
+
+            outcome = PopCompiledActivation(outcome);
+        }
+        else
+        {
+            // what its objects hold is let go of first, while it is on the stack, as a frame's end lets go of it: a Class_Terminate that runs then gives it
+            // its frame, with which it is taken off the stack.
+            var returned = light.EndWithoutFrame();
+            if (procedure is VBReturningMemberSymbol returning)
+            {
+                result = returned ?? returning.ResolvedType.DefaultValue;
+            }
+
+            outcome = PopCompiledActivation(outcome, light: light.HeldFrame is null);
+        }
+
+        return outcome.Kind switch
+        {
+            RuntimeExecutionOutcomeKind.ExitProcedure => RuntimeSemanticsEvaluationResult.Success(result),
+            RuntimeExecutionOutcomeKind.Error => RuntimeSemanticsEvaluationResult.Error(outcome.ErrorInfo!),
+            _ => RuntimeSemanticsEvaluationResult.InternalError(),
+        };
     }
 
     // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was

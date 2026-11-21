@@ -23,9 +23,10 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The activation's frame is laid out, its parameters given and its variables declared, as for an activation the interpreter runs. Compiled code reads
-/// its parameters from their cells when it starts, and keeps its variables in its own locals from then on: the cells are written again only when the
-/// activation is handed to the interpreter.
+/// The activation's frame is laid out, its parameters given and its variables declared, as for an activation the interpreter runs, unless its body holds
+/// every variable of its own (<see cref="CompiledBody.NeedsFrame"/>). The activation is then on the stack without a frame, however the call was made, and
+/// is given the frame only when something is to see it. Compiled code reads its parameters from their cells, or from what the activation was given, when it
+/// starts, and keeps its variables in its own locals from then on: the cells are written again only when the activation is handed to the interpreter.
 /// </para>
 /// <para>
 /// It is handed to the interpreter - <em>walked back</em> - at an instruction boundary: when an operation declines or raises an error, which the
@@ -125,6 +126,7 @@ public sealed partial class CompiledActivation : ILightActivation
         _scopes = scopes ?? _session.Symbols.Scopes;
         _directAt = -1;
         (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
+        _givenCount = 0;
         _errorHandler = ErrorHandlerState.Disabled;
         _knowns?.Clear();
         _untilPoll = PollInterval;
@@ -222,8 +224,123 @@ public sealed partial class CompiledActivation : ILightActivation
 
         GiveObjects(frame);
         GiveResult(frame);
+
+        // a parameter the invoker gave a payload that compiled code has not read yet: the interpreter, given the activation before its entry ran, reads it
+        // in its cell. One compiled code read is in its locals, which it writes into the frame before the interpreter is given the activation (Spill).
+        for (var i = 0; i < _givenCount; i++)
+        {
+            if (_givenSlots[i] is var slot and >= 0 && !frame.IsSlotFilled(slot))
+            {
+                frame.PushPayload(_body.SlotSymbols[slot], _given[i], slot);
+            }
+        }
+
         return frame;
     }
+
+    // the payload of each scalar parameter passed by value the invoker gave an activation it made without a frame (EnterThroughInvoker), and its slot - the
+    // complement of it once compiled code read it as it began (TryReadIntegral, TryReadFloating): from then on, the parameter is compiled code's, as one
+    // given through a typed entry is.
+    private int[] _givenSlots = [];
+    private ScalarPayload[] _given = [];
+    private int _givenCount;
+
+    /// <summary>
+    /// The activation of a call the invoker makes of <paramref name="procedure"/>, whose compiled code holds every variable of its own
+    /// (<see cref="CompiledBody.NeedsFrame"/>), on the stack without a frame, as a call compiled code makes directly is (<see cref="EnterDirectly"/>): in the
+    /// activation that last left its place of the stack, begun again, when that was an activation of the same body. The invoker then gives it its arguments
+    /// (<see cref="GivePayload"/>, <see cref="GiveReference"/>, <see cref="TakeText"/>, <see cref="TakeTextReference"/>), and runs its body.
+    /// </summary>
+    /// <param name="session">The session the call is made in.</param>
+    /// <param name="stack">The session's call stack.</param>
+    /// <param name="procedure">The procedure called.</param>
+    /// <param name="list">The procedure's lowered body.</param>
+    /// <param name="executor">The interpreter the activation is handed to.</param>
+    /// <param name="body">The procedure's compiled body.</param>
+    /// <param name="invoker">The invoker that makes the call.</param>
+    /// <param name="made">Whether the activation was made for the call, rather than begun again.</param>
+    /// <returns><see langword="null"/> when the call stack is full.</returns>
+    internal static CompiledActivation? EnterThroughInvoker(IRuntimeSession session, RuntimeCallStack stack, VBTypeMemberSymbol procedure, InstructionList list,
+        ProcedureExecutor executor, CompiledBody body, RuntimeProcedureInvoker invoker, out bool made)
+    {
+        CompiledActivation activation;
+        if (stack.TakeSpare() is CompiledActivation spare && ReferenceEquals(spare._procedure, procedure) && ReferenceEquals(spare._list, list)
+            && ReferenceEquals(spare._body, body) && ReferenceEquals(spare._invoker, invoker))
+        {
+            spare._frame = null;
+            spare.Begin();
+            (activation, made) = (spare, false);
+        }
+        else
+        {
+            (activation, made) = (new CompiledActivation(session, list, executor, new RuntimeEvaluationContext(procedure.Uri), body, invoker, procedure), true);
+        }
+
+        return stack.TryPushLight(activation) ? activation : null;
+    }
+
+    /// <summary>
+    /// Gives the scalar parameter passed by value in <paramref name="slot"/> of an activation the invoker made without a frame
+    /// (<see cref="EnterThroughInvoker"/>) its argument, a payload of the parameter's type, which compiled code reads as it begins.
+    /// </summary>
+    /// <param name="slot">The parameter's slot.</param>
+    /// <param name="payload">The argument.</param>
+    internal void GivePayload(int slot, ScalarPayload payload)
+    {
+        if (_givenCount == _given.Length)
+        {
+            Array.Resize(ref _given, Math.Max(4, _given.Length * 2));
+            Array.Resize(ref _givenSlots, _given.Length);
+        }
+
+        (_givenSlots[_givenCount], _given[_givenCount]) = (slot, payload);
+        _givenCount++;
+    }
+
+    /// <summary>
+    /// Gives the scalar parameter passed by reference in <paramref name="slot"/> of an activation the invoker made without a frame
+    /// (<see cref="EnterThroughInvoker"/>) the cell of its argument (<see cref="TakeReference"/>): the caller's variable, or a cell of a value
+    /// (<see cref="ScalarCell.IsGivenValue"/>).
+    /// </summary>
+    /// <param name="slot">The parameter's slot.</param>
+    /// <param name="cell">The argument's cell.</param>
+    internal void GiveReference(int slot, ScalarCell cell) => TakeReference(CellNumberOf(slot), cell);
+
+    // the number of the cell of the slot (CompiledBody.CellSlots); -1 when the slot is held in none.
+    private int CellNumberOf(int slot)
+    {
+        for (var number = 0; number < _body.CellSlots.Count; number++)
+        {
+            if (_body.CellSlots[number] == slot)
+            {
+                return number;
+            }
+        }
+
+        return -1;
+    }
+
+    // the payload the invoker gave the parameter in slot, when compiled code has not read it yet: it is read once, as the activation begins.
+    private bool TryTakeGiven(int slot, out ScalarPayload payload)
+    {
+        for (var i = 0; i < _givenCount; i++)
+        {
+            if (_givenSlots[i] == slot)
+            {
+                _givenSlots[i] = ~slot;
+                payload = _given[i];
+                return true;
+            }
+        }
+
+        payload = default;
+        return false;
+    }
+
+    /// <summary>
+    /// The activation's frame, when it has one; <see langword="null"/> when it is on the stack without one.
+    /// </summary>
+    internal CallStackFrame? HeldFrame => _frame;
 
     // the frame given the String numbered number, when it has none in its slot: a parameter passed by reference given its caller's variable is a second name
     // for it (PushAlias), as a scalar's is; any other is the activation's own (PushText).
@@ -354,11 +471,17 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The cell of the parameter passed by reference in <paramref name="slot"/>, as an interpreted caller gave it: its variable, or a cell its value was
-    /// copied into.
+    /// copied into: the frame's, or the one the invoker gave an activation without a frame (<see cref="GiveReference"/>).
     /// </summary>
     /// <returns><see langword="false"/> when the parameter is bound to an address - a field, an element - which is the interpreter's to read.</returns>
     public bool TryReadReference(int slot, out object? cell)
     {
+        if (_frame is null && CellNumberOf(slot) is var number and >= 0 && _cells[number] is ScalarCell given)
+        {
+            cell = given;
+            return true;
+        }
+
         cell = Frame.TryGetSlotCell(slot, out var held) && held is ScalarCell scalar ? scalar : null;
         return cell is not null;
     }
@@ -1390,10 +1513,17 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The payload of the variable in <paramref name="slot"/>, of an integral kind, when its cell holds one it knows. When it does not, compiled code hands the
-    /// activation to the interpreter, which reads the variable where the frame has it.
+    /// activation to the interpreter, which reads the variable where the frame has it. A parameter of an activation the invoker made without a frame is
+    /// read, the first time, in the payload it was given (<see cref="GivePayload"/>).
     /// </summary>
     public bool TryReadIntegral(int slot, out long value)
     {
+        if (_frame is null && TryTakeGiven(slot, out var given))
+        {
+            value = given.Integral;
+            return true;
+        }
+
         value = 0;
         if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
@@ -1410,6 +1540,12 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     public bool TryReadFloating(int slot, out double value)
     {
+        if (_frame is null && TryTakeGiven(slot, out var given))
+        {
+            value = given.Floating;
+            return true;
+        }
+
         value = 0;
         if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
