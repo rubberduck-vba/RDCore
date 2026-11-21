@@ -157,6 +157,20 @@ public interface IFormHost
     }
 
     /// <summary>
+    /// The name of the program whose forms this host shows, as <c>App.Title</c> says: the name the platform gives the application of the host's windows, such
+    /// as the application menu of macOS. Empty unless it is set.
+    /// </summary>
+    /// <remarks>
+    /// The windows of a process are one application, named as its first window or dialog is made; a name set later renames it where the platform reads the
+    /// name again. A host whose windows have no application name ignores it: empty, and setting it does nothing, unless the host says otherwise.
+    /// </remarks>
+    string ApplicationName
+    {
+        get => string.Empty;
+        set { }
+    }
+
+    /// <summary>
     /// Creates a form from its definition, in a window that is not shown yet.
     /// </summary>
     /// <param name="form">The form.</param>

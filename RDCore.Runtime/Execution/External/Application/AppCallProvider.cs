@@ -27,9 +27,9 @@ namespace RDCore.Runtime.Execution.External.Application;
 /// program. <c>PrevInstance</c> is whether the same executable was already running, and <c>False</c> under <c>rdc run</c>.
 /// </para>
 /// <para>
-/// <c>Title</c> is the project's name and the version is 1.0.0, with the six version strings empty, as a new Visual Basic 6.0 project has them.
-/// <c>StartMode</c> is <c>vbSModeStandalone</c>, <c>NonModalAllowed</c> is <c>True</c>, <c>RetainedProject</c> is <c>False</c>, and
-/// <c>UnattendedApp</c> is whether the program runs unattended (<see cref="IRuntimeSession.RunsUnattended"/>).
+/// <c>Title</c> is the project's name and the version is 1.0.0, with the six version strings empty, as a new Visual Basic 6.0 project has them. The form
+/// host is told each <c>Title</c> the program assigns, which names the application of its windows. <c>StartMode</c> is <c>vbSModeStandalone</c>,
+/// <c>NonModalAllowed</c> is <c>True</c>, <c>RetainedProject</c> is <c>False</c>, and <c>UnattendedApp</c> is whether the program runs unattended (<see cref="IRuntimeSession.RunsUnattended"/>).
 /// </para>
 /// <para>
 /// <c>TaskVisible</c> and the <c>Ole*</c> properties keep what the program assigns, and change nothing. <c>ThreadID</c> is the operating system's identifier
@@ -56,7 +56,8 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
     public Func<string, string?> VersionOf { get; init; } = PlatformComponents.VersionOf;
 
     /// <summary>
-    /// The form host that is told each value <c>App.KeepSystemTheme</c> takes: <see cref="UnavailableFormHost.Instance"/> unless it is set.
+    /// The form host that is told each value <c>App.KeepSystemTheme</c> and <c>App.Title</c> take: <see cref="UnavailableFormHost.Instance"/> unless it is
+    /// set.
     /// </summary>
     public IFormHost Forms { get; init; } = UnavailableFormHost.Instance;
 
@@ -124,7 +125,11 @@ public sealed class AppCallProvider(IRuntimeSession session) : IExternalCallProv
             ("PATH", "get") => Success(new VBStringValue(application.Folder)),
             ("EXENAME", "get") => Success(new VBStringValue(application.ExecutableName)),
             ("TITLE", "get") => Success(new VBStringValue(application.Title)),
-            ("TITLE", "let") => Assigned(request, resolver, value => application.Title = Text(value)),
+            ("TITLE", "let") => Assigned(request, resolver, value =>
+            {
+                application.Title = Text(value);
+                Forms.ApplicationName = application.Title;
+            }),
             ("PREVINSTANCE", "get") => Success(Boolean(application.PrevInstance)),
             ("STARTMODE", "get") => Success(new VBIntegerValue(StandaloneMode)),
             ("TASKVISIBLE", "get") => Success(Boolean(application.TaskVisible)),

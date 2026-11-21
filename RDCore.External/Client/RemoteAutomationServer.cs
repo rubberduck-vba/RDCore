@@ -49,6 +49,10 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     private bool _keepSystemTheme;
     private Incarnation? _themeTold;
 
+    // the program's App.Title, as it was last said, and the incarnation last told it, as for the theme.
+    private string _applicationName = string.Empty;
+    private Incarnation? _nameTold;
+
     [ThreadStatic]
     private static long _handlingEvent;
 
@@ -147,7 +151,9 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         TellHold(incarnation, onlyIfUntold: true);
         // and the theme its windows are in, so that the form is made in it.
         TellTheme(incarnation, onlyIfUntold: true);
-        var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
+        // and the program's name, which the first window of the host names its application with.
+        TellName(incarnation, onlyIfUntold: true);
+        var created =Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
         return ObjectOf(incarnation, created.Handle);
     }
 
@@ -303,6 +309,62 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         lock (_holdGate)
         {
             _themeTold = incarnation;
+        }
+    }
+
+    // kept and told as the theme is, and told before a dialog too, since a dialog can be the first window of the host.
+    string Forms.IFormHost.ApplicationName
+    {
+        get
+        {
+            lock (_holdGate)
+            {
+                return _applicationName;
+            }
+        }
+        set
+        {
+            lock (_holdGate)
+            {
+                _applicationName = value;
+            }
+
+            if (_host.Running is { } incarnation)
+            {
+                try
+                {
+                    TellName(incarnation, onlyIfUntold: false);
+                }
+                catch (AutomationException)
+                {
+                    lock (_holdGate)
+                    {
+                        _nameTold = null;
+                    }
+                }
+            }
+        }
+    }
+
+    // says to an incarnation the name of the program whose forms it shows; one that was told already is not told again when only the untold are.
+    private void TellName(Incarnation incarnation, bool onlyIfUntold)
+    {
+        string name;
+        lock (_holdGate)
+        {
+            if (onlyIfUntold && ReferenceEquals(_nameTold, incarnation))
+            {
+                return;
+            }
+
+            name = _applicationName;
+        }
+
+        _ = Send<FormApplicationNameParams, ExternalDoneResult>(
+            incarnation, ExternalProtocol.FormApplicationName, new FormApplicationNameParams { Name = name, HandlingEvent = _handlingEvent });
+        lock (_holdGate)
+        {
+            _nameTold = incarnation;
         }
     }
 
@@ -549,6 +611,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     {
         token.ThrowIfCancellationRequested();
         var incarnation = Connect();
+        TellName(incarnation, onlyIfUntold: true);
         var number = Interlocked.Increment(ref _lastDialog);
         TResult answered;
         using (token.Register(() => CloseDialog(incarnation, number)))

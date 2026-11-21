@@ -927,6 +927,91 @@ public sealed class RDFormsFormHostTests
         Assert.IsNull(host.Running);
     }
 
+    // the name of the application of the windows, as the UI thread says it.
+    private static string ApplicationNameOf(object form)
+    {
+        var hosted = ((RDFormsObject)form).Form;
+        return RDFormsUI.Run(hosted.Program, () => RDFormsUI.ApplicationName);
+    }
+
+    // the name said before the host makes its first form names the application of its windows, as the first start of the UI thread does or a rename
+    // does once it is started; one said after renames it, and a blank one gives it RDForms' own. The application is the process's, so no other test runs
+    // meanwhile, and the test leaves it with RDForms' own name.
+    [TestMethod]
+    [DoNotParallelize]
+    public void ApplicationName_SaidBeforeAFormIsMade_NamesItsApplication_AndSaidAfter_RenamesIt()
+    {
+        var host = Host();
+        host.ApplicationName = "Payroll";
+        var form = host.Create(VisualBasicForm());
+        try
+        {
+            Assert.AreEqual("Payroll", ApplicationNameOf(form));
+
+            host.ApplicationName = "Ledger";
+
+            Assert.AreEqual("Ledger", host.ApplicationName);
+            Assert.AreEqual("Ledger", ApplicationNameOf(form));
+        }
+        finally
+        {
+            host.ApplicationName = string.Empty;
+            host.Destroy(form);
+        }
+
+        Assert.AreEqual(RDCore.Forms.Avalonia.RDFormsApplication.DefaultName, RDFormsUI.Run(new RDFormsProgram(), () => RDFormsUI.ApplicationName));
+    }
+
+    // an external host's forms: RDForms' windows are named, and a UserForm's host, whose windows are Microsoft Forms' own, is never told the name.
+    [TestMethod]
+    [DoNotParallelize]
+    public void AnExternalHost_GivesTheApplicationName_ToTheRDFormsWindows_AndNotToTheUserFormsHost()
+    {
+        var userForms = NSubstitute.Substitute.For<IFormHost>();
+        var (_, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, userForms, new FormsOptions { Headless = true });
+
+        forms.ApplicationName = "Payroll";
+        var form = forms.Create(VisualBasicForm());
+        try
+        {
+            Assert.AreEqual("Payroll", forms.ApplicationName);
+            Assert.AreEqual("Payroll", ApplicationNameOf(form));
+            Assert.IsFalse(NSubstitute.SubstituteExtensions.ReceivedCalls(userForms)
+                .Any(call => call.GetMethodInfo().Name.EndsWith(nameof(IFormHost.ApplicationName), StringComparison.Ordinal)));
+        }
+        finally
+        {
+            forms.ApplicationName = string.Empty;
+            forms.Destroy(form);
+        }
+    }
+
+    // what the environment host says over the wire is the name the external host's forms are given.
+    [TestMethod]
+    public void AnExternalHost_ToldTheApplicationName_GivesItToItsForms()
+    {
+        var forms = NSubstitute.Substitute.For<IFormHost>();
+
+        var answered = new ExternalAutomationService(UnavailableAutomationServer.Instance, forms)
+            .ApplicationName(new FormApplicationNameParams { Name = "Payroll" });
+
+        Assert.IsNotNull(answered);
+        Assert.AreEqual("Payroll", forms.ApplicationName);
+    }
+
+    // the environment host's client of an external host keeps the name, and an external host that is not running is not started to be told it.
+    [TestMethod]
+    public void TheClientOfAnExternalHost_KeepsTheApplicationName_WithoutStartingIt()
+    {
+        using var host = ExternalHosts.New(canStart: () => false);
+        IFormHost forms = new RDCore.External.Client.RemoteAutomationServer(host);
+
+        forms.ApplicationName = "Payroll";
+
+        Assert.AreEqual("Payroll", forms.ApplicationName);
+        Assert.IsNull(host.Running);
+    }
+
     // what an external host tells its environment host, which raises 429 at the New of a Visual Basic 6.0 form's class where nothing hosts its form.
     [TestMethod]
     [DataRow(VisualBasicFormsHost.RDForms, true, DisplayName = "RDForms hosts them")]

@@ -297,6 +297,8 @@ public sealed class EnvironmentSessionProvider(
         ModuleCount = project.Modules.Length;
         // App says the program is the workspace project, run from its folder; a built program says otherwise once it is composed.
         SessionApplication.Of(_session).Runs(project.Name, FolderOf(workspaceRoot) ?? string.Empty);
+        // its forms' windows are an application named as App.Title is, the project's name until the program assigns another.
+        Outside.Forms.ApplicationName = SessionApplication.Of(_session).Title;
         // and its forms keep the system's theme as the project says, until the program says otherwise: the host knows it before it makes the first one.
         SessionApplication.Of(_session).KeepSystemTheme = project.KeepSystemTheme;
         Outside.Forms.KeepSystemTheme = project.KeepSystemTheme;
