@@ -101,6 +101,12 @@ public sealed partial class CompiledActivation
     /// <returns><see langword="false"/> when the interpreter runs the statement, as <see cref="TrySet"/>.</returns>
     public bool TrySetResult(int offset, object? source, bool nothing)
     {
+        // an activation without a frame holds its result in a cell of its own, which its frame is given once it has one (GiveResult).
+        if (_frame is null && _body.ResultIsObject)
+        {
+            return !FailsAccessAtRandom() && TrySetOwnResult(offset, source, nothing);
+        }
+
         if (FailsAccessAtRandom() || Frame is not { Procedure: ITypedSymbol function } frame
             || ValueOf(source, nothing) is not { } value
             || Coerced(offset, value, function.ResolvedType) is not { } coerced

@@ -273,7 +273,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         Append(body);
         Append(is64Bit ? "pointer:64" : "pointer:32");
-        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
+        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.ResultIsObject}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
         Append(string.Join(',', analysis.Parameters.Select(parameter => $"{parameter.Slot}:{parameter.Kind}:{parameter.ByReference}")));
         Append(string.Join(',', analysis.CellSlots));
         Append(string.Join(',', analysis.SlotSymbols.OrderBy(slot => slot.Key).Select(slot => $"{slot.Key}:{slot.Value.SemanticId}")));
@@ -322,6 +322,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
             Classes = analysis.Classes, News = analysis.News, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
             Libraries = analysis.Libraries, ArithmeticSites = analysis.ArithmeticSites, TextSlots = [.. analysis.TextSlots],
+            ObjectSlots = [.. analysis.HeldObjectSlots], ResultIsObject = analysis.ResultIsObject,
         };
 
         // a call the body makes of itself is of the body just made.
@@ -340,14 +341,14 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
     // calls the one that calls it).
     // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame; so is
-    // one given anything but scalars and Strings of variable length, whose cells its activation is given (CompiledCallee.GivesScalarsAndTexts).
+    // one given anything but scalars, Strings of variable length and objects, whose cells its activation is given (CompiledCallee.GivesWhatTheEntryTakes).
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodInfo entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
         // a member of an object, Me's own and a default member included, is called through its binding, the object given as Me
         // (CompiledActivation.CallMember).
         if (callee.Site is not null || callee.CallsOwnMember || callee.DefaultOf is not null
-            || !callee.GivesScalarsAndTexts || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+            || !callee.GivesWhatTheEntryTakes || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }

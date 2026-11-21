@@ -79,6 +79,14 @@ public sealed partial class CompiledActivation : ILightActivation
     private readonly TextCell?[] _texts;
     private readonly bool[] _textAliases;
 
+    // the cell of each object parameter and variable of an activation without a frame (CompiledBody.ObjectSlots), by its number: made as compiled code
+    // first finds it (ObjectCellOf), and given to the frame when it is made (MakeFrame). Cells no frame was given are the activation's alone: what they held
+    // is let go of when it returns (ReturnedDirectly), and they hold Nothing for its next call, made in it again (Begin).
+    private readonly ValueBindingHandle?[] _objects;
+
+    // whether a frame was given the cells of _objects: they are then the frame's too, and the next call is given cells of its own.
+    private bool _objectsGiven;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body, RuntimeProcedureInvoker invoker)
         : this(session, list, executor, context, body, invoker, procedure: null)
@@ -99,6 +107,8 @@ public sealed partial class CompiledActivation : ILightActivation
         _ownsCell = body.CellSlots.Count == 0 ? [] : new bool[body.CellSlots.Count];
         _texts = body.TextSlots.Length == 0 ? [] : new TextCell?[body.TextSlots.Length];
         _textAliases = body.TextSlots.Length == 0 ? [] : new bool[body.TextSlots.Length];
+        _objects = body.ObjectSlots.Length == 0 ? [] : new ValueBindingHandle?[body.ObjectSlots.Length];
+        _objectAliases = body.ObjectSlots.Length == 0 ? [] : new bool[body.ObjectSlots.Length];
         Begin();
     }
 
@@ -110,6 +120,7 @@ public sealed partial class CompiledActivation : ILightActivation
         Array.Clear(_ownsCell);
         Array.Clear(_texts);
         Array.Clear(_textAliases);
+        BeginObjects();
         (_entered, _instance, _me) = (null, null, null);
         _scopes = scopes ?? _session.Symbols.Scopes;
         _directAt = -1;
@@ -209,6 +220,8 @@ public sealed partial class CompiledActivation : ILightActivation
             HoldText(frame, number);
         }
 
+        GiveObjects(frame);
+        GiveResult(frame);
         return frame;
     }
 
@@ -1110,7 +1123,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        outcome = callee._entered is not { } member ? _invoker.PopCompiledActivation(outcome, light: callee._frame is null)
+        outcome = callee._entered is not { } member ? EndProcedure(callee, outcome)
             : callee._me is { } me && callee._frame is null ? EndMember(callee, me, outcome)
             : _invoker.PopMemberActivation(callee._frame!, member, outcome);
         callee.LetGoOfMe();
@@ -1126,6 +1139,16 @@ public sealed partial class CompiledActivation : ILightActivation
         // whose statement assigns what it returns is assigned it. One that returns a String inside a text returns the frame's function result, which compiled
         // code takes whole (TakeReturnedText).
         var called = _body.Callees[call];
+
+        // an object, which the statement's temporaries hold since the callee returned (LetGoOfResult, RuntimeProcedureInvoker.ReleaseLocals): compiled
+        // code takes it (TakeReturnedObject), as it takes what a call through the invoker returns.
+        if (called.ReturnsObject)
+        {
+            _returnedObject = ReturnedBy(callee);
+            _failed = _returnedObject is null ? RuntimeExecutionOutcome.InternalError : null;
+            return _returnedObject is not null;
+        }
+
         if (called.ReturnsText)
         {
             _returnedText = ReturnedBy(callee);
@@ -1159,10 +1182,12 @@ public sealed partial class CompiledActivation : ILightActivation
     // runs then gives it its frame, as any call does; it is then taken off the stack with that frame, which holds Me in the same cell, let go of already.
     private RuntimeExecutionOutcome EndMember(CompiledActivation callee, ValueBindingHandle me, RuntimeExecutionOutcome outcome)
     {
+        // what its variables hold is let go of before Me, as the frame lets go of them (RuntimeProcedureInvoker.ReleaseLocals).
         var released = outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break);
         if (released)
         {
-            ObjectReferences.Release(_session, me);
+            callee.LetGoOfResult();
+            callee.LetGoOfObjects(me);
         }
 
         outcome = _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
@@ -1196,6 +1221,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         callee.LetGoOfMe();
+        callee._objectsGiven = true;
     }
 
     private int Suspensions => (_halt as SessionHalt)?.Suspensions ?? 0;
@@ -1498,14 +1524,29 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </returns>
     public object? ObjectCellOf(int slot)
     {
-        // Me, of a member entered without a frame: the cell the activation holds it in, which its frame is given when it has one (EnterMemberDirectly).
-        if (_frame is null && _me is { } me && slot == _body.MeSlot)
+        // Me, of a member entered without a frame: the cell the activation holds it in, which its frame is given when it has one (EnterMemberDirectly). Any
+        // other object of an activation without a frame: the cell the activation holds it in (OwnObjectCell).
+        if (_frame is null)
         {
-            return me;
+            if (_me is { } me && slot == _body.MeSlot)
+            {
+                return me;
+            }
+
+            if (Array.IndexOf(_body.ObjectSlots, slot) is var own and >= 0)
+            {
+                return OwnObjectCell(own);
+            }
         }
 
         var frame = Frame;
-        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is ValueBindingHandle handle ? handle : null;
+        if (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell))
+        {
+            return cell is ValueBindingHandle handle ? handle : null;
+        }
+
+        // a frame made as the call was made, under a debugger, which holds none of the activation's variables: given the variable's cell now.
+        return Array.IndexOf(_body.ObjectSlots, slot) is var number and >= 0 ? GiveObject(frame, number) : null;
     }
 
     /// <summary>
@@ -2120,6 +2161,18 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// without a frame holds the cell of each, by its number here (<see cref="CompiledActivation.StringCellOf"/>).
     /// </summary>
     public int[] TextSlots { get; init; } = [];
+
+    /// <summary>
+    /// The slots of its object parameters and variables, but <c>Me</c> (<see cref="ProcedureAnalysis.HeldObjectSlots"/>), in order: an activation without a
+    /// frame holds the cell of each, by its number here (<see cref="CompiledActivation.ObjectCellOf"/>).
+    /// </summary>
+    public int[] ObjectSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether the body is of a function that returns an object (<see cref="ProcedureAnalysis.ResultIsObject"/>): an activation without a frame holds its
+    /// result in a cell of its own.
+    /// </summary>
+    public bool ResultIsObject { get; init; }
 
     /// <summary>
     /// Whether an activation of the body holds in its frame what compiled code does not (<see cref="ProcedureAnalysis.NeedsFrame"/>): it is called through
