@@ -139,14 +139,15 @@ public sealed class InterfaceCallReferencesTests
     }
 
     [TestMethod]
-    [DataRow("Square", DisplayName = "the implementation of the class the variable is set to")]
-    [DataRow("Disc", DisplayName = "another implementation")]
-    public void TheReferencesOfAnImplementation_AreItsOwn_AndNoCallThroughItsInterface(string implementation)
+    [DataRow("Square", "Square: IShape_Area = 4", DisplayName = "the implementation of the class the variable is set to, which assigns its result")]
+    [DataRow("Disc", null, DisplayName = "another implementation")]
+    public void TheReferencesOfAnImplementation_AreItsOwn_AndNoCallThroughItsInterface(string implementation, string? result)
     {
         var context = Workspace();
 
-        CollectionAssert.AreEqual(new[] { $"{implementation}: Private Function IShape_Area() As Double" },
-            ReferencesOf(context, implementation, "Private Function IShape_Area", "IShape_Area"));
+        CollectionAssert.AreEqual(new[] { $"{implementation}: Private Function IShape_Area() As Double" }.Concat(result is null ? [] : [result])
+                .Order(StringComparer.Ordinal).ToArray(),
+            ReferencesOf(context, implementation, "Private Function IShape_Area", "IShape_Area"), "its declaration, and the result its body assigns");
         Assert.IsEmpty(LensOf(context, implementation, "Private Function IShape_Area", "IShape_Area"));
     }
 

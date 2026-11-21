@@ -780,8 +780,8 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The names that refer to the member whose name is written at a position of a document (<see cref="SymbolLenses.ReferencesOf"/>), its declarations not
-    /// included: each name, in the text of its document.
+    /// The names that use the member whose name is written at a position of a document (<see cref="SymbolLenses.ReferencesOf"/>), its declarations not
+    /// included, nor the result a Function or a Property Get assigns or reads in its own body: each name, in the text of its document.
     /// </summary>
     public IReadOnlyList<Location> LensReferences(Uri documentUri, Position position)
         => ModuleOf(documentUri) is { } module
