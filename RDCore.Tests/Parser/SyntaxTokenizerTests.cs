@@ -42,8 +42,11 @@ public sealed class SyntaxTokenizerTests
     }
 
     [TestMethod]
-    public void ACommentThatIsContinued_IsAComment_OnEachLineOfIt()
-        => Assert.AreEqual("Comment@0:0+7 Comment@1:1+3 Identifier@2:0+1", Described("' one _\r\n two\r\nx"));
+    [DataRow("\r\n", DisplayName = "CRLF")]
+    [DataRow("\n", DisplayName = "LF")]
+    [DataRow("\r", DisplayName = "CR")]
+    public void ACommentThatIsContinued_IsAComment_OnEachLineOfIt(string lineEnd)
+        => Assert.AreEqual("Comment@0:0+7 Comment@1:1+3 Identifier@2:0+1", Described($"' one _{lineEnd} two{lineEnd}x"));
 
     [TestMethod]
     public void AWordOfTheLanguageAfterAMemberAccess_IsTheNameOfAMember()
@@ -65,9 +68,13 @@ public sealed class SyntaxTokenizerTests
     public void ALineNumber_IsANumber_AndWhatFollowsItStartsAStatement()
         => Assert.AreEqual("Number Keyword String", Kinds("100 Print \"hello\""));
 
+    // a line ends where LSP 3.17 ends one: at a CR, an LF or a CRLF.
     [TestMethod]
-    public void TheLinesAreTheLinesOfTheText()
-        => Assert.AreEqual("Identifier@0:0+1 Operator@0:2+1 Number@0:4+1 Identifier@1:0+1 Operator@1:2+1 Number@1:4+1", Described("x = 1\r\ny = 2"));
+    [DataRow("\r\n", DisplayName = "CRLF")]
+    [DataRow("\n", DisplayName = "LF")]
+    [DataRow("\r", DisplayName = "CR")]
+    public void TheLinesAreTheLinesOfTheText(string lineEnd)
+        => Assert.AreEqual("Identifier@0:0+1 Operator@0:2+1 Number@0:4+1 Identifier@1:0+1 Operator@1:2+1 Number@1:4+1", Described($"x = 1{lineEnd}y = 2"));
 
     [TestMethod]
     public void TextThatIsNotAProgram_IsTokenizedAllTheSame()
