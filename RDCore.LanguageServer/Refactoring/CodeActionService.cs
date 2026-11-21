@@ -51,7 +51,8 @@ internal sealed class CodeActionService(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
     ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
-    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null) : ICodeActionService
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null, IInlineMemberService? inlineMember = null)
+    : ICodeActionService
 {
     public Task<IReadOnlyList<CodeAction>> ActionsAsync(CodeActionParams request, ClientCapabilities? client, CancellationToken cancellationToken)
         => For(client).ActionsAsync(request, cancellationToken);
@@ -60,7 +61,7 @@ internal sealed class CodeActionService(
         => For(client).ResolveAsync(request, cancellationToken);
 
     private CodeActions For(ClientCapabilities? client) => new(client, rename, documents, fileSystem, extractMethod, moveMember, clientCapabilities, serializer, projectFiles, libraries, encapsulateField, implementInterface,
-        closerToUsage, parameterReorder);
+        closerToUsage, parameterReorder, inlineMember);
 }
 
 /// <summary>
@@ -145,7 +146,7 @@ internal sealed class CodeActions(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
     ILibrarySource? libraries = null, IEncapsulateFieldService? encapsulateField = null, IImplementInterfaceService? implementInterface = null,
-    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null)
+    IMoveCloserToUsageService? closerToUsage = null, IParameterReorderService? parameterReorder = null, IInlineMemberService? inlineMember = null)
 {
     // LSP "RequestFailed": the request is valid, and is refused.
     private const int RequestFailedCode = -32803;
@@ -330,6 +331,37 @@ internal sealed class CodeActions(
             else if (ShowsDisabled)
             {
                 actions.Add(new CodeAction { Title = reorder.Title, Kind = CodeActionHandler.RefactorReorderParameters, Disabled = new CodeActionDisabled { Reason = reorder.Refusal } });
+            }
+        }
+
+        // a call named at the start of the range, or a member declared there, is offered Inline Member: a command that a client with a dialog runs, which
+        // shows its user the calls and the removal of the member.
+        var inlineAt = new SourcePosition(request.Range.Start.Line, request.Range.Start.Character);
+        if (IsAsked(CodeActionHandler.RefactorInlineMember) && inlineMember is not null && clientCapabilities.Expects(capabilities => capabilities.Refactoring)
+            && await inlineMember.OfferAsync(documentUri, inlineAt, cancellationToken) is { } inline)
+        {
+            if (inline.Refusal is null)
+            {
+                var prepare = new RefactorPrepareParams
+                {
+                    Kind = RefactoringKinds.InlineMember, Uri = documentUri, Range = new SourceRange(inlineAt, inlineAt),
+                };
+                actions.Add(new CodeAction
+                {
+                    Title = inline.Title,
+                    Kind = CodeActionHandler.RefactorInlineMember,
+                    Command = new Command
+                    {
+                        Name = RefactoringCommands.Refactor, Title = inline.Title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))),
+                    },
+                });
+            }
+            else if (ShowsDisabled)
+            {
+                actions.Add(new CodeAction
+                {
+                    Title = inline.Title, Kind = CodeActionHandler.RefactorInlineMember, Disabled = new CodeActionDisabled { Reason = inline.Refusal },
+                });
             }
         }
 

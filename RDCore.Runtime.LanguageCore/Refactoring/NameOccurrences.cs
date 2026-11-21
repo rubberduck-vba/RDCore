@@ -118,9 +118,11 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             {
                 foreach (var (node, parent) in Walk(procedure))
                 {
+                    // the name before a dot is the result variable, an object the member after it is of (Filled.Add): the member is not.
                     if (node is SimpleNameExpressionNode name
                         && string.Equals(name.IdentifierName, procedure.Name, StringComparison.OrdinalIgnoreCase)
-                        && parent is not (IndexExpressionNode or MemberAccessExpressionNode or CallStatementNode))
+                        && parent is not (IndexExpressionNode or CallStatementNode)
+                        && !(parent is MemberAccessExpressionNode access && ReferenceEquals(access.Member, name)))
                     {
                         assigned[name.Location.Range.Start] = NameAccess.Result;
                     }
