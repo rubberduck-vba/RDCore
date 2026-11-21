@@ -152,10 +152,7 @@ public partial class ModuleParser(
 
             // a procedure header written once in each branch of a #If block is one procedure: the main pass reads one of its headers, and the branches of the
             // others are parsed on their own, as its alternatives (SplitHeaderScanner).
-            // The scanner reads whole lines, which a U+2028 or a U+2029 does not end: a module that has one is read without alternatives.
-            var alternatives = hasDirectives && !HasUnicodeLineSeparator(content) && ConditionalBlockPattern().IsMatch(content)
-                ? SplitHeaderScanner.Find(content)
-                : [];
+            var alternatives = hasDirectives && ConditionalBlockPattern().IsMatch(content) ? SplitHeaderScanner.Find(content) : [];
             if (alternatives.Count > 0)
             {
                 sanitized = WithoutBranches(sanitized, alternatives);
@@ -409,19 +406,45 @@ public partial class ModuleParser(
             && members.Any(member => member.Start.CompareTo(error.Location.Range.Start) <= 0 && error.Location.Range.Start.CompareTo(member.End) <= 0));
     }
 
-    // the source with the lines of the alternatives' branches blank, as a directive is: every position stays where it is.
+    // the source with the physical lines of the alternatives' branches blank, as a directive is: every position stays where it is.
     private static string WithoutBranches(string sanitized, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives)
     {
-        var lines = sanitized.Split('\n');
+        var starts = PhysicalLineStarts(sanitized);
+        var blanked = sanitized.ToCharArray();
         foreach (var alternative in alternatives)
         {
-            for (var line = alternative.StartLine; line < alternative.EndLine && line < lines.Length; line++)
+            for (var line = alternative.StartLine; line < alternative.EndLine && line < starts.Count; line++)
             {
-                lines[line] = new string(' ', lines[line].Length);
+                Array.Fill(blanked, ' ', starts[line], PhysicalLineEnd(sanitized, starts, line) - starts[line]);
             }
         }
 
-        return string.Join('\n', lines);
+        return new string(blanked);
+    }
+
+    // where each physical line of the source starts (PhysicalLineEnds), in the order of the lines.
+    private static List<int> PhysicalLineStarts(string source)
+    {
+        var starts = new List<int> { 0 };
+        for (var index = 0; index < source.Length; index++)
+        {
+            if (PhysicalLineEnds.Contains(source[index]))
+            {
+                starts.Add(index + 1);
+            }
+        }
+
+        return starts;
+    }
+
+    // where a physical line's text ends: at the line end after it, or at the end of the source.
+    private static int PhysicalLineEnd(string source, List<int> starts, int line) => line + 1 < starts.Count ? starts[line + 1] - 1 : source.Length;
+
+    // the position of an offset of the source the parse reads (NormalizeSource): its line counted where LSP 3.17 counts one, at a \n alone.
+    private static SourcePosition PositionOf(string source, int offset)
+    {
+        var before = source.AsSpan(0, offset);
+        return new SourcePosition(before.Count('\n'), offset - (before.LastIndexOf('\n') + 1));
     }
 
     // each alternative's branch parsed on its own, closed by the statement its header opens, where it stands in the module. The header - the procedure the
@@ -432,14 +455,18 @@ public partial class ModuleParser(
     private ModuleNode WithHeaderAlternatives(Uri uri, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
         SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia, CancellationToken token)
     {
-        var lines = content.Split('\n');
+        // the scanner counts physical lines, which a U+2028 or a U+2029 ends too: a branch starts where its physical line does, on the line a position counts.
+        var starts = PhysicalLineStarts(content);
+        SourcePosition LineStart(int line) => PositionOf(content, starts[Math.Min(line, starts.Count - 1)]).AnchoredAt(anchorOffset);
         var children = ast.Children.ToList();
         var ofBranches = new HashSet<SyntaxNodeId>();
         for (var index = 0; index < alternatives.Count; index++)
         {
             var alternative = alternatives[index];
-            var branch = string.Join('\n', lines[alternative.StartLine..Math.Min(alternative.EndLine, lines.Length)]);
-            var start = new SourcePosition(alternative.StartLine, 0).AnchoredAt(anchorOffset);
+            var from = starts[Math.Min(alternative.StartLine, starts.Count - 1)];
+            var to = alternative.EndLine > alternative.StartLine ? PhysicalLineEnd(content, starts, Math.Min(alternative.EndLine, starts.Count) - 1) : from;
+            var branch = content[from..Math.Max(from, to)];
+            var start = LineStart(alternative.StartLine);
             var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), statistics: null, token);
             errorListener.AddRange(parsed.SyntaxErrors);
             trivia = trivia.AddRange(parsed.Trivia);
@@ -460,8 +487,8 @@ public partial class ModuleParser(
 
             // the procedure the block opens is the one the main pass read in the branch it read: the last that starts in it, the main branch too holding
             // whatever it holds before its header.
-            var mainStart = new SourcePosition(alternative.MainStartLine, 0).AnchoredAt(anchorOffset);
-            var mainEnd = new SourcePosition(alternative.MainEndLine, 0).AnchoredAt(anchorOffset);
+            var mainStart = LineStart(alternative.MainStartLine);
+            var mainEnd = LineStart(alternative.MainEndLine);
             var found = children.FindLastIndex(child => IsProcedure(child) && !ofBranches.Contains(child.Identity)
                 && child.SourceLocation.Range.Start.CompareTo(mainStart) >= 0 && child.SourceLocation.Range.Start.CompareTo(mainEnd) < 0);
             // the main pass did not read the procedure, which only a syntax error of its own keeps it from doing: that error is the module's already.
@@ -514,7 +541,7 @@ public partial class ModuleParser(
     }
 
     // the physical line ends of the source the parse reads (NormalizeSource): a \n, which ends a position's line too, and a U+2028 or a U+2029, which do not.
-    private const string PhysicalLineEnds = "\n\u2028\u2029";
+    internal const string PhysicalLineEnds = "\n\u2028\u2029";
 
     // whether the source has a physical line end that does not end the line a position counts.
     private static bool HasUnicodeLineSeparator(string source) => source.AsSpan().IndexOfAny('\u2028', '\u2029') >= 0;

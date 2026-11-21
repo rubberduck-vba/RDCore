@@ -51,6 +51,36 @@ public sealed class SplitHeaderParseTests
         Assert.ContainsSingle(procedure.Children.OfType<SDK.Model.AST.Statements.AssignmentStatementNode>(), "one body, read once");
     }
 
+    // a U+2028 or a U+2029 ends a physical line (MS-VBAL §3.2.1), and not the line a position counts (LSP 3.17): a branch starts after one, on that line.
+    [TestMethod]
+    [DataRow("\u2028", DisplayName = "U+2028 line separator")]
+    [DataRow("\u2029", DisplayName = "U+2029 paragraph separator")]
+    public void AnAlternativeAfterAUnicodeSeparator_IsAnAlternative_OnTheSameLspLine(string separator)
+    {
+        var procedure = Procedure(Parse(
+            "#If VBA7 Then", "Private Function F(ByVal a As LongPtr) As LongPtr", $"#Else{separator}Private Function F(ByVal a As Long) As Long", "#End If",
+            "    F = a * 2", "End Function"));
+
+        var alternative = Assert.ContainsSingle(procedure.HeaderAlternatives);
+        Assert.AreEqual("Long", ReturnTypeOf(alternative));
+        Assert.AreEqual(new SourcePosition(2, "#Else".Length + separator.Length), alternative.SourceLocation.Range.Start);
+        Assert.ContainsSingle(procedure.Children.OfType<SDK.Model.AST.Statements.AssignmentStatementNode>(), "one body, read once");
+    }
+
+    [TestMethod]
+    [DataRow("\u2028", DisplayName = "U+2028 line separator")]
+    [DataRow("\u2029", DisplayName = "U+2029 paragraph separator")]
+    public void TheMainHeaderAfterAUnicodeSeparator_KeepsItsAlternative(string separator)
+    {
+        var procedure = Procedure(Parse(
+            $"#If VBA7 Then{separator}Private Function F(ByVal a As LongPtr) As LongPtr", "#Else", "Private Function F(ByVal a As Long) As Long", "#End If",
+            "    F = a * 2", "End Function"));
+
+        Assert.AreEqual(new SourcePosition(0, "#If VBA7 Then".Length + separator.Length), procedure.SourceLocation.Range.Start);
+        Assert.AreEqual("LongPtr", ReturnTypeOf(procedure));
+        Assert.AreEqual(2, Assert.ContainsSingle(procedure.HeaderAlternatives).SourceLocation.Range.Start.Line);
+    }
+
     [TestMethod]
     public void TheHeaderTheMainParseReads_IsTheOneOfTheKindOfTheStatementThatClosesIt()
     {
