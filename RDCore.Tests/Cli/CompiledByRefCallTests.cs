@@ -387,9 +387,8 @@ public sealed class CompiledByRefCallTests
         StringAssert.Contains(observed, $" ; {expected} |");
     }
 
-    // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter, after the
-    // statements given, if any.
-    private static string Touching(string kept) => Program(
+    // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter.
+    private static string Touching() => Program(
         "Public Sub Main()",
         "    Debug.Print Go(100)",
         "End Sub",
@@ -403,31 +402,10 @@ public sealed class CompiledByRefCallTests
         "    Go = n",
         "End Function",
         "Private Sub Touch(ByRef x As Long)",
-        kept,
         "    Dim p As LongPtr",
         "    p = VarPtr(x)",
         "    x = x + 1",
         "End Sub");
-
-    // a value passed by reference to a callee the interpreter runs is a value, as the interpreter passes it: the callee's cell is its own, and is let go of
-    // with its frame, even after the callee took its address. What is still allocated once the program ended is what the interpreter leaves. Touch counts
-    // a For loop that never turns with its parameter: a loop counted with a variable held in a cell is not compiled, so the interpreter runs Touch.
-    [TestMethod]
-    public async Task AValuePassedByReference_ToAnInterpretedCallee_IsLetGoOfWithTheCallee()
-    {
-        var program = Touching("    For x = x To x - 1\r\n    Next");
-        CompiledExecutionTests.RequirePayloads();
-        var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
-        var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
-
-        StringAssert.Contains(compiled.Observed, "| 100 |");
-        Assert.AreEqual((false, "ForCounter x"), compiled.Touch, "Touch is not compiled, for its For loop");
-        Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
-        if (!CompiledExecution.HandsOverAtRandom)
-        {
-            Assert.AreEqual(300L, compiled.Indirect, "Go is compiled, and calls Touch through the invoker");
-        }
-    }
 
     // a value passed by reference to a compiled callee that compiled code enters through its typed entry is a value too: the cell compiled code gives it is
     // the callee's own, and is let go of with the callee, even after the callee took its address. What is still allocated once the program ended is what
@@ -435,7 +413,7 @@ public sealed class CompiledByRefCallTests
     [TestMethod]
     public async Task AValuePassedByReference_ToACompiledCallee_IsLetGoOfWithTheCallee()
     {
-        var program = Touching(string.Empty);
+        var program = Touching();
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
         var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
@@ -493,38 +471,6 @@ public sealed class CompiledByRefCallTests
         {
             Assert.AreEqual(10L, indirect);
         }
-    }
-
-    // a For loop that counts with a variable it passes by reference is the interpreter's: compiled code counts in a local, which is no cell.
-    [TestMethod]
-    public async Task AForLoopCountingWithAVariablePassedByReference_IsNotCompiled()
-    {
-        CompiledExecutionTests.RequirePayloads();
-        IReadOnlyList<Ineligibility> reasons = [];
-        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
-        await ModuleWorkspace.InspectAsync([], Program(
-            "Public Sub Main()",
-            "    Debug.Print Count()",
-            "End Sub",
-            "Private Function Count() As Long",
-            "    Dim i As Long, s As Long",
-            "    For i = 1 To 6",
-            "        Increment i",
-            "        s = s + 1",
-            "    Next",
-            "    Count = s",
-            "End Function",
-            "Private Sub Increment(ByRef x As Long)",
-            "    x = x + 1",
-            "End Sub"), (provider, run, _) =>
-        {
-            StringAssert.Contains(Observed(run), "| 3 |");
-            reasons = provider.Image.Compiler.Results.Single(result => result.Procedure.Name == "Count").Result.Reasons;
-            return Task.CompletedTask;
-        }, engine: VBExecutionEngine.Compiled);
-
-        var reason = Assert.ContainsSingle(reasons);
-        Assert.AreEqual((IneligibilityKind.ForCounter, "i"), (reason.Kind, reason.Detail));
     }
 
     // how the language server turns text into the statement the host runs: the one statement of a procedure written for the purpose.

@@ -167,12 +167,7 @@ public sealed class DefaultMemberFixTests
             RDCoreDiagnosticId.SuspiciousLetAssignment,
             Body("Dim a As New Cell", "Dim b As New Cell", "b.Value = 4", "a = b", "b.Value = 5", "Debug.Print a.Value"),
             Body("Dim a As New Cell", "Dim b As New Cell", "b.Value = 4", "a.Value = b.Value", "b.Value = 5", "Debug.Print a.Value"),
-            runs: true, classes: Classes);
-
-    [TestMethod]
-    public Task AnObjectLetToAnObjectVariable_IsNotFixed()
-        => CodeActionFixture.AssertNoFixAsync(
-            RDCoreDiagnosticId.SuspiciousLetAssignment, Classes, Body("Dim o As Object", "Set o = New Cell", "Dim b As New Cell", "o = b"));
+            runs: true, choice: 0, classes: Classes);
 
     // a name that is not an identifier is written in brackets, which make it a name (MS-VBAL §3.3.5.3).
     [TestMethod]
@@ -182,5 +177,5 @@ public sealed class DefaultMemberFixTests
     [DataRow(RDCoreDiagnosticId.BangNotation, "Debug.Print r!A1", "Debug.Print r.[_Default](\"A1\")", DisplayName = "given a name with !")]
     [DataRow(RDCoreDiagnosticId.SuspiciousLetAssignment, "r = s", "r.[_Default] = s.[_Default]", DisplayName = "an object let to an object")]
     public Task ADefaultMemberNotNamedByAnIdentifier_IsNamedInBrackets(RDCoreDiagnosticId code, string implicitly, string named)
-        => CodeActionFixture.AssertFixedAsync(code, Ranges("Dim x As Variant", implicitly), Ranges("Dim x As Variant", named), libraries: Excel);
+        => CodeActionFixture.AssertFixedAsync(code, Ranges("Dim x As Variant", implicitly), Ranges("Dim x As Variant", named), choice: 0, libraries: Excel);
 }

@@ -302,8 +302,8 @@ For a `Public` member, the project's kind decides:
 
 |Project|A `Public` member|
 |---|---|
-|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. A member with a `Role` is not counted, nor a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), the member a `CallByName` names with a string literal, and every member of a class when the program calls `CallByName` with any other name.|
-|A library|`IsUsedByReferencingProjects` when a referencing project can name it, or reach it through an object of its class; not counted.|
+|A program: not a library, and its entry point is found|Counted, since no other project or host calls into it. An interface member's implementation and an event's handler are counted by the calls of their own name. The entry point and a handler with no event are not counted, nor is a member of a class that code can reach where it runs: its default member or enumerator (`VB_UserMemId` `0` or `-4`), a member that an access bound late names (**MS-VBAL §5.6.12**), the member a `CallByName` names with a string literal, and every member of a class when the program calls `CallByName` with any other name.|
+|A library|`IsUsedByReferencingProjects` when a referencing project can name it, or reach it through an object of its class; not counted. A referencing project gets an object of a class that is not exposed (**MS-VBAL §5.2.4.1.1**) only from the library. That can happen through a member it can use, or through a parameter of one (an event's included), declared as a `Variant`, an `Object`, a class, an array of one, a user-defined type with such a field, or a type that does not resolve. When nothing can hand one out, the members of such a class are counted as a program's are.|
 |Any other project|Not counted: the host that runs it can call it.|
 
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its

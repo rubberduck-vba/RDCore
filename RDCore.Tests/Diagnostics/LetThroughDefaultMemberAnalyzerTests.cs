@@ -36,7 +36,8 @@ public sealed class LetThroughDefaultMemberAnalyzerTests
             "Public Property Get Item() As Bare", "Set Item = mBare", "End Property",
             "Public Function Make() As Bare", "Set Make = mBare", "End Function",
             "Public Property Get Stored() As Bare", "Set Stored = mBare", "End Property",
-            "Public Property Let Stored(ByVal n As Long)", "mBare.Tag = n", "End Property")),
+            "Public Property Let Stored(ByVal n As Long)", "mBare.Tag = n", "End Property",
+            "Public Property Get Reader() As ReadOnly", "Set Reader = New ReadOnly", "End Property")),
     ];
 
     private static async Task<AnalyzerFinding[]> FindingsAsync(IModuleAnalyzer analyzer, string declaration, string statement)
@@ -51,11 +52,17 @@ public sealed class LetThroughDefaultMemberAnalyzerTests
     [TestMethod]
     [DataRow("Dim r As New ReadOnly", "r = 5", "r", DisplayName = "a Property Get default member")]
     [DataRow("Dim m As New MakesLeaf", "m = 5", "m", DisplayName = "a function default member")]
+    [DataRow("Dim s As New Shelf", "s.Reader = 5", "Reader", DisplayName = "a Property Get with no Property Let that returns such a class")]
     public async Task ALetToADefaultMemberWithNoPropertyLet_IsAWarningNamingTheTarget(string declaration, string statement, string name)
     {
-        var finding = Assert.ContainsSingle(await FindingsAsync(new LetToADefaultMemberWithNoPropertyLetAnalyzer(), declaration, statement));
+        var code = RDCoreDiagnosticId.LetToADefaultMemberWithNoPropertyLet.ToCode();
+        var findings = await FindingsAsync(new LetToADefaultMemberWithNoPropertyLetAnalyzer(), declaration, statement);
+        var finding = Assert.ContainsSingle(findings.Where(finding => finding.Code == code));
 
-        Assert.AreEqual(RDCoreDiagnosticId.LetToADefaultMemberWithNoPropertyLet.ToCode(), finding.Code);
+        // the statement is line 4, counted from 0, of the program FindingsAsync builds, and the finding covers its target, the expression left of " = "
+        var target = statement[..statement.IndexOf(" = ", StringComparison.Ordinal)];
+        Assert.AreEqual((4, 0, 4, target.Length),
+            (finding.Range.Start.Line, finding.Range.Start.Character, finding.Range.End.Line, finding.Range.End.Character), $"at '{target}'");
         Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
         StringAssert.Contains(finding.Message, $"'{name}'");
     }

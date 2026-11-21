@@ -97,6 +97,40 @@ public sealed class ProjectReferenceCountTests
         Assert.AreEqual("Counter.Again", SymbolUri.QualifiedNameOf(again.ReferencedFrom.Value[0].Procedure!), "the site is in the function itself");
     }
 
+    // MS-VBAL §5.4.2.1: a call statement invokes the procedure its expression refers to, with or without the Call keyword or an argument list; and a member
+    // access names the member of its object, never the function result variable of the enclosing function (MS-VBAL §5.6.12), which only its simple name is.
+    [TestMethod]
+    [DataRow("Again n - 1", DisplayName = "a call statement with arguments and no Call keyword")]
+    [DataRow("Again", DisplayName = "a call statement with no arguments")]
+    [DataRow("Call Again", DisplayName = "the Call keyword with no argument list")]
+    [DataRow("Call Again(n - 1)", DisplayName = "the Call keyword with an argument list")]
+    [DataRow("Me.Again n - 1", DisplayName = "a call statement of Me's member")]
+    [DataRow("Again = Me.Again", DisplayName = "Me's member read with no argument list")]
+    [DataRow("Again = Me.Again(n - 1)", DisplayName = "Me's member read with an argument list")]
+    public async Task AFunctionThatCallsItself_IsReferencedByTheCall_HoweverItIsWritten(string call)
+    {
+        (string, string) recursive = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Friend Function Again(Optional ByVal n As Long) As Long", "If n > 0 Then", call, "End If", "End Function"));
+        var again = Declaration(await ModelOfAsync("Counter", Program("Public Sub Main()", "End Sub"), classes: [recursive]), "Again");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), again.References, "the call, and not the result it assigns");
+        Assert.AreEqual("Counter.Again", SymbolUri.QualifiedNameOf(again.ReferencedFrom!.Value.Single().Procedure!), "the site is in the function itself");
+    }
+
+    [TestMethod]
+    [DataRow("Again n - 1", DisplayName = "a call statement with arguments")]
+    [DataRow("Again", DisplayName = "a call statement with no arguments")]
+    [DataRow("Me.Again n - 1", DisplayName = "a call statement of Me's member")]
+    public async Task ASubThatCallsItself_IsReferencedByTheCall(string call)
+    {
+        (string, string) recursive = ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Friend Sub Again(Optional ByVal n As Long)", "If n > 0 Then", call, "End If", "End Sub"));
+        var again = Declaration(await ModelOfAsync("Counter", Program("Public Sub Main()", "End Sub"), classes: [recursive]), "Again");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), again.References);
+        Assert.AreEqual("Counter.Again", SymbolUri.QualifiedNameOf(again.ReferencedFrom!.Value.Single().Procedure!), "the site is in the procedure itself");
+    }
+
     [TestMethod]
     public async Task AFriendProcedureThatAnExcludedBranchOfAnotherModuleCalls_HasNoCount()
     {
@@ -308,11 +342,63 @@ public sealed class ProjectReferenceCountTests
         Assert.IsTrue(Declaration(shared, "Total").IsUsedByReferencingProjects);
         Assert.IsTrue(Declaration(await ModelOf("Shape"), "Draw").IsUsedByReferencingProjects, "the class is exposed");
 
-        var hidden = Declaration(await ModelOf("Inner"), "Hidden");
-        Assert.IsTrue(hidden.IsUsedByReferencingProjects, "no referencing project can name the class, and an object of it can be passed to one");
-        Assert.IsNull(hidden.References);
         Assert.AreEqual(new DeclarationReferences(0, 0, 0), Declaration(await ModelOf("Inner"), "Counted").References, "a Friend member is counted");
         Assert.IsFalse(Declaration(await ModelOf("Private"), "Helper").IsUsedByReferencingProjects, "a private module is no name of a referencing project");
+    }
+
+    private static readonly (string, string) Inner = ("Inner", ModuleWorkspace.ClassModule("Inner",
+        "Public Sub Hidden()", "End Sub", "Public Sub Called()", "End Sub"));
+
+    // a library of an exposed class Shape and a standard module Common, each with the lines given before the procedure of ClosedShape and ClosedCommon,
+    // a class Inner that is not exposed, and a standard module Program whose Sub Run calls Inner's Called.
+    private static Task<ModuleSemanticsDto> LibraryModelOfAsync(string name, string[]? common = null, string[]? shape = null)
+        => ModelOfAsync(name, Program("Public Sub Run()", "Dim i As New Inner", "i.Called", "End Sub"),
+            [Inner, ("Shape", ModuleWorkspace.ClassModule("Shape", ["Attribute VB_Exposed = True", .. shape ?? [], .. ClosedShape]))],
+            [("Common", ModuleWorkspace.StandardModule("Common", [.. ClosedCommon[..^2], .. common ?? [], .. ClosedCommon[^2..]]))],
+            build: new ProjectBuild { OutputType = ProjectOutputType.Library });
+
+    // what a referencing project can use is a Sub, or is declared as an intrinsic type, an Enum or a user-defined type of intrinsic fields: a library of
+    // these alone hands out no object. Common's procedure is its last two lines.
+    private static readonly string[] ClosedCommon =
+    [
+        "Public Enum Shade", "Light", "End Enum",
+        "Public Type Point", "X As Long", "Y As Long", "End Type",
+        "Public Total As Long",
+        "Public Function Where(ByVal s As Shade, ByRef p As Point) As String", "End Function",
+    ];
+
+    private static readonly string[] ClosedShape = ["Public Event Drawn(ByVal times As Long)", "Public Sub Draw(ByVal times As Long)", "End Sub"];
+
+    [TestMethod]
+    public async Task APublicMemberOfAClassThatIsNotExposed_InALibraryThatHandsOutNoObject_IsCountedOverTheLibrarysCode()
+    {
+        var model = await LibraryModelOfAsync("Inner");
+
+        Assert.IsTrue(Declaration(await LibraryModelOfAsync("Common"), "Where").IsUsedByReferencingProjects, "the library's own API is used");
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), Declaration(model, "Called").References);
+        var hidden = Declaration(model, "Hidden");
+        Assert.IsFalse(hidden.IsUsedByReferencingProjects);
+        Assert.AreEqual(new DeclarationReferences(0, 0, 0), hidden.References);
+    }
+
+    // each row adds one way out to the library of the test above, which hands out no object: the row's line is what makes Hidden reachable from outside.
+    [TestMethod]
+    [DataRow("Public Function Make() As Object|End Function", "", DisplayName = "a function that returns an Object")]
+    [DataRow("Public Function Make()|End Function", "", DisplayName = "a function that returns a Variant")]
+    [DataRow("Public Function Make() As Inner|End Function", "", DisplayName = "a function that returns the class")]
+    [DataRow("Public Function Make() As Variant()|End Function", "", DisplayName = "a function that returns an array of Variant")]
+    [DataRow("Public Held As Collection", "", DisplayName = "a variable of a library class")]
+    [DataRow("Public Sub Notify(ByVal listener As Object)|End Sub", "", DisplayName = "a parameter, which the library's code can call back with one")]
+    [DataRow("Public Type Pair|Item As Object|End Type|Public Function Make() As Pair|End Function", "",
+        DisplayName = "a user-defined type with an Object field")]
+    [DataRow("", "Public Event Moved(ByVal by As Object)", DisplayName = "an event of an exposed class, raised with one")]
+    public async Task APublicMemberOfAClassThatIsNotExposed_InALibraryThatCanHandOutAnObject_CountsAsUsedByAReferencingProject(string common, string shape)
+    {
+        string[] Lines(string text) => text.Split('|', StringSplitOptions.RemoveEmptyEntries);
+        var hidden = Declaration(await LibraryModelOfAsync("Inner", Lines(common), Lines(shape)), "Hidden");
+
+        Assert.IsTrue(hidden.IsUsedByReferencingProjects, "no referencing project can name the class, and an object of it can be passed to one");
+        Assert.IsNull(hidden.References);
     }
 
     [TestMethod]

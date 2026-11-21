@@ -79,10 +79,10 @@ public sealed class NameAnalyzerTests
             "Public Sub Source_Other()", "End Sub"));
 
     // the RDC00405 fix of the one finding in the Implementer class: the class with the fix made, or null when none is offered. Main is the program's entry
-    // point, with the given lines.
-    private static async Task<string?> MadePrivateAsync(string[] implementer, string[]? main = null, ProjectBuild? build = null)
+    // point, with the given lines. The header lines go before the class's code.
+    private static async Task<string?> MadePrivateAsync(string[] implementer, string[]? main = null, ProjectBuild? build = null, string[]? header = null)
     {
-        var source = ModuleWorkspace.ClassModule("Implementer", ["Implements IShape", "Private WithEvents Source As Button", .. implementer]);
+        var source = ModuleWorkspace.ClassModule("Implementer", [.. header ?? [], "Implements IShape", "Private WithEvents Source As Button", .. implementer]);
         var program = ModuleWorkspace.StandardModule("Program", ["Public Sub Main()", .. main ?? [], "End Sub"]);
         var payload = await ModuleWorkspace.SemanticsAsync([Shape, Button, ("Implementer", source)], program, build: build);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Implementer");
@@ -173,10 +173,11 @@ public sealed class NameAnalyzerTests
     public async Task AMemberAnotherModuleMayCall_IsNotMadePrivate(string declaration, string call)
         => Assert.IsNull(await MadePrivateAsync(["Public Sub IShape_Draw()", "End Sub"], [declaration, call]));
 
-    // a referencing project can call a library's Public member by its own name: the host does not count its references.
+    // a referencing project can call an exposed class's Public member by its own name: the host does not count its references.
     [TestMethod]
-    public async Task AMemberOfALibrary_IsNotMadePrivate()
-        => Assert.IsNull(await MadePrivateAsync(["Public Sub IShape_Draw()", "End Sub"], build: new ProjectBuild { OutputType = ProjectOutputType.Library }));
+    public async Task AMemberOfALibrarysExposedClass_IsNotMadePrivate()
+        => Assert.IsNull(await MadePrivateAsync(["Public Sub IShape_Draw()", "End Sub"],
+            build: new ProjectBuild { OutputType = ProjectOutputType.Library }, header: ["Attribute VB_Exposed = True"]));
 
     [TestMethod]
     public void WithNoFactsFromTheHost_TheAnalyzerWillNotGuessFromAnUnderscore()

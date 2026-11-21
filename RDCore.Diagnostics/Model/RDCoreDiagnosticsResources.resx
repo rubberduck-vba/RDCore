@@ -630,6 +630,15 @@
   <data name="WriteOnlyProperty_Message" xml:space="preserve">
     <value>Property &apos;{0}&apos; has no Property Get: it can be assigned and never read.</value>
   </data>
+  <data name="ProcedureNotUsed_Message" xml:space="preserve">
+    <value>Procedure &apos;{0}&apos; is never called.</value>
+  </data>
+  <data name="ProcedureNotUsed_Property_Message" xml:space="preserve">
+    <value>Property &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="ProcedureNotUsed_Fix" xml:space="preserve">
+    <value>Remove &apos;{0}&apos;</value>
+  </data>
   <data name="NegativeLineNumber_Message" xml:space="preserve">
     <value>A line number below 0: MS-VBAL has no such line number, and MS-VBA compiles it.</value>
   </data>
@@ -683,6 +692,9 @@
   </data>
   <data name="SuspiciousLetAssignment_Fix" xml:space="preserve">
     <value>Name both default members, which keeps the Let of the values</value>
+  </data>
+  <data name="SetAssignment_Fix" xml:space="preserve">
+    <value>Assign the object itself, with Set</value>
   </data>
   <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
     <value>On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on.</value>

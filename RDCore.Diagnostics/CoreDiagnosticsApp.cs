@@ -114,6 +114,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ParameterNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AssignedByValParameterAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ConstantNotUsedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ProcedureNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LineLabelNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, WriteOnlyPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NegativeLineNumberAnalyzer>();

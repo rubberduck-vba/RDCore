@@ -369,13 +369,13 @@ public sealed class SymbolNavigationTests
     }
 
     [TestMethod]
-    public void AReadOfAProperty_RefersToItsGet_AndNotTheResultItsGetAssigns()
+    public void AReadOfAProperty_RefersToItsGet_AsTheResultItsGetAssignsDoes()
     {
         var context = Workspace();
 
-        CollectionAssert.AreEqual(new[] { "Class1:Public Property Get Value() As String", "Program:Debug.Print c.Value" },
+        CollectionAssert.AreEqual(new[] { "Class1:Public Property Get Value() As String", "Class1:Value = mValue", "Program:Debug.Print c.Value" },
             Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), At(context, "Program", "Debug.Print c.Value", "Value"))));
-        CollectionAssert.AreEqual(new[] { "Program:Debug.Print c.Value" },
+        CollectionAssert.AreEqual(new[] { "Class1:Value = mValue", "Program:Debug.Print c.Value" },
             Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Class1"), At(context, "Class1", "Property Get Value", "Value"), includeDeclaration: false)),
             "from the name the Get declares");
     }
@@ -423,13 +423,13 @@ public sealed class SymbolNavigationTests
         var context = Compose(("Bag", bag), ("User", user));
         string[] Of(string line) => Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Bag"), At(context, "Bag", line, "Item"), includeDeclaration: false));
 
-        CollectionAssert.AreEqual(new[] { "User:Debug.Print b.Item" }, Of("Property Get Item"));
+        CollectionAssert.AreEqual(new[] { "Bag:Item = mItem", "User:Debug.Print b.Item" }, Of("Property Get Item"), "the result the Get assigns, and its read");
         CollectionAssert.AreEqual(new[] { "User:b.Item = 1" }, Of("Property Let Item"));
         CollectionAssert.AreEqual(new[] { "User:Set b.Item = Nothing", "User:Set b.Item = b" }, Of("Property Set Item"));
     }
 
     [TestMethod]
-    public void TheResultAFunctionAssigns_IsNoReferenceOfIt_ACallOfItIs()
+    public void TheResultAFunctionAssigns_IsAReferenceOfIt_AsACallOfItIs()
     {
         var context = Compose(("Maths", Module("Maths",
             "Option Explicit",
@@ -440,13 +440,14 @@ public sealed class SymbolNavigationTests
             "    Debug.Print Twice(2)",
             "End Sub")));
 
-        CollectionAssert.AreEqual(new[] { "Maths:Debug.Print Twice(2)" },
+        CollectionAssert.AreEqual(new[] { "Maths:Twice = n * 2", "Maths:Debug.Print Twice(2)" },
             Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Maths"), At(context, "Maths", "Function Twice", "Twice"), includeDeclaration: false)));
     }
 
-    // MS-VBAL §5.6.2.1: a name that refers to the enclosing function evaluates to its return value; with an argument list, it calls the function again.
+    // MS-VBAL §5.6.2.1: a name that refers to the enclosing function evaluates to its return value; with an argument list, it calls the function again. Either
+    // way it is the function's name, which a rename renames: each is a reference of the function.
     [TestMethod]
-    public void TheResultAFunctionReads_IsNoReferenceOfIt_ARecursiveCallIs()
+    public void TheResultAFunctionReads_AndARecursiveCall_AreReferencesOfIt()
     {
         var context = Compose(("Maths", Module("Maths",
             "Option Explicit",
@@ -464,13 +465,34 @@ public sealed class SymbolNavigationTests
         string[] Of(string line, string name) => Referenced(context,
             SymbolNavigation.ReferencesAt(context, ModuleUri("Maths"), At(context, "Maths", line, name), includeDeclaration: false));
 
-        CollectionAssert.AreEqual(new[] { "Maths:Fact = n * Fact(n - 1)" }, Of("Function Fact", "Fact"), "the recursive call, and not the result");
-        Assert.IsEmpty(Of("Function Counter", "Counter"), "what its body assigns and reads is its result");
+        CollectionAssert.AreEqual(new[] { "Maths:Fact = 1", "Maths:Fact = n * Fact(n - 1)", "Maths:Fact = n * Fact(n - 1)" }, Of("Function Fact", "Fact"),
+            "the result it assigns, and the recursive call");
+        CollectionAssert.AreEqual(new[] { "Maths:Counter = Counter + 1", "Maths:Counter = Counter + 1", "Maths:Debug.Print Counter" },
+            Of("Function Counter", "Counter"), "what its body assigns and reads");
         CollectionAssert.AreEqual(new[]
         {
             "Maths:Public Function Counter() As Long", "Maths:Counter = Counter + 1", "Maths:Counter = Counter + 1", "Maths:Debug.Print Counter",
         }, Referenced(context, SymbolNavigation.OccurrencesAt(context, ModuleUri("Maths"), At(context, "Maths", "Function Counter", "Counter"))),
             "a rename renames the result too");
+    }
+
+    // MS-VBAL §5.4.2.1: a call statement calls the function its name refers to, whether it is written with the Call keyword or not, with arguments or not.
+    [TestMethod]
+    public void ACallStatementOfTheEnclosingFunction_IsAReferenceOfIt()
+    {
+        var context = Compose(("Maths", Module("Maths",
+            "Option Explicit",
+            "Public Function Loop1(Optional ByVal n As Long) As Long",
+            "    If n > 0 Then",
+            "        Loop1 n - 1",
+            "        Loop1",
+            "        Call Loop1(n - 1)",
+            "    End If",
+            "    Loop1 = n",
+            "End Function")));
+
+        CollectionAssert.AreEqual(new[] { "Maths:Loop1 n - 1", "Maths:Loop1", "Maths:Call Loop1(n - 1)", "Maths:Loop1 = n" }, Referenced(context,
+            SymbolNavigation.ReferencesAt(context, ModuleUri("Maths"), At(context, "Maths", "Function Loop1", "Loop1"), includeDeclaration: false)));
     }
 
     [TestMethod]

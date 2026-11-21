@@ -32,7 +32,9 @@ internal sealed partial class ProcedureAnalysis
     // whose cell is its caller's - or an object field it reaches, or the function result variable of a function returning an object, given an object
     // variable or field, Me, or Nothing. What it is given is Set-coerced to the declared type of what it is assigned to, at run time
     // (CompiledActivation.TrySet). An object field of one of its records is assigned or given in its own cell (FieldSetStep, FieldSourceSetStep). A
-    // WithEvents variable has its handlers detached and attached again by the Set, which is the interpreter's.
+    // WithEvents variable has its handlers detached and attached again by the Set, which is the interpreter's. An object variable declared As New is
+    // assigned too: a Set does not read the variable, and reading it is what makes its object (MS-VBAL §5.2.3.1.4), so the variable holds what it is given,
+    // Nothing included, until it is next read. The default instance of a class is assigned where ObjectSlotOf finds it for a read.
     private CompiledStep? SetOf(int offset, AssignmentStatementNode assignment)
     {
         if (assignment.Target is MemberAccessExpressionNode && ObjectFieldOf(Bind(assignment.Target)) is { } field)
@@ -53,8 +55,8 @@ internal sealed partial class ProcedureAnalysis
                 && IsObjectType(returned):
                 target = SetStep.Result;
                 break;
-            case BoundVariable variable when ObjectSlotOf(variable) is { } slot && slot != MeSlot && !IsPassedByReference(slot)
-                && !variable.Variable.GetProperty(SymbolProperties.WithEvents):
+            case BoundVariable variable when ObjectSlotOf(variable, receiver: variable.Variable is not VBPredeclaredInstanceSymbol) is { } slot
+                && slot != MeSlot && !IsPassedByReference(slot) && !variable.Variable.GetProperty(SymbolProperties.WithEvents):
                 target = slot;
                 break;
             default:

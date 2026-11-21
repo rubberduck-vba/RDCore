@@ -2617,6 +2617,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return RuntimeSemanticsEvaluationResult.InternalError();
             }
 
+            calls.Gives(argumentResult.Value.Result);
+
             // what is passed is a value, which keeps nothing of whether it is known: the call is told here.
             isKnown &= !argumentResult.Value.Result!.IsIndeterminate;
             if (BindValue(session, context, parameter, argumentNode, argumentResult.Value.Result!, external, anyByAddress, lateBound, dispatchedThrough,

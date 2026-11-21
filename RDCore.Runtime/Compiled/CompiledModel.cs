@@ -34,8 +34,8 @@ public enum IneligibilityKind
     AssignmentTarget,
 
     /// <summary>
-    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, or with a variable held in a cell - a parameter
-    /// passed by reference, a variable the procedure passes by reference.
+    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, with a field (held in a cell the interpreter and
+    /// other procedures see), or with a <c>Variant</c>, whose statement the interpreter runs.
     /// </summary>
     ForCounter,
 
@@ -69,7 +69,10 @@ public enum IneligibilityKind
     /// <summary>A literal that is no scalar - a <c>String</c>, <c>Nothing</c>, <c>Null</c>, <c>Empty</c>: compiled code holds only scalars.</summary>
     Literal,
 
-    /// <summary>An operator compiled code does not do: <c>^</c>, <c>&amp;</c>, <c>Like</c>, <c>Is</c>; or an operation of no scalar type. Its detail is the operator.</summary>
+    /// <summary>
+    /// An operator compiled code does not do, such as <c>Like</c> or a <c>^</c> of a <c>Variant</c>; or an operation of no scalar type. Its detail is the
+    /// operator.
+    /// </summary>
     Operator,
 
     /// <summary>A <c>GoTo</c>, a line that is jumped to: compiled code jumps only where its loops and branches go.</summary>
@@ -687,20 +690,30 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// For each parameter, the slot of the callee's layout a <c>String</c> parameter of variable length is held in, whose <see cref="Parameters"/> kind is
     /// <see langword="null"/> (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>); -1 for any other. Empty when the call has no
     /// <c>String</c> parameter. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeText"/>,
-    /// <see cref="CompiledActivation.TakeTextReference"/>).
+    /// <see cref="CompiledActivation.TakeTextReference"/>). A call of a member of an object is made through its binding, which is given the argument
+    /// (<see cref="CompiledActivation.SetText"/>, <see cref="CompiledActivation.SetTextReference"/>): the slot is the one of the member it was bound to.
     /// </summary>
     public IReadOnlyList<int> TextSlots { get; init; } = [];
 
     /// <summary>
-    /// Whether every parameter is a scalar or a <c>String</c> of variable length: what a call made through the callee's typed entry gives.
+    /// For each parameter, the slot of the callee's layout an object parameter is held in, whose <see cref="Parameters"/> kind is <see langword="null"/>
+    /// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>); -1 for any other. Empty when the call has no object parameter, or is of a
+    /// member of an object. A call made directly gives the callee's activation its argument in that slot (<see cref="CompiledActivation.TakeObject"/>,
+    /// <see cref="CompiledActivation.TakeObjectReference"/>).
     /// </summary>
-    public bool GivesScalarsAndTexts
+    public IReadOnlyList<int> ObjectSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether every parameter is a scalar, a <c>String</c> of variable length or an object given in a slot of the callee's layout: what a call made
+    /// through the callee's typed entry gives.
+    /// </summary>
+    public bool GivesWhatTheEntryTakes
     {
         get
         {
             for (var i = 0; i < Parameters.Count; i++)
             {
-                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0))
+                if (Parameters[i] is null && (i >= TextSlots.Count || TextSlots[i] < 0) && (i >= ObjectSlots.Count || ObjectSlots[i] < 0))
                 {
                     return false;
                 }

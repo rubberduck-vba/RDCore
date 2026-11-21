@@ -1664,6 +1664,33 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Procedure &apos;{0}&apos; is never called..
+        /// </summary>
+        public static string ProcedureNotUsed_Message {
+            get {
+                return ResourceManager.GetString("ProcedureNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Property &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string ProcedureNotUsed_Property_Message {
+            get {
+                return ResourceManager.GetString("ProcedureNotUsed_Property_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove &apos;{0}&apos;.
+        /// </summary>
+        public static string ProcedureNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("ProcedureNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; has a non-breaking space in its name: it looks like an ordinary space, and the name typed with an ordinary space is another name..
         /// </summary>
         public static string NonBreakingSpaceInName_Message {
@@ -1798,6 +1825,14 @@ namespace RDCore.Diagnostics.Model {
         public static string SuspiciousLetAssignment_Fix {
             get {
                 return ResourceManager.GetString("SuspiciousLetAssignment_Fix", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   Looks up a localized string similar to Assign the object itself, with Set.
+        /// </summary>
+        public static string SetAssignment_Fix {
+            get {
+                return ResourceManager.GetString("SetAssignment_Fix", resourceCulture);
             }
         }
         /// <summary>

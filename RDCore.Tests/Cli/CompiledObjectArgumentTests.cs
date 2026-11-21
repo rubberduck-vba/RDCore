@@ -69,16 +69,9 @@ public sealed class CompiledObjectArgumentTests
         "    Debug.Print \"handed \" & (T Is Nothing)",
         "End Sub");
 
-    // the program run both ways, as AssertAlikeAsync runs it, with nothing recovered, and each call compiled code made, made through the invoker or the
-    // member's binding: a call given an object is never made directly, and one compiled code does not make is a support call, which it does not count.
-    private static async Task AssertGivenAsync(string program, string compiled, long indirect, string expected)
-    {
-        var result = await AssertAlikeAsync(program, compiled, recoveries: 0, classes: Classes, expected: expected);
-        if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
-        {
-            Assert.AreEqual((0L, indirect), (result.Body!.DirectCalls, result.Body.IndirectCalls), $"{compiled}'s calls made directly, and not");
-        }
-    }
+    // the program run both ways, as AssertAlikeAsync runs it: each prints what MS-VBA prints, whichever way the calls are made.
+    private static async Task AssertGivenAsync(string program, string expected)
+        => _ = await AssertAlikeAsync(program, classes: Classes, expected: expected);
 
     // an object variable given by value to a procedure, at each turn of a loop: the procedure works on the object the variable refers to.
     [TestMethod]
@@ -95,7 +88,7 @@ public sealed class CompiledObjectArgumentTests
             "        Add T, I",
             "    Next",
             "End Sub",
-            Helpers), "Summed", indirect: 4, expected: "10 ; terminated 10");
+            Helpers), expected: "10 ; terminated 10");
 
     // an object given by value to a member of an object, and Nothing given by value to a procedure: the member is given the object, the procedure Nothing.
     [TestMethod]
@@ -116,7 +109,7 @@ public sealed class CompiledObjectArgumentTests
             "Public Sub Told(ByVal T As Thing)",
             "    Debug.Print T Is Nothing",
             "End Sub",
-            Helpers), "Summed", indirect: 6, expected: "True ; True ; True ; 6 ; terminated 6");
+            Helpers), expected: "True ; True ; True ; 6 ; terminated 6");
 
     // a member of an object declared as an interface, given an object: the member the object's class implements it with is given it.
     [TestMethod]
@@ -134,7 +127,7 @@ public sealed class CompiledObjectArgumentTests
             "        S.Place T, I",
             "    Next",
             "End Sub",
-            Helpers), "Placed", indirect: 3, expected: "60 ; terminated 60");
+            Helpers), expected: "60 ; terminated 60");
 
     // Me given by value, from a member of a class.
     [TestMethod]
@@ -145,7 +138,7 @@ public sealed class CompiledObjectArgumentTests
             "    K.Twice",
             "    Debug.Print \"end\"",
             "End Sub",
-            Helpers), "Twice", indirect: 2, expected: "bump 1 ; bump 2 ; end");
+            Helpers), expected: "bump 1 ; bump 2 ; end");
 
     // an object field of Me given by value: the callee's parameter holds the object while the callee runs, so the field let go of during the call, the
     // object is destroyed when the callee returns, after what it printed, and not before; the field holds Nothing the next time.
@@ -161,7 +154,7 @@ public sealed class CompiledObjectArgumentTests
             "    K.Hands",
             "    Debug.Print \"end\"",
             "End Sub",
-            Helpers), "Hands", indirect: 2, expected: "handed False ; terminated 5 ; handed True ; end");
+            Helpers), expected: "handed False ; terminated 5 ; handed True ; end");
 
     // an object of one class, held by an Object variable, given by value to a parameter of another: error 13 at the call, as the interpreter raises it,
     // before the callee is entered, which prints nothing, and which compiled code never calls.
@@ -182,7 +175,7 @@ public sealed class CompiledObjectArgumentTests
             "Public Sub Entered(ByVal T As Thing, ByVal N As Long)",
             "    Debug.Print \"entered \" & N",
             "End Sub",
-            Helpers), "Given", indirect: 0, expected: " |  | 13 ");
+            Helpers), expected: " |  | 13 ");
 
     // a module field given by value, which the callee lets go of: the callee's parameter is then the last that holds the object, which is destroyed when the
     // callee returns, after what it printed; the field gives Nothing the next time.
@@ -206,7 +199,7 @@ public sealed class CompiledObjectArgumentTests
             "    Set G = Nothing",
             "    Debug.Print \"last \" & N & \" \" & (T Is Nothing)",
             "End Sub",
-            Helpers), "Handing", indirect: 2, expected: "last 1 False ; terminated 3 ; last 2 True ; end");
+            Helpers), expected: "last 1 False ; terminated 3 ; last 2 True ; end");
 
     // object variables given by reference: the callee Sets its parameters, and the caller's variables hold what it Set them to.
     [TestMethod]
@@ -231,7 +224,7 @@ public sealed class CompiledObjectArgumentTests
             "    Set X = Y",
             "    Set Y = Z",
             "End Sub",
-            Helpers), "Swapped", indirect: 3, expected: "212 ;");
+            Helpers), expected: "212 ;");
 
     // an object variable given to a parameter declared with neither ByVal nor ByRef, which is passed by reference: the callee Sets it to Nothing, and the
     // caller's variable holds Nothing after. The object, made for Main's statement, is held by it until it ends (MS-VBAL §5.3.1.10), and destroyed then.
@@ -253,5 +246,5 @@ public sealed class CompiledObjectArgumentTests
             "    If N = 1 Then Set T = Nothing",
             "    Debug.Print \"cleared \" & N",
             "End Sub",
-            Helpers), "Released", indirect: 2, expected: "cleared 1 ; cleared 2 ; 11 ; terminated 0 ; end");
+            Helpers), expected: "cleared 1 ; cleared 2 ; 11 ; terminated 0 ; end");
 }

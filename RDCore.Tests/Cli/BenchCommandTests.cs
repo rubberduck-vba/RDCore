@@ -564,12 +564,7 @@ public sealed class BenchCommandTests
 
         var lines = output.ToString().Split(Environment.NewLine);
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
-        // a loop that counts with a variable passed by reference to a callee, which holds it in a cell, is the interpreter's: the procedure is the
-        // interpreter's whole, and the report says why, and where. A call statement compiled code does not make is a support call the interpreter runs,
-        // as the Raise is.
-        var interpreted = lines.Single(line => line.Contains("Cases.CountsInACell ", StringComparison.Ordinal));
-        StringAssert.StartsWith(interpreted, "interpreted");
-        StringAssert.Contains(interpreted, ": I (line ");
+        // a call statement compiled code does not make is a support call the interpreter runs, as the Raise is.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal)), "compiled");
 
         // a member of an object is called by compiled code, and so is the Set that gives the variable an object made with New: the interpreter runs nothing
