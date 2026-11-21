@@ -566,6 +566,27 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         }
     }
 
+    // an object of the session's that crossed to the external host changed, and its servers draw it again: one that is not running holds none, and is not
+    // started for it.
+    /// <inheritdoc/>
+    public void SessionObjectChanged(SessionObjectReference changed)
+    {
+        if (!_sessionHosts.ContainsKey(changed.SessionObject) || _host.Running is not { } incarnation)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = Send<SessionChangedParams, ExternalDoneResult>(incarnation, ExternalProtocol.SessionChanged,
+                new SessionChangedParams { SessionObject = changed.SessionObject, Font = changed.Font, HandlingEvent = _handlingEvent });
+        }
+        catch (AutomationException)
+        {
+            // what the program changed is changed: a process that cannot be told draws what it drew, as one that stopped draws nothing.
+        }
+    }
+
     // an event the external host's servers raised: its handlers run on this thread, and the calls they make say they are made for it.
     private AutomationEventResult OnEvent(Incarnation incarnation, AutomationEventParams raised)
     {

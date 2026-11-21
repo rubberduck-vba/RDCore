@@ -65,6 +65,12 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/session/release</c>: a stand-in of an object of the session was let go of; nothing is answered.</summary>
     public const string SessionRelease = "rdcore/external/session/release";
 
+    /// <summary>
+    /// <c>rdcore/external/session/changed</c>: an object of the session that the external host's servers hold changed, and they draw it again from what it
+    /// holds now: <see cref="Automation.IAutomationServer.SessionObjectChanged"/>.
+    /// </summary>
+    public const string SessionChanged = "rdcore/external/session/changed";
+
     /// <summary><c>rdcore/external/forms/create</c>: creates a form from its definition, an object of the automation server like any other.</summary>
     public const string FormCreate = "rdcore/external/forms/create";
 
@@ -450,4 +456,20 @@ public sealed record class SessionReleaseParams
 
     /// <summary>How many times it was handed over to the stand-in that was let go of.</summary>
     public int Crossings { get; init; }
+}
+
+/// <summary>
+/// Request for <see cref="ExternalProtocol.SessionChanged"/>, from the environment host to the external host.
+/// </summary>
+public sealed record class SessionChangedParams : AutomationRequest
+{
+    /// <summary>
+    /// The identity of the object of the session.
+    /// </summary>
+    public string SessionObject { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The values of the font the object is: <see cref="Automation.SessionObjectReference.Font"/>.
+    /// </summary>
+    public Automation.SessionFont? Font { get; init; }
 }

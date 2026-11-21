@@ -1,6 +1,8 @@
+using RDCore.External.Automation;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Tests.Cli;
+using System.Globalization;
 
 namespace RDCore.Tests.Workspace.Forms;
 
@@ -131,7 +133,6 @@ public sealed class VisualBasicFormFontTests
             "Debug.Print Form7.Text1.FontName & \" \" & Form7.Text1.FontSize & \" \" & Form7.Text1.FontBold");
 
     [TestMethod]
-    [Ignore("not implemented: a font Set to a control's Font is not shared across the external host's boundary, as VB6 shares it; the control holds a copy")]
     public Task SetOfANewStdFont_SharesIt()
         => AssertPrintsAsync(["True", "True", "True"],
             "Set f = New StdFont",
@@ -141,6 +142,99 @@ public sealed class VisualBasicFormFontTests
             "Debug.Print Form7.Label1.FontBold",
             "Form7.Label1.FontItalic = True",
             "Debug.Print f.Italic");
+
+    [TestMethod]
+    public Task ANewStdFontSetToTwoControls_IsSharedByBoth()
+        => AssertPrintsAsync(["True True True"],
+            "Set f = New StdFont",
+            "Set Form7.Label1.Font = f: Set Form7.Text1.Font = f",
+            "Form7.Label1.FontUnderline = True",
+            "Debug.Print (Form7.Label1.Font Is Form7.Text1.Font) & \" \" & Form7.Text1.FontUnderline & \" \" & f.Underline");
+
+    [TestMethod]
+    public Task AControlGivenAnotherFont_NoLongerSharesTheProgramsFont()
+        => AssertPrintsAsync(["False True False"],
+            "Set f = New StdFont",
+            "Set Form7.Label1.Font = f",
+            "Set Form7.Label1.Font = Form7.Text1.Font",
+            "f.Italic = True",
+            "Debug.Print Form7.Label1.FontItalic & \" \" & Form7.Label1.FontBold & \" \" & (Form7.Label1.Font Is f)");
+
+    // Courier 14, its size not read, snaps to Arial's 14.25, as a font no control holds does.
+    [TestMethod]
+    public Task ASharedFontsSize_SnapsToALaterName_AsTheProgramLastSetOrReadIt()
+        => AssertPrintsAsync(["14.25"],
+            "Set f = New StdFont",
+            "Set Form7.Label1.Font = f",
+            "f.Name = \"Courier\": f.Size = 14: f.Name = \"Arial\"",
+            "Debug.Print f.Size");
+
+    [TestMethod]
+    public Task WhatASharedFontRefuses_ThroughTheControl_RaisesWhatVB6Raises_AndChangesNothing()
+        => AssertPrintsAsync(["6 8.25"],
+            "Set f = New StdFont",
+            "Set Form7.Label1.Font = f",
+            "On Error Resume Next",
+            "Form7.Label1.FontSize = 24576",
+            "Debug.Print Err.Number & \" \" & f.Size");
+
+    // the platform's server of an RDForms world whose machine has none: it is told what the forms' server is told of the session's objects.
+    private sealed class ToldPlatform : IAutomationServer
+    {
+        public List<SessionFont> Told { get; } = [];
+
+        public bool IsAvailable => false;
+
+        public object CreateObject(string progId) => UnavailableAutomationServer.Instance.CreateObject(progId);
+
+        public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
+            => UnavailableAutomationServer.Instance.Invoke(target, member, invocation, arguments, byReference, culture);
+
+        public string? ClassNameOf(object target) => null;
+
+        public bool MoveNext(object enumerator, out object? current) => UnavailableAutomationServer.Instance.MoveNext(enumerator, out current);
+
+        public void Reset(object enumerator) => UnavailableAutomationServer.Instance.Reset(enumerator);
+
+        public void Advise(object source, IAutomationEventSink sink)
+        {
+        }
+
+        public void Unadvise(object source)
+        {
+        }
+
+        public void Release(object handle)
+        {
+        }
+
+        public void SessionObjectChanged(SessionObjectReference changed) => Told.Add(changed.Font!);
+    }
+
+    [TestMethod]
+    public async Task AChangeOfASharedStdFont_IsToldToTheFormsServers_WithItsValues_WhileAControlHoldsIt()
+    {
+        var platform = new ToldPlatform();
+        var (automation, forms) = RDCore.External.Forms.RDForms.RDFormsHosting.Compose(platform, RDCore.External.Forms.UnavailableFormHost.Instance,
+            new RDCore.External.Forms.RDForms.FormsOptions { VB = RDCore.External.Forms.RDForms.VisualBasicFormsHost.RDForms, Headless = true });
+        var libraries = Libraries with
+        {
+            Outside = new RDCore.External.ExternalWorld(automation, RDCore.External.Native.UnavailableNativeLibraryHost.Instance) { Forms = forms },
+        };
+
+        _ = await ModuleWorkspace.RunAsync([], Program([
+            "Set f = New StdFont",
+            "f.Underline = True",
+            "Set Form7.Label1.Font = f",
+            "f.Bold = True",
+            "Form7.Label1.FontItalic = True",
+            "Set Form7.Label1.Font = Form7.Text1.Font",
+            "f.Strikethrough = True",
+        ]), libraries, [("Form7", Form7, FormDesigner.Read(Form7)!)], SupportedLanguages.VB6);
+
+        CollectionAssert.AreEqual(new[] { "700 False True False", "700 True True False" },
+            platform.Told.Select(font => $"{font.Weight} {font.Italic} {font.Underline} {font.Strikethrough}").ToArray());
+    }
 
     [TestMethod]
     public Task AFont_IsStillReadAfterItsFormIsUnloaded()

@@ -31,6 +31,11 @@ namespace RDCore.Runtime.Execution.External.Fonts;
 /// A change raises <c>FontChanged</c> with the member's name, to the <c>WithEvents</c> variables that hold the font, before the assignment returns: an error
 /// a handler leaves unhandled is the assignment's, as it is the <c>RaiseEvent</c>'s of an event of the program's own.
 /// </para>
+/// <para>
+/// A font <c>Set</c> to a form's control is shared with it, as in VB6: the control reads back the program's font, a change through either is seen
+/// through the other, and the server that holds the font draws what it holds once it changed
+/// (<see cref="RDCore.External.Automation.IAutomationServer.SessionObjectChanged"/>).
+/// </para>
 /// </remarks>
 /// <param name="session">The session whose fonts these are.</param>
 public sealed class FontCallProvider(IRuntimeSession session) : IExternalCallProvider, IExternalObjectOwner
@@ -147,11 +152,18 @@ public sealed class FontCallProvider(IRuntimeSession session) : IExternalCallPro
 
         return failure switch
         {
-            StdFontFailure.None when changed is { } member => RaiseChanged(identity, member, resolver),
+            StdFontFailure.None when changed is { } member => Changed(identity, font, member, resolver),
             StdFontFailure.None => RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void),
             StdFontFailure.Overflow => Error(VBRuntimeErrorId.Overflow, request, "the size is too large for a font"),
             _ => Error(VBRuntimeErrorId.InvalidPropertyValue, request, $"the {name} is not one a font takes"),
         };
+    }
+
+    // a change: the server that holds the font, which a form's control was given, draws what it holds now, and FontChanged is raised.
+    private RuntimeSemanticsEvaluationResult Changed(VBRuntimeObjectId source, StdFontObject font, string member, IRuntimeSymbolResolver resolver)
+    {
+        Automation.ServerObjects.Changed(session, source, font);
+        return RaiseChanged(source, member, resolver);
     }
 
     // FontChanged(ByVal PropertyName As String), to the handlers of the WithEvents variables that hold the font, in the order they were assigned

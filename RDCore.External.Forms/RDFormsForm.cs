@@ -168,6 +168,7 @@ internal sealed class RDFormsForm : IComponentEventSink
         EndModal();
         _sinks.Clear();
         Pictures.ReleaseAll();
+        Fonts.ReleaseAll();
         RDFormsControl.SetEventSink(Window, null);
 
         // closed from code, the window raises nothing: the program has unloaded the form already.

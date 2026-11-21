@@ -96,6 +96,19 @@ internal sealed class SessionObjectHost : ISessionObjectHost
         return false;
     }
 
+    /// <summary>
+    /// The server an object of the session was last handed to, while it holds the object: <see langword="null"/> when none does.
+    /// </summary>
+    /// <param name="identity">The object.</param>
+    public IAutomationServer? HolderOf(VBRuntimeObjectId identity)
+    {
+        Drain();
+        lock (_gate)
+        {
+            return _exported.TryGetValue(identity.ToString(), out var exported) ? exported.Server : null;
+        }
+    }
+
     /// <inheritdoc/>
     public void Release(string sessionObject, int crossings) => _released.Enqueue((sessionObject, crossings));
 
