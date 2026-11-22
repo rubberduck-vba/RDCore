@@ -1171,16 +1171,15 @@ internal sealed partial class ProcedureAnalysis
 
         // MS-VBA makes the calls among the arguments first, left to right, then evaluates the others, right to left, the target last (ArgumentOrder); what
         // the call is given itself, an object a call returned, is let go of after what the calls and the members inside the arguments and the target were
-        // given, in the order of the parameters, then the target's (ObjectReferences.SettleCall). Compiled code lets go of them in the order they were made
-        // in (ObjectReferences.ReleaseTemporaries): MS-VBA's order when no more than one of the arguments and the target holds objects. A call that makes a
-        // call inside an argument that is not a call ahead of a call after it, more than one of whose arguments and target hold objects, or whose target's
-        // member calls make calls among their arguments, is the interpreter's.
+        // given, in the order of the parameters, then the target's (ObjectReferences.SettleCall). Compiled code makes them in the order they were made in;
+        // a call more than one of whose arguments and target hold objects puts them in MS-VBA's order once they are evaluated
+        // (CompiledCallee.SettlesTemporaries), and when only one holds them, the order they were made in is MS-VBA's. A call that makes a call inside an
+        // argument that is not a call ahead of a call after it, or whose target's member calls make calls among their arguments, is the interpreter's.
         var order = ArgumentOrder.Of(arguments);
         var returnedObjects = values.Count(static value => value is ObjectArgumentNode { Call: not null });
         var holdingObjects = values.Count(static value => Within(value).Any(static node => ReceiverCallsOf(node).Any()));
         var targetReturned = site is { Owner: { } target } && ArgumentOrder.IsCall(target) ? 1 : 0;
-        if (CallsAheadOfACall(order) || returnedObjects > 0 && returnsObject || holdingObjects + targetReturned > 1
-            || site is { Owner: { } owner } && TargetArgumentsCall(owner))
+        if (CallsAheadOfACall(order) || returnedObjects > 0 && returnsObject || site is { Owner: { } owner } && TargetArgumentsCall(owner))
         {
             return null;
         }
@@ -1199,6 +1198,7 @@ internal sealed partial class ProcedureAnalysis
             ReturnsObject = returnsObject,
             ReturnsText = returnsText,
             ReturnsValue = returnsValue,
+            SettlesTemporaries = holdingObjects + targetReturned > 1,
             ObjectParameters = objects ?? [],
             Omitted = omitted ?? [],
             VariantReferences = variants ?? [],

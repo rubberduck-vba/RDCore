@@ -471,6 +471,7 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 |`ArgumentOrder`|The order the arguments of a call are evaluated in, and the target's member calls a call statement makes ahead of its last argument (`TargetCallsIn`).|
 |`StdLibInlineAttribute`|Marks a standard-library function MS-VBA evaluates inline, which is not a call.|
 |`ObjectReferences.SettleCall`|Puts the objects a call's arguments and target made in the order they are freed.|
+|`CompiledActivation.SettleCall`|The same, for a call compiled code makes, more than one of whose arguments and target hold objects.|
 |`RuntimeExpressionEvaluator.CollectParamArrayArguments`|`ParamArray` collection.|
 |`RuntimeExpressionEvaluator.OmittedArgument`|The value an unmapped `Optional` parameter takes, wherever an omitted argument is filled in.|
 |`RuntimeExpressionEvaluator.ProcedureInvoker`, `RuntimeExpressionEvaluator.LetCoercionProvider`|Settable properties, not constructor parameters.|
