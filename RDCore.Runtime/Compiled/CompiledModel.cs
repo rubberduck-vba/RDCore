@@ -680,6 +680,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool ReturnsValue { get; init; }
 
     /// <summary>
+    /// Whether more than one of the call's arguments and its target hold objects that calls inside them returned: what each made is put in the order
+    /// MS-VBA lets go of it once they are evaluated (<see cref="CompiledActivation.SettleCall"/>), as the interpreter puts it.
+    /// </summary>
+    public bool SettlesTemporaries { get; init; }
+
+    /// <summary>
     /// For each parameter, whether it is a <c>Variant</c> passed by reference, given a variable of the activation: the address of a <c>Variant</c> or a
     /// <c>String</c> (<see cref="VariantReferenceNode"/>), or the cell of a variable of a scalar type (<see cref="ReferenceNode"/>), whose
     /// <see cref="Parameters"/> kind is <see langword="null"/>. Empty when the call gives none.
