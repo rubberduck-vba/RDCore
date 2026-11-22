@@ -49,6 +49,9 @@ public sealed class CompiledObjectCallSetTests
             "Public Function Grown(Optional ByVal By As Long = 10, Optional ByVal Times As Long = 2) As Long",
             "    Grown = mSize + By * Times",
             "End Function",
+            "Public Function Weighed(ByVal Other As Gadget, Optional ByVal By As Long = 0) As Long",
+            "    Weighed = mSize + Other.Size + By",
+            "End Function",
             "Public Function Hop() As Long",
             "    Dim G As Gadget",
             "    Set G = Me.Following",
@@ -212,15 +215,20 @@ public sealed class CompiledObjectCallSetTests
             "    End With",
             "End Function"), "Combined", calls: 6, expected: "; 7 ;");
 
-    // the objects a call's arguments and its target hold, what calls inside them returned, are let go of when the statement is over in the order of the
-    // parameters, then the target's, as MS-VBA lets go of them: more than one of them holds objects, so the interpreter runs the statement.
+    // the objects a call's arguments and its target hold, what calls inside them returned, are let go of when the statement is over as MS-VBA lets go of
+    // them: what the call is given itself last, in the order of the parameters, then the target's, after what the calls inside them were given. Compiled
+    // code makes every call of the statement, in both calls of Combined.
     [TestMethod]
-    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; gone 1 ; 7 ;",
+    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", 12, "gone 2 ; gone 3 ; gone 1 ; 7 ;",
         DisplayName = "the target and two arguments")]
-    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size)", "gone 2 ; gone 1 ; 5 ;", DisplayName = "the target and an argument")]
-    [DataRow("G.Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", "gone 2 ; gone 3 ; 15 ;", DisplayName = "two arguments")]
-    public async Task WhatTheArgumentsAndTheTargetHold_IsLetGoOfInParameterOrder_ThenTheTargets(string expression, string expected)
-        => _ = await AssertAlikeAsync(Program(
+    [DataRow("Gadget.Create(1).Grown(Gadget.Create(2).Size)", 8, "gone 2 ; gone 1 ; 5 ;", DisplayName = "the target and an argument")]
+    [DataRow("G.Grown(Gadget.Create(2).Size, Gadget.Create(3).Size)", 10, "gone 2 ; gone 3 ; 15 ;", DisplayName = "two arguments")]
+    [DataRow("G.Grown(Gadget.Create(1).Grown(Gadget.Create(2).Size), Gadget.Create(3).Size)", 14, "gone 2 ; gone 1 ; gone 3 ; 24 ;",
+        DisplayName = "an argument whose call puts what its own arguments and target hold in order first")]
+    [DataRow("G.Weighed(Gadget.Create(1), Gadget.Create(2).Size)", 8, "gone 2 ; gone 1 ; 12 ;",
+        DisplayName = "an object given to the call, made before what another argument holds")]
+    public async Task WhatTheArgumentsAndTheTargetHold_IsLetGoOfInParameterOrder_ThenTheTargets(string expression, long calls, string expected)
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Dim G As Gadget",
             "    Set G = Gadget.Create(9)",
@@ -229,7 +237,7 @@ public sealed class CompiledObjectCallSetTests
             "End Sub",
             "Private Function Combined(ByVal G As Gadget) As Long",
             $"    Combined = {expression}",
-            "End Function"), Classes, expected);
+            "End Function"), "Combined", calls, expected);
 
     // what calls inside one argument, or the operands of an expression, returned: compiled code makes the calls, and lets go of the objects as the
     // interpreter does.
