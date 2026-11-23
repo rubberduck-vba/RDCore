@@ -31,7 +31,8 @@ public static class TestPlatformRoot
         {
             lock (Gate)
             {
-                return _directory ??= Create(Path.Combine(Path.GetTempPath(), "RDCore"), new DirectoryInfo(AppContext.BaseDirectory), DateTime.UtcNow);
+                return _directory ??= Create(Path.Combine(Path.GetTempPath(), "RDCore"), new DirectoryInfo(AppContext.BaseDirectory), DateTime.UtcNow,
+                    new DirectoryInfo(RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols));
             }
         }
     }
@@ -42,7 +43,14 @@ public static class TestPlatformRoot
     /// Makes a root in <paramref name="folder"/>, with a copy of <paramref name="components"/>, after taking away the roots there that were abandoned at
     /// <paramref name="now"/>. A copy that fails takes away the root it was making.
     /// </summary>
-    internal static string Create(string folder, DirectoryInfo components, DateTime now)
+    /// <param name="folder">The folder the root is made in.</param>
+    /// <param name="components">The build output the root's components are copied from.</param>
+    /// <param name="now">When the root is made, which the roots there are swept at.</param>
+    /// <param name="symbols">
+    /// The descriptions of the libraries a project can reference, copied to the root's <see cref="PlatformEnvironment.SymbolsDirectory"/> folder as a
+    /// deployment has them (the RDForms package's <c>VB</c> depends on <c>DAO</c>); none when <see langword="null"/>.
+    /// </param>
+    internal static string Create(string folder, DirectoryInfo components, DateTime now, DirectoryInfo? symbols = null)
     {
         Sweep(folder, now);
 
@@ -50,6 +58,14 @@ public static class TestPlatformRoot
         try
         {
             Copy(components, System.IO.Directory.CreateDirectory(Path.Combine(root, Components)));
+            if (symbols is not null)
+            {
+                var deployed = System.IO.Directory.CreateDirectory(Path.Combine(root, PlatformEnvironment.SymbolsDirectory));
+                foreach (var description in symbols.EnumerateFiles("*" + RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource.Extension))
+                {
+                    description.CopyTo(Path.Combine(deployed.FullName, description.Name));
+                }
+            }
             File.WriteAllText(Path.Combine(root, PlatformManifest.FileName), JsonSerializer.Serialize(new PlatformManifest
             {
                 PlatformVersion = "0.1",
