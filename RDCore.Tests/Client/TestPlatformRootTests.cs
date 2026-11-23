@@ -50,6 +50,18 @@ public sealed class TestPlatformRootTests
     }
 
     [TestMethod]
+    public void ARoot_HasTheLibraryDescriptionsItIsGiven_InItsSymbolsFolder()
+    {
+        var symbols = Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(_folder)!, "Symbols"));
+        File.WriteAllText(Path.Combine(symbols.FullName, "DAO" + RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource.Extension), "{}");
+
+        var root = TestPlatformRoot.Create(_folder, new DirectoryInfo(_components), Now, symbols);
+
+        Assert.IsTrue(File.Exists(Path.Combine(root, RDCore.SDK.Platform.PlatformEnvironment.SymbolsDirectory,
+            "DAO" + RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource.Extension)));
+    }
+
+    [TestMethod]
     public void ACopyThatFails_TakesAwayTheRootItWasMaking()
     {
         var missing = new DirectoryInfo(Path.Combine(_components, "not-there"));
