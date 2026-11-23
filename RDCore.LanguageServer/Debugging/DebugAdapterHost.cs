@@ -22,6 +22,10 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
 
     protected override string? LogFileName => "RDCore.DebugAdapter.log";
 
+    // the workspace is composed here as the language server composes it: with the libraries RDForms describes (VB, which a VB6 form's class is built on).
+    protected override RDCore.SDK.Runtime.Libraries.ILibrarySource LibrarySource(IServiceProvider provider, RDCore.SDK.Runtime.Libraries.ILibrarySource symbols)
+        => RDCore.Symbols.PlatformLibraries.With(symbols);
+
     protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
         configuration.AddInMemoryCollection(Arguments(args).ToConfigurationOverrides());
