@@ -51,9 +51,12 @@ public interface IDesktop
     /// </summary>
     /// <param name="pathName">The program, and the arguments it is given: a command line.</param>
     /// <param name="windowStyle">How the window of the program is shown.</param>
+    /// <param name="workingDirectory">
+    /// The directory the program starts in: the current directory of the session that starts it, or <see langword="null"/> for the process's.
+    /// </param>
     /// <returns>The ID of the process that was started, or <c>0</c> when nothing was.</returns>
     /// <exception cref="FileNotFoundException">There is no such program.</exception>
-    int Shell(string pathName, VBAppWinStyle windowStyle);
+    int Shell(string pathName, VBAppWinStyle windowStyle, string? workingDirectory);
 }
 
 /// <summary>
@@ -86,5 +89,5 @@ public sealed class NoDesktop : IDesktop
     public void SendKeys(string keys, bool wait) { }
 
     /// <inheritdoc/>
-    public int Shell(string pathName, VBAppWinStyle windowStyle) => 0;
+    public int Shell(string pathName, VBAppWinStyle windowStyle, string? workingDirectory) => 0;
 }

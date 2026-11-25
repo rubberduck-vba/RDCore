@@ -20,10 +20,18 @@ namespace RDCore.Runtime.Execution.Files;
 /// VBA's own semantics describe: the file is held open, and the lock the <c>Open</c> asked for is held with
 /// it. Closing the channel is what releases both.
 /// </para>
+/// <para>
+/// The current directory is the session's: it starts as the process's, and <c>ChDir</c> moves the session's alone, so the sessions of one process
+/// each have their own.
+/// </para>
 /// </remarks>
 /// <param name="fileSystem">The file system the channels are opened on.</param>
 internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encoding encoding) : IFileChannels, IDisposable
 {
+    // the session's current directory: where the process was when the session was composed, until ChDir or ChDrive moves it; null when that could not be
+    // read (Linux lets a process's current directory be deleted).
+    private string? _current = DirectoryOfTheProcess(fileSystem);
+
     /// <summary>
     /// The record length a <see cref="VBFileMode.Random"/> channel counts positions in when its <c>Open</c>
     /// declared no <c>Len</c> clause.
@@ -542,15 +550,38 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
 
     // what every path a VBA file function is given goes through first: its \ is a separator on every platform, so VBA written with Windows paths runs
     // as is where the file system's own separator is /. Where it is, a file whose name holds a \ is out of VBA's reach. A path that is not fully
-    // qualified is in the current directory, and one that is gone is error 76 (Linux lets a process's current directory be deleted).
+    // qualified is in the session's current directory, and is made a full path there; one that is gone is error 76. A path no full path can be made of is
+    // left as it is, for the function to refuse.
     private RDCoreDiagnosticCode? Resolve(ref string path)
     {
         path = fileSystem.Path.DirectorySeparatorChar == '\\' ? path : path.Replace('\\', fileSystem.Path.DirectorySeparatorChar);
-        return fileSystem.Path.IsPathFullyQualified(path) || CurrentDirectory() is not null ? null : VBRuntimeErrorId.PathNotFound.ToCode();
+        if (path.Length > 0 && fileSystem.Path.IsPathFullyQualified(path))
+        {
+            return null;
+        }
+
+        if (CurrentDirectory() is not { } current)
+        {
+            return VBRuntimeErrorId.PathNotFound.ToCode();
+        }
+
+        try
+        {
+            // no path at all is the current directory to what reads it (Dir), and nothing to what names one (ChDir): it stays empty.
+            path = path.Length == 0 ? path : fileSystem.Path.GetFullPath(path, current);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        {
+            // what the function does with a path that is not one is its own to say.
+        }
+
+        return null;
     }
 
-    // null when the current directory cannot be read: once it is deleted, every read of it fails on Linux.
-    private string? CurrentDirectory()
+    // the session's current directory; null once it no longer exists, as when it is deleted while the session is in it.
+    private string? CurrentDirectory() => _current is { } current && fileSystem.Directory.Exists(current) ? current : null;
+
+    private static string? DirectoryOfTheProcess(IFileSystem fileSystem)
     {
         try
         {
