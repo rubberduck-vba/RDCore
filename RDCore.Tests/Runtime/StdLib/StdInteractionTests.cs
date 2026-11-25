@@ -402,18 +402,33 @@ public sealed class StdInteractionTests
     public void Shell_AnswersTheTaskId_OfWhatItStarted()
     {
         var desktop = Substitute.For<IDesktop>();
-        desktop.Shell(Arg.Any<string>(), Arg.Any<VBAppWinStyle>()).Returns(4321);
+        desktop.Shell(Arg.Any<string>(), Arg.Any<VBAppWinStyle>(), Arg.Any<string?>()).Returns(4321);
 
         CollectionAssert.AreEqual(new[] { "4321", "4321" }, Run(With(desktop), "Debug.Print Shell(\"notepad.exe\", vbNormalFocus)", "Debug.Print Shell(\"x\")"));
-        desktop.Received().Shell("notepad.exe", VBAppWinStyle.VBNormalFocus);
-        desktop.Received().Shell("x", VBAppWinStyle.VBMinimizedFocus);
+        desktop.Received().Shell("notepad.exe", VBAppWinStyle.VBNormalFocus, Arg.Any<string?>());
+        desktop.Received().Shell("x", VBAppWinStyle.VBMinimizedFocus, Arg.Any<string?>());
+    }
+
+    [TestMethod]
+    public void Shell_StartsTheProgram_InTheSessionsCurrentDirectory()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rdcore-interaction-shell");
+        var files = new MockFileSystem();
+        files.Directory.CreateDirectory(directory);
+        var desktop = Substitute.For<IDesktop>();
+
+        var (_, outcome) = RuntimeSourceHarness.Run(files, [], new RuntimeOutputBuffer(), standardLibrary: true, arrange: null, ModuleDirectives.None,
+            observer: null, analyze: false, With(desktop), $"ChDir \"{directory}\"", "Debug.Print Shell(\"x\")");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        desktop.Received().Shell("x", VBAppWinStyle.VBMinimizedFocus, directory);
     }
 
     [TestMethod]
     public void Shell_AProgramThatIsNotThere_IsFileNotFound()
     {
         var desktop = Substitute.For<IDesktop>();
-        desktop.Shell(Arg.Any<string>(), Arg.Any<VBAppWinStyle>()).Throws(new FileNotFoundException("nope"));
+        desktop.Shell(Arg.Any<string>(), Arg.Any<VBAppWinStyle>(), Arg.Any<string?>()).Throws(new FileNotFoundException("nope"));
         Assert.AreEqual(53, Fail(With(desktop), "Debug.Print Shell(\"nope.exe\")").Number);
     }
 
