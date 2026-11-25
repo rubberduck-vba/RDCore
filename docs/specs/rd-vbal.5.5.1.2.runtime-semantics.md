@@ -264,9 +264,9 @@ What is read is what MS-VBA reads (recorded in Excel), which is more than §5.5.
 What the debugger displays is not a let-coercion: it writes a number and a date the way the VBA editor writes a
 literal, whatever the culture.
 
-The `DateTime` module reads the culture of the thread the interpreter runs on, whatever `Lcid` is, for
-`vbUseSystemDayOfWeek` and `vbUseSystem`: `Weekday`, `DatePart` and `DateDiff` take the first day of the week from it,
-and `DatePart` the first week of the year
+The `DateTime` module reads the culture the session's `Lcid` selects for `vbUseSystemDayOfWeek` and `vbUseSystem`:
+`Weekday`, `DatePart` and `DateDiff` take the first day of the week from it, and `DatePart` the first week of the year,
+whatever the culture of the thread the program runs on
 ([**RD-VBAL §6.1.2.4** DateTime Module](rd-vbal.6.1.2.4.datetime-module.md)).
 
 
