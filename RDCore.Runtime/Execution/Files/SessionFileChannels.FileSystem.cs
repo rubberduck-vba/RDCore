@@ -52,8 +52,27 @@ internal sealed partial class SessionFileChannels
         }
 
         // the session's alone: the process, and every other session of it, stay where they are. CurDir gives it with no separator at its end, except a root's.
-        _current = Path.TrimEndingDirectorySeparator(fileSystem.Path.GetFullPath(path));
+        _current = Path.TrimEndingDirectorySeparator(AsTheSystemKeepsIt(fileSystem.Path.GetFullPath(path)));
         return null;
+    }
+
+    // a current directory as the system keeps a process's: Windows keeps the path it is given, and elsewhere it is the real path, each link on the way where
+    // it leads (macOS's /var is a link to /private/var). A link that cannot be read leaves the path as it is.
+    private static string AsTheSystemKeepsIt(string full)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return full;
+        }
+
+        try
+        {
+            return SDK.Platform.PlatformRootConfinement.RealPath(full);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return full;
+        }
     }
 
     /// <inheritdoc/>
