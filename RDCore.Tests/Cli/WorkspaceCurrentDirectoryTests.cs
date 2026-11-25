@@ -74,6 +74,31 @@ public sealed class WorkspaceCurrentDirectoryTests
         CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed, string.Join("|", printed));
     }
 
+    // a folder reached through a link is where the process would be in it, as the system keeps a current directory: on Windows the link's path, and
+    // elsewhere the folder it leads to, as macOS's temporary folder under /var is under /private/var.
+    [TestMethod]
+    public async Task ChDir_ThroughALink_IsWhereTheProcessWouldBe()
+    {
+        var link = Path.Combine(_root, "Linked");
+        try
+        {
+            Directory.CreateSymbolicLink(link, Path.Combine(_root, "Sub"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Assert.Inconclusive($"no symbolic link can be made here: {exception.Message}");
+        }
+
+        Directory.SetCurrentDirectory(link);
+        var processWouldBe = Directory.GetCurrentDirectory();
+        Directory.SetCurrentDirectory(_saved);
+        using var provider = Compose(_root);
+
+        var printed = await RunAsync(provider, _root, "ChDir \"Linked\"", "Debug.Print CurDir", "Debug.Print Dir(\"inner.txt\")");
+
+        CollectionAssert.AreEqual(new[] { processWouldBe, "inner.txt" }, printed, string.Join("|", printed));
+    }
+
     // a relative path's \ is a separator on every platform: VBA written with Windows paths finds and makes the workspace's files on Linux too.
     [TestMethod]
     public async Task ARelativePathWithABackslash_IsInAFolderOfTheWorkspace_OnEveryPlatform()
