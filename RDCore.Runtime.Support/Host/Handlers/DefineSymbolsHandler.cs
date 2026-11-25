@@ -184,18 +184,18 @@ internal sealed class DefineSymbolsHandler(
                 ? []
                 : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, target.Image, errorDetails).Expressions,
                     new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
-            // the module is written in one file, the one its trivia says: a dead range is of that document.
-            cached = (request.PrecompilerTriviaJson, constants, trivia.IsDefaultOrEmpty ? null : trivia[0].SourceLocation.Uri, ranges);
+            cached = (request.PrecompilerTriviaJson, constants, ranges);
             evaluated[key] = cached;
         }
 
-        var (document, dead) = (cached.Document, cached.Dead);
-        return dead.IsEmpty ? null : location => location.Uri == document
-            && dead.Any(range => location.Range.Start.CompareTo(range.Start) >= 0 && location.Range.Start.CompareTo(range.End) <= 0);
+        // a module of several files may have a dead branch of each at the same range: a dead branch is of the file it is written in.
+        var dead = cached.Dead;
+        return dead.IsEmpty ? null : location => dead.Any(branch => branch.Uri == location.Uri
+            && location.Range.Start.CompareTo(branch.Range.Start) >= 0 && location.Range.Start.CompareTo(branch.Range.End) <= 0);
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession,
-        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, Uri? Document, ImmutableArray<SourceRange> Dead)>>
+        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, ImmutableArray<SourceLocation> Dead)>>
         DeadRangesBySession = new();
 
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch

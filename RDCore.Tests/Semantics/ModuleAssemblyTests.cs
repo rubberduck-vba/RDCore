@@ -219,4 +219,29 @@ public sealed class ModuleAssemblyTests
         Assert.AreEqual((int)VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary, error.ErrorId);
         Assert.AreEqual(new SourceRange(2, 8, 2, 14), error.Location.Range);
     }
+
+    // a symbol of a module of parts is written in its own part's file. A declaration of one part is at the lines of the other part's #Else branch, and is
+    // a second declaration of the name, never an alternative of the first part's #If branch.
+    [TestMethod]
+    public void EachSymbolOfAModuleOfParts_IsInItsPartsFile_AndNoDeclarationIsAnAlternativeAcrossParts()
+    {
+        var helpers = "Attribute VB_Name = \"Helpers\"|#If VBA7 Then|Private count As Long|#Else|Private total As Long|#End If";
+        var partial = "Partial Module Helpers|Private first As Long|Private second As Long|Private third As Long|Private count As Long|End Module";
+        var (modules, _) = ModuleAssembly.Of(
+            [.. PartsOf(First, "Helpers", ModuleType.StdModule, helpers), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)]);
+        var module = Single(modules, "Helpers");
+        var root = new Uri("file:///c:/ws/");
+        var moduleUri = new UriBuilder(root) { Fragment = "Helpers" }.Uri;
+        var resolver = RDCore.Symbols.WorkspaceSymbolResolver.Compose(
+            root, [(moduleUri, ModuleType.StdModule, module.Parse)], new RDCore.Symbols.IntrinsicSymbolResolver());
+
+        var symbols = new RDCore.Symbols.SyntaxTreeSymbolProvider(root, moduleUri, ModuleType.StdModule, module.Parse, resolver).ProvideSymbols()
+            .OfType<RDCore.SDK.Model.Symbols.Abstract.WorkspaceSymbol>().ToArray();
+
+        var counts = symbols.Where(symbol => symbol.Name == "count").ToArray();
+        CollectionAssert.AreEqual(new[] { (First, 2), (Second, 4) }, counts.Select(symbol => (symbol.DocumentUri, symbol.Range.Start.Line)).ToArray());
+        Assert.IsTrue(counts.All(symbol => symbol.Alternatives.IsDefaultOrEmpty), "a site of each part, neither an alternative of the other");
+        Assert.AreEqual(First, symbols.Single(symbol => symbol.Name == "total").DocumentUri);
+        Assert.AreEqual(Second, symbols.Single(symbol => symbol.Name == "third").DocumentUri);
+    }
 }

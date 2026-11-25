@@ -95,11 +95,11 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
         var trivia = WithCondition(parse.PrecompilerTrivia, condition => Chain((VBBinaryOperatorExpressionNode)condition, ModuleParser.MaxExpressionNesting));
         var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
 
-        ImmutableArray<SourceRange> deadRanges = [];
+        ImmutableArray<SourceLocation> deadRanges = [];
         var thrown = SmallStack.Run(() => deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new(StaticSymbol.GlobalUri), trivia));
 
         Assert.IsNull(thrown, thrown?.ToString());
-        Assert.AreEqual(4, Assert.ContainsSingle(deadRanges).Start.Line, "the #Else branch");
+        Assert.AreEqual(4, Assert.ContainsSingle(deadRanges).Range.Start.Line, "the #Else branch");
     }
 
     // what is nested past the limit (VBC00060) is an error node of its text, which is not evaluated: the condition has no value, neither branch is dead, and
@@ -274,7 +274,9 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
     {
         var parse = ParseSub(source);
         var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia);
-        return [.. Enumerable.Range(0, source.Split("\r\n").Length).Select(line => platforms.At(new SourcePosition(line, 0)))];
+        var document = parse.SyntaxTree!.SourceLocation.Uri;
+        return [.. Enumerable.Range(0, source.Split("\r\n").Length)
+            .Select(line => platforms.At(new SourceLocation(document, new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, 0)))))];
     }
 
     [TestMethod]
