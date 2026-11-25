@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Values.Abstract;
@@ -257,6 +258,32 @@ public sealed class StdDateTimeTests
             "Debug.Print Weekday(DateSerial(2026, 10, 14))",
             "Debug.Print Weekday(DateSerial(2026, 10, 14), vbMonday)",
             "Debug.Print Weekday(DateSerial(2026, 10, 14), vbWednesday)"));
+
+    // the system's first day of the week and first week of the year are the regional settings of the session's environment, whatever the culture of the thread
+    // the session runs on: fr-FR's weeks begin on Monday and its first week is the first of four days, en-US's begin on Sunday and its first has January 1.
+    [TestMethod]
+    [DataRow("en-US", 1036, 3, 53)]
+    [DataRow("fr-FR", 1033, 4, 1)]
+    public void TheSystemsWeek_IsTheSessionEnvironments_NotTheThreads(string threadCulture, int sessionLcid, int wednesday, int weekOfJanuaryFirst)
+    {
+        var module = new StdDateTime(StdStringsTestHarness.SessionOf(sessionLcid));
+        var before = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo(threadCulture);
+        try
+        {
+            // Wednesday, October 14, 2026, and Friday, January 1, 2021.
+            var weekday = Held(module.Weekday(new VBVariantValue(new VBDateValue(new DateTime(2026, 10, 14).ToOADate())), VBDayOfWeek.VBUseSystemDayOfWeek));
+            var week = Held(module.DatePart(new VBStringValue("ww"), new VBVariantValue(new VBDateValue(new DateTime(2021, 1, 1).ToOADate())),
+                VBDayOfWeek.VBUseSystemDayOfWeek, VBFirstWeekOfYear.VBUseSystem));
+
+            Assert.AreEqual(wednesday, ((VBIntegerValue)weekday!).Value);
+            Assert.AreEqual(weekOfJanuaryFirst, ((VBIntegerValue)week!).Value);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = before;
+        }
+    }
 
     [TestMethod]
     public void AFirstDayOfTheWeekThatIsNone_IsError5()

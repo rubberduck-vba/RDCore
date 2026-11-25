@@ -630,23 +630,24 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
         return value;
     }
 
-    // MS-VBAL 6.1.1.7: Sunday is 1 and Saturday 7, and 0 is the first day of the week of the system.
-    private static bool TryFirstDayOfWeek(VBDayOfWeek firstDayOfWeek, out DayOfWeek weekStart)
+    // MS-VBAL 6.1.1.7: Sunday is 1 and Saturday 7, and 0 is the first day of the week of the system: the regional settings of the session's environment,
+    // as Format reads them, and never the culture of whatever thread the program runs on.
+    private bool TryFirstDayOfWeek(VBDayOfWeek firstDayOfWeek, out DayOfWeek weekStart)
     {
         weekStart = firstDayOfWeek is VBDayOfWeek.VBUseSystemDayOfWeek
-            ? CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek
+            ? session.Environment.Culture.DateTimeFormat.FirstDayOfWeek
             : (DayOfWeek)((int)firstDayOfWeek - 1);
         return Enum.IsDefined(firstDayOfWeek);
     }
 
-    // MS-VBAL 6.1.1.9: the week of January 1, the first week of at least four days, the first full week, or the system's.
-    private static bool TryWeekRule(VBFirstWeekOfYear firstWeekOfYear, out CalendarWeekRule rule)
+    // MS-VBAL 6.1.1.9: the week of January 1, the first week of at least four days, the first full week, or the system's: the session environment's.
+    private bool TryWeekRule(VBFirstWeekOfYear firstWeekOfYear, out CalendarWeekRule rule)
     {
         rule = firstWeekOfYear switch
         {
             VBFirstWeekOfYear.VBFirstFourDays => CalendarWeekRule.FirstFourDayWeek,
             VBFirstWeekOfYear.VBFirstFullWeek => CalendarWeekRule.FirstFullWeek,
-            VBFirstWeekOfYear.VBUseSystem => CultureInfo.CurrentCulture.DateTimeFormat.CalendarWeekRule,
+            VBFirstWeekOfYear.VBUseSystem => session.Environment.Culture.DateTimeFormat.CalendarWeekRule,
             _ => CalendarWeekRule.FirstDay,
         };
         return IsDefined(firstWeekOfYear);
