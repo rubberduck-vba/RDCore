@@ -232,7 +232,7 @@ show it as the symbol's doc string
 |A module variable|`Attribute <variable>.VB_VarDescription`, after its declaration|`'@VariableDescription("...")`, immediately above it|
 
 When a module writes both, the attribute is the description. The value is a string; an empty string describes nothing
-([`ModuleDescriptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.ModuleDescriptions.html)).
+([`DocStrings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.DocStrings.html)).
 
 Surfacing attributes does not necessarily make `@Description` annotations obsolete
 ([**RD-VBAL §3.0.1.1** Comment Annotations Syntax](rd-vbal.3.0.1.token-semantics.md#3011-comment-annotations-syntax)): hiding `Attribute`
