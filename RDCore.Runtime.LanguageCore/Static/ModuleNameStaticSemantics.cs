@@ -50,8 +50,8 @@ public static class ModuleNameStaticSemantics
     }
 
     // MS-VBAL §4.2: every module of a project has a name no other module of it has, case aside. Of the modules that share one, none is the module of that
-    // name, and none loads: the program is invalid, and loading one would pick it by the order the project lists them in. MS-VBA refuses to rename a module to a name
-    // another has ("Name conflicts with existing module, project, or object library"), and names one it imports so another way (Dup1).
+    // name, and none loads: the program is invalid, and loading one would pick it by the order the project lists them in. MS-VBA refuses to rename a
+    // module to a name another has ("Name conflicts with existing module, project, or object library"), and names one it imports so another way (Dup1).
     public static IReadOnlySet<string> NamesTakenTwice(IEnumerable<string> names)
         => names.GroupBy(name => name, StringComparer.OrdinalIgnoreCase).Where(group => group.Skip(1).Any())
             .Select(group => group.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
