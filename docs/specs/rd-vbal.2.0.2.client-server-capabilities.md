@@ -372,7 +372,7 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](https://
 
 |Procedure|Doc string|
 |---|---|
-|Of a module of the workspace|Its `Attribute <member>.VB_Description`, else its `'@Description` annotation ([**RD-VBAL §3.1.1.7** VB_Description](rd-vbal.3.1.1.attributes.md#3117-vb_description)).|
+|Of a module of the workspace|Its `Attribute <member>.VB_Description`, else its `'@Description` annotation (RD-VBAL §3.1.1.7).|
 |Of a referenced library, or of an unreferenced one an object is created of by name|The `description` of the member in the library's description file.|
 |Of the standard library|An entry of the platform's resources, in the language of the user interface, for the member and for each parameter. A `$` function has the doc strings of the one it is the `String` version of.|
 
