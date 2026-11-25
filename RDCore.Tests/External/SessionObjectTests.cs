@@ -13,7 +13,7 @@ namespace RDCore.Tests.External;
 
 /// <summary>
 /// The program's own objects handed to a COM server, as MS-VBA hands them: an object of a class module, or the standard library's <c>Collection</c>, is held by
-/// the server - <c>s.Add "key", w</c> - is the same object when it comes back (<c>s("key").Value Is w</c>), and is called as itself. In the process, on one
+/// the server (<c>s.Add "key", w</c>), is the same object when it comes back (<c>s("key").Value Is w</c>), and is called as itself. In the process, on one
 /// apartment, and through an external host, as <c>rdc</c> runs a program.
 /// </summary>
 [TestClass]

@@ -120,9 +120,9 @@ public sealed class ExcelMeasuredGapsRowsTests
             """Err.Raise 5, , , "g.chm" ;; P Err.HelpFile ;; Err.Raise 6 ;; P Err.HelpFile ;; Err.Clear ;; P "[" & Err.HelpFile & "]" """,
             "g.chm|g.chm|[]|");
 
-    // Observed in Excel: an error an automation object raises has the help context of its message, whatever one Err had - Scripting.Dictionary's 457 is
-    // 1000457, and a RegExp's 5020 is no message of MS-VBA's (1000095). The Dictionary is the platform's own; RegExp is a COM server, so this runs where COM
-    // does.
+    // Observed in Excel: an error an automation object raises has the help context of its message, whatever one Err had: Scripting.Dictionary's 457 is
+    // 1000457, and a RegExp's 5020, which has no message of MS-VBA's, is 1000095. The Dictionary is the platform's own; RegExp is a COM server, so this
+    // runs where COM does.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task AnErrorAnAutomationObjectRaises_HasTheHelpContextOfItsMessage()
