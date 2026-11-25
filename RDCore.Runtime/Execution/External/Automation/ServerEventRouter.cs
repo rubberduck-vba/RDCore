@@ -42,8 +42,8 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// <see langword="null"/> for one that is not the program's to connect to.
 /// </param>
 internal sealed class ServerEventRouter(
-    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route, Func<string, object?[], RuntimeSemanticsEvaluationResult?>? intercept = null,
-    VBRuntimeObjectId? source = null) : IAutomationEventSink
+    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route,
+    Func<string, object?[], RuntimeSemanticsEvaluationResult?>? intercept = null, VBRuntimeObjectId? source = null) : IAutomationEventSink
 {
     private readonly ServerObjects _objects = new(session, server);
 
@@ -277,8 +277,8 @@ internal sealed class ServerEventRouter(
         }
     }
 
-    // a handler the program was stopped in - an End, a debugger that ended it - did not fail: there is nothing to tell. A program that waits for its forms ends with
-    // the error; any other is only told.
+    // a handler the program was stopped in (an End, a debugger that ended it) did not fail: there is nothing to tell. A program that waits for its forms ends
+    // with the error; any other is only told.
     private void Failed(RuntimeSemanticsEvaluationResult failed)
     {
         if (session.Halt.Pending is not RuntimeHaltKind.End && !Forms.SessionForms.Of(session).TryFail(failed))

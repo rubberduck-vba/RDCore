@@ -30,12 +30,13 @@ public sealed class VisualBasicFormLifecycleTests
             "Public CancelUnload As Integer",
             "Public UnloadInLoad As Boolean",
             "Public EndInQueryUnload As Boolean",
+            "Public FailQueryUnload As Boolean",
             "Public Sub Foo()", "    Debug.Print \"Foo\"", "End Sub",
             "Private Sub Form_Initialize()", "    Debug.Print \"Initialize\"", .. counted, "    If FailInitialize Then Debug.Print 1 \\ pub", "End Sub",
             "Private Sub Form_Load()", "    Debug.Print \"Load\"", .. counted, "    If UnloadInLoad Then", "        Unload Me", "        Debug.Print \"rest of Load\"", "    End If",
             "    If FailLoad Then Debug.Print 1 \\ pub", "End Sub",
             "Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)", "    Debug.Print \"QueryUnload \" & UnloadMode", .. counted,
-            "    Cancel = CancelQuery", "    If EndInQueryUnload Then End", "End Sub",
+            "    Cancel = CancelQuery", "    If EndInQueryUnload Then End", "    If FailQueryUnload Then Debug.Print 1 \\ pub", "End Sub",
             "Private Sub Form_Unload(Cancel As Integer)", "    Debug.Print \"Unload\"", .. counted, "    Cancel = CancelUnload", "End Sub",
             "Private Sub Form_Terminate()", "    Debug.Print \"Terminate\"", "End Sub",
             "Private Sub Form_Resize()",
@@ -537,6 +538,34 @@ public sealed class VisualBasicFormLifecycleTests
 
         var printed = ended!.Output.Select(line => line.Trim()).ToArray();
         Assert.AreEqual(ExecutionOutcome.Halted, ended.Outcome, ended.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load", "main end", "QueryUnload 0" }, printed, string.Join(" | ", printed));
+    }
+
+    // an error nothing catches ends a VB6 program wherever it is raised: in the QueryUnload of the user's close, after Main returned, it ends the run that
+    // waits for the form. A run the error does not end waits for a form that stays loaded, and fails at the guard instead of waiting forever.
+    [TestMethod]
+    public async Task AnError_InAHandlerOfAFormLeftLoaded_EndsTheRunWithIt()
+    {
+        var libraries = new ModuleWorkspace.WorkspaceLibraries([], Shipped) with { Outside = RDFormsWorld(forms => new ClosedByItsUser(forms)) };
+        ExecuteResult? ended = null;
+        var run = ModuleWorkspace.InspectAsync([], Program(["Form2.FailQueryUnload = True", "Form2.Show", "Debug.Print \"main end\""]), (_, result, _) =>
+        {
+            ended = result;
+            return Task.CompletedTask;
+        }, libraries: libraries, language: SupportedLanguages.VB6, forms: Forms());
+
+        try
+        {
+            await run.WaitAsync(ModuleWorkspace.AnswerGuard);
+        }
+        catch (TimeoutException)
+        {
+            Assert.Fail("the run still waits for its form: the error in its QueryUnload did not end it.");
+        }
+
+        var printed = ended!.Output.Select(line => line.Trim()).ToArray();
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, ended.Outcome, ended.ErrorMessage);
+        Assert.AreEqual(11, ended.ErrorNumber, ended.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "Initialize", "Load", "main end", "QueryUnload 0" }, printed, string.Join(" | ", printed));
     }
 

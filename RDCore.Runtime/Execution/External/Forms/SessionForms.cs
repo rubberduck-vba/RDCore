@@ -362,7 +362,9 @@ internal sealed class SessionForms
     /// a Visual Basic 6.0 program, wherever it is raised.
     /// </summary>
     /// <param name="failed">What the handler failed with.</param>
-    /// <returns>Whether a program waits for its forms, and is ended with the error; <see langword="false"/> when none waits, and the error is only told.</returns>
+    /// <returns>
+    /// Whether a program waits for its forms, and is ended with the error; <see langword="false"/> when none waits, and the error is only told.
+    /// </returns>
     public bool TryFail(RuntimeSemanticsEvaluationResult failed)
     {
         lock (_gate)
