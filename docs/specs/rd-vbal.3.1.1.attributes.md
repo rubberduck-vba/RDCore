@@ -35,7 +35,7 @@ attribute semantics according to their original VB6 intent, because nothing in R
 |3.1.1.4|`VB_GlobalNameSpace`|Whether a class module is exposed to the global namespace.|
 |3.1.1.5|`VB_Customizable`|Whether a class, method or property is customizable in designer hosts.|
 |3.1.1.6|`VB_PredeclaredId`|Whether the environment host declares a global auto-object instance of the class.|
-|3.1.1.7|`VB_Description`|A short documentation string for IDE tooltips.|
+|3.1.1.7|`VB_Description`, `VB_VarDescription`|A short documentation string for IDE tooltips; `VB_VarDescription` for a module variable.|
 |3.1.1.8|`VB_Extensible`|Whether a class module is an extensible ("document") module, whose members a host extends.|
 
 Members of a class can also carry a `VB_UserMemId` attribute, which can specify a number of flags that modify the
@@ -228,7 +228,7 @@ show it as the symbol's doc string
 |Describes|Attribute|Annotation, read when no attribute is written|
 |---|---|---|
 |The module|`Attribute VB_Description`|`'@ModuleDescription("...")`, in the declarations section|
-|A procedure or a property|`Attribute <member>.VB_Description`, in its body|`'@Description("...")`, immediately above it|
+|A member|`Attribute <member>.VB_Description`, in its body|`'@Description("...")`, immediately above it|
 |A module variable|`Attribute <variable>.VB_VarDescription`, after its declaration|`'@VariableDescription("...")`, immediately above it|
 
 When a module writes both, the attribute is the description. The value is a string; an empty string describes nothing
