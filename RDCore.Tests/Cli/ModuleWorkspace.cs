@@ -28,7 +28,30 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 internal static class ModuleWorkspace
 {
-    internal static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace");
+    /// <summary>
+    /// The workspace root of every run, a folder of the test process's own on disk: the session starts in it, as one starts in its workspace's folder, so a
+    /// relative path in a program's file statements is a file there, never one of the folder the tests run from. It is taken away when the process exits.
+    /// </summary>
+    internal static readonly string Root = CreateRoot();
+
+    private static string CreateRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace-" + Environment.ProcessId);
+        Directory.CreateDirectory(root);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // a temporary folder: a file a program left open stays until the system clears the folder.
+            }
+        };
+
+        return root;
+    }
 
     /// <summary>A class module's source: the header every one has, then <paramref name="body"/>.</summary>
     public static string ClassModule(string name, params string[] body)
