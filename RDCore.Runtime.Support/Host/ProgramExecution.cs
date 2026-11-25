@@ -1014,14 +1014,17 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     }
 
     /// <summary>
-    /// Resets the session to what a new session of the program is: the objects the module variables hold are let go of, each running its
-    /// <c>Terminate</c>, and the session is then wiped as an <c>End</c> wipes it (<see cref="SessionWipe.Release"/>). A host that runs the program once for
-    /// each request resets the session between two requests, so that nothing one request left reaches the next.
+    /// Resets the session to what a new session of the program is: the objects the module variables and <c>Static</c> locals hold are let go of
+    /// (<see cref="SessionWipe.Release"/>), each that loses its last reference running its <c>Terminate</c>, and the session is then wiped as an <c>End</c>
+    /// wipes it (<see cref="SessionWipe.End"/>). A host that runs the program once for each request resets the session between two requests, so that
+    /// nothing one request left reaches the next.
     /// </summary>
     /// <returns>
-    /// What the <c>Terminate</c> handlers printed, and the error one left unhandled, reported as a run reports it. A program that waits is ended first, as a
-    /// run ends it; while one is running, the reset is refused.
+    /// What the <c>Terminate</c> handlers printed, and the error one left unhandled, reported as a run reports it; a refusal while a program is running.
     /// </returns>
+    /// <remarks>
+    /// A program that waits is ended first, as a run ends it.
+    /// </remarks>
     public Task<ExecuteResult> ResetAsync()
     {
         var session = provider.Session;

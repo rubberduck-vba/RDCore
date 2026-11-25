@@ -1021,13 +1021,14 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     }
 
     /// <summary>
-    /// Lets go of the objects the variables of the modules hold, and the <c>Static</c> locals of their procedures, as a program that sets each to its
-    /// initial value does: an object that loses its last reference runs its <c>Terminate</c> (<strong>MS-VBAL §5.3.1.10</strong>), and the objects it
+    /// Lets go of the objects that the modules' variables, and their procedures' <c>Static</c> locals, hold, as a program that sets each to its initial
+    /// value does: an object that loses its last reference runs its <c>Terminate</c> (<strong>MS-VBAL §5.3.1.10</strong>), and the objects it
     /// held are let go of in turn.
     /// </summary>
     /// <param name="session">The session these are the symbols of.</param>
     /// <remarks>
-    /// A <c>Terminate</c> that reads a variable finds it holding its initial value, or what code set it to since. It stops at the first <c>Terminate</c> that
+    /// A <c>Terminate</c> that reads a variable already let go of finds its initial value, or what code set it to since; one not let go of yet still holds
+    /// its object. It stops at the first <c>Terminate</c> that
     /// leaves an error unhandled (<see cref="ISessionErrorState.Untrappable"/>), as a program stops there: what is still held is the wipe's to let go of.
     /// </remarks>
     internal void LetGoOfModuleVariables(IRuntimeSession session)

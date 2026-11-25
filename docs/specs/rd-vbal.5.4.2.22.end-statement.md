@@ -34,11 +34,13 @@ variables that earlier lines assigned included.
 
 ### Reset between runs
 
-RD-VBA addition: a host that runs a program once for each request resets the session between two runs, so that nothing one run left reaches the next.
+RD-VBA addition: a session can be reset between two runs of a program, for a host that runs the program once for each request, so that nothing one
+run left reaches the next.
 The reset sets each module variable and `Static` local that holds an object to its initial value, and an object that loses its last reference runs its
 `Class_Terminate`. The session is then reset as `End` resets it. A `Class_Terminate` that leaves an error unhandled stops the release there: the
 reset reports the error as a run does, and the objects still held go with the session, running no `Class_Terminate`. A program that waits is ended
-first. While a program runs, the reset is refused.
+first. While a program runs, the reset is refused. Objects that hold one another, and that nothing else holds, never lose their last reference,
+and run no `Class_Terminate`, as in **MS-VBA**.
 
 ## Implementation
 

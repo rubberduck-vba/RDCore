@@ -23,8 +23,9 @@ namespace RDCore.Runtime.Execution;
 public static class SessionWipe
 {
     /// <summary>
-    /// Lets go of what the module variables of a program that is over hold, before the session is wiped (<see cref="End"/>): each is set to its initial
-    /// value, and an object that loses its last reference runs its <c>Terminate</c>, as it would if the program set the variable to <c>Nothing</c>. A host
+    /// Lets go of what the module variables and <c>Static</c> locals of a program that is over hold, before the session is wiped (<see cref="End"/>): each
+    /// is set to its initial value, and an object that loses its last reference runs its <c>Terminate</c>, as it would if the program set the variable to
+    /// <c>Nothing</c>. A host
     /// that runs one program again and again in a session, and gives each run a session as new as the first, releases and then wipes it after each run.
     /// </summary>
     /// <param name="session">The session the program ran in, with no program in progress in it.</param>
@@ -33,8 +34,8 @@ public static class SessionWipe
     /// when none did. The wipe lets go of what is still held, and runs no <c>Terminate</c>.
     /// </returns>
     /// <remarks>
-    /// A <c>Terminate</c> is program code: it runs on the program's thread, in the session's turn. Objects that hold one another, and that nothing else holds,
-    /// never lose their last reference, and run no <c>Terminate</c> (MS-VBA).
+    /// A <c>Terminate</c> is program code, so the caller runs the release on the program's thread, in the session's turn. Objects that hold one another,
+    /// and that nothing else holds, never lose their last reference, and run no <c>Terminate</c> (MS-VBA).
     /// </remarks>
     public static IVBRaisableError? Release(IRuntimeSession session)
     {
