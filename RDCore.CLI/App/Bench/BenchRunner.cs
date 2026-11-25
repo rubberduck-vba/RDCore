@@ -363,7 +363,8 @@ internal sealed class BenchRunner(
             throw;
         }
 
-        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Name)], load.Provider, built, load.Libraries);
+        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Name)], load.Provider, built,
+            load.Libraries);
     }
 
     /// <summary>

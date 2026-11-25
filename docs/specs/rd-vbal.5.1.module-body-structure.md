@@ -50,8 +50,9 @@ End Class
 |Running|`rdc run`, `rdc build` and `rdc bench` define each module of the file on its own: the file's own module first, then each block's, named by its header. A built program carries the modules of each file.|
 
 > [!NOTE]
-> **Not implemented.** The language server does not define a block's module yet; only `rdc run`, `rdc build` and `rdc bench` do. VBA and VB6 have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block
-> into a module file of its own. Two blocks of the same name are not reported either.
+> **Not implemented.** The language server does not define a block's module yet; only `rdc run`, `rdc build` and `rdc bench` do. VBA and VB6 have
+> no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own. Two blocks of
+> the same name are not reported either.
 
 ### Implementation
 
