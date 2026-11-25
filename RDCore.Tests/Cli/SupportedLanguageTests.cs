@@ -50,7 +50,7 @@ public sealed class SupportedLanguageTests
         var failure = Assert.Throws<InvalidOperationException>(() => _ = new SdkWorkspaceOptions { Language = "cobol" }.SupportedLanguage);
 
         StringAssert.Contains(failure.Message, "cobol");
-        StringAssert.Contains(failure.Message, "vba, vb6, basic");
+        StringAssert.Contains(failure.Message, "vba, vb6, basic, vbscript");
     }
 
     [TestMethod]

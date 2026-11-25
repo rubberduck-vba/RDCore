@@ -4,6 +4,7 @@ using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Repl;
 using RDCore.External.Interaction;
+using RDCore.Runtime.Execution.External.ScriptHost;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.SDK.Runtime;
@@ -88,6 +89,14 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         {
             await Error.WriteLineAsync(refusal);
             return ProgramRunner.Refused;
+        }
+
+        // a script is told its file and what it was started with, as cscript.exe tells it (WScript.ScriptFullName, WScript.Arguments): rdc's own switches
+        // are no more its arguments than cscript.exe's are.
+        if (workspace.Modules.FirstOrDefault(module => module.Name.Equals(entryPoint.Module, StringComparison.OrdinalIgnoreCase)) is { } script)
+        {
+            var file = fileSystem.Path.GetFullPath(fileSystem.Path.Combine(workspace.Root, script.RelativePath));
+            SessionScript.Of(provider.Session).Runs(file, arguments, Error);
         }
 
         // --unattended is the program's to know as well, as it is a built program's: it is first on the program's command line, once.

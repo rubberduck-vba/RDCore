@@ -202,6 +202,19 @@ internal sealed class SessionHalt : ISessionHalt
         Location = location;
     }
 
+    public int ExitCode { get; private set; }
+
+    public void RequestEnd(int exitCode, SourceLocation? location = null)
+    {
+        if (Pending is not null)
+        {
+            return;
+        }
+
+        Request(RuntimeHaltKind.End, location);
+        ExitCode = exitCode;
+    }
+
     private StepKind? _step;
     private int _stepDepth;
 
@@ -212,6 +225,7 @@ internal sealed class SessionHalt : ISessionHalt
     {
         Pending = null;
         Location = null;
+        ExitCode = 0;
         (_step, _stepping) = (null, false);
         _lastWaitedAt = null;
         Changed();

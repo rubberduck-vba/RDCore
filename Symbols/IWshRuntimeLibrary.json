@@ -1,0 +1,3435 @@
+{
+  "formatVersion": 7,
+  "name": "IWshRuntimeLibrary",
+  "description": "Windows Script Host Object Model",
+  "origin": {
+    "guid": "{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}",
+    "version": "1.0",
+    "file": "wshom.ocx",
+    "exportedBy": "rdc export-library 0.2"
+  },
+  "enums": [
+    {
+      "name": "__MIDL___MIDL_itf_iwshom_0001_0037_0001",
+      "members": [
+        {
+          "name": "WshRunning"
+        },
+        {
+          "name": "WshFinished",
+          "value": 1
+        },
+        {
+          "name": "WshFailed",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "CompareMethod",
+      "members": [
+        {
+          "name": "BinaryCompare"
+        },
+        {
+          "name": "TextCompare",
+          "value": 1
+        },
+        {
+          "name": "DatabaseCompare",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "IOMode",
+      "members": [
+        {
+          "name": "ForReading",
+          "value": 1
+        },
+        {
+          "name": "ForWriting",
+          "value": 2
+        },
+        {
+          "name": "ForAppending",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "name": "Tristate",
+      "members": [
+        {
+          "name": "TristateTrue",
+          "value": -1
+        },
+        {
+          "name": "TristateFalse"
+        },
+        {
+          "name": "TristateUseDefault",
+          "value": -2
+        },
+        {
+          "name": "TristateMixed",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "name": "__MIDL___MIDL_itf_iwshom_0000_0000_0001",
+      "members": [
+        {
+          "name": "Normal"
+        },
+        {
+          "name": "ReadOnly",
+          "value": 1
+        },
+        {
+          "name": "Hidden",
+          "value": 2
+        },
+        {
+          "name": "System",
+          "value": 4
+        },
+        {
+          "name": "Volume",
+          "value": 8
+        },
+        {
+          "name": "Directory",
+          "value": 16
+        },
+        {
+          "name": "Archive",
+          "value": 32
+        },
+        {
+          "name": "Alias",
+          "value": 1024
+        },
+        {
+          "name": "Compressed",
+          "value": 2048
+        }
+      ]
+    },
+    {
+      "name": "__MIDL___MIDL_itf_iwshom_0000_0000_0002",
+      "members": [
+        {
+          "name": "UnknownType"
+        },
+        {
+          "name": "Removable",
+          "value": 1
+        },
+        {
+          "name": "Fixed",
+          "value": 2
+        },
+        {
+          "name": "Remote",
+          "value": 3
+        },
+        {
+          "name": "CDRom",
+          "value": 4
+        },
+        {
+          "name": "RamDisk",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "name": "__MIDL___MIDL_itf_iwshom_0000_0000_0003",
+      "members": [
+        {
+          "name": "WindowsFolder"
+        },
+        {
+          "name": "SystemFolder",
+          "value": 1
+        },
+        {
+          "name": "TemporaryFolder",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "__MIDL___MIDL_itf_iwshom_0000_0000_0004",
+      "members": [
+        {
+          "name": "StdIn"
+        },
+        {
+          "name": "StdOut",
+          "value": 1
+        },
+        {
+          "name": "StdErr",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "__MIDL___MIDL_itf_iwshom_0001_0016_0001",
+      "members": [
+        {
+          "name": "WshHide"
+        },
+        {
+          "name": "WshNormalFocus",
+          "value": 1
+        },
+        {
+          "name": "WshMinimizedFocus",
+          "value": 2
+        },
+        {
+          "name": "WshMaximizedFocus",
+          "value": 3
+        },
+        {
+          "name": "WshNormalNoFocus",
+          "value": 4
+        },
+        {
+          "name": "WshMinimizedNoFocus",
+          "value": 6
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "IWshShell",
+      "description": "Shell Object Interface",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "SpecialFolders",
+          "kind": "propertyGet",
+          "type": "WshCollection"
+        },
+        {
+          "name": "Environment",
+          "kind": "propertyGet",
+          "type": "WshEnvironment",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Run",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Command",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "WindowStyle",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "WaitOnReturn",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Popup",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Text",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "SecondsToWait",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Title",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateShortcut",
+          "type": "Object",
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ExpandEnvironmentStrings",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Src",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegRead",
+          "type": "Variant",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegWrite",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant"
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RegDelete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IWshShell2",
+      "description": "Shell Object Interface",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "SpecialFolders",
+          "kind": "propertyGet",
+          "type": "WshCollection"
+        },
+        {
+          "name": "Environment",
+          "kind": "propertyGet",
+          "type": "WshEnvironment",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Run",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Command",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "WindowStyle",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "WaitOnReturn",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Popup",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Text",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "SecondsToWait",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Title",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateShortcut",
+          "type": "Object",
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ExpandEnvironmentStrings",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Src",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegRead",
+          "type": "Variant",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegWrite",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant"
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RegDelete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "LogEvent",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant"
+            },
+            {
+              "name": "Message",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Target",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "AppActivate",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "App",
+              "type": "Variant"
+            },
+            {
+              "name": "Wait",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "SendKeys",
+          "parameters": [
+            {
+              "name": "Keys",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Wait",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IWshNetwork",
+      "description": "Network Object",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "UserDomain",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserProfile",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "ComputerName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Organization",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "Site",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "MapNetworkDrive",
+          "parameters": [
+            {
+              "name": "LocalName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "RemoteName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UserName",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RemoveNetworkDrive",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "EnumNetworkDrives",
+          "type": "WshCollection"
+        },
+        {
+          "name": "AddPrinterConnection",
+          "parameters": [
+            {
+              "name": "LocalName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "RemoteName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UserName",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RemovePrinterConnection",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "EnumPrinterConnections",
+          "type": "WshCollection"
+        },
+        {
+          "name": "SetDefaultPrinter",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IFileSystem",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Drives",
+          "kind": "propertyGet",
+          "type": "Drives"
+        },
+        {
+          "name": "BuildPath",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetDriveName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetParentFolderName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFileName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetBaseName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetExtensionName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetAbsolutePathName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetTempName",
+          "type": "String"
+        },
+        {
+          "name": "DriveExists",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "DriveSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FileExists",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "FileSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FolderExists",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "FolderSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetDrive",
+          "type": "Drive",
+          "parameters": [
+            {
+              "name": "DriveSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFile",
+          "type": "File",
+          "parameters": [
+            {
+              "name": "FilePath",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFolder",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "FolderPath",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetSpecialFolder",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "SpecialFolder",
+              "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0003",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DeleteFile",
+          "parameters": [
+            {
+              "name": "FileSpec",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "DeleteFolder",
+          "parameters": [
+            {
+              "name": "FolderSpec",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "MoveFile",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "MoveFolder",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CopyFile",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "OverWriteFiles",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            }
+          ]
+        },
+        {
+          "name": "CopyFolder",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "OverWriteFiles",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            }
+          ]
+        },
+        {
+          "name": "CreateFolder",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateTextFile",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "FileName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Overwrite",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            },
+            {
+              "name": "Unicode",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "OpenTextFile",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "FileName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "IOMode",
+              "type": "IOMode",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "1"
+            },
+            {
+              "name": "Create",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            },
+            {
+              "name": "Format",
+              "type": "Tristate",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "FileSystemObject",
+      "progId": "Scripting.FileSystemObject",
+      "isCreatable": true,
+      "defaultInterface": "IFileSystem3",
+      "members": [
+        {
+          "name": "Drives",
+          "kind": "propertyGet",
+          "type": "Drives"
+        },
+        {
+          "name": "BuildPath",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetDriveName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetParentFolderName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFileName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetBaseName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetExtensionName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetAbsolutePathName",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetTempName",
+          "type": "String"
+        },
+        {
+          "name": "DriveExists",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "DriveSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FileExists",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "FileSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FolderExists",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "FolderSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetDrive",
+          "type": "Drive",
+          "parameters": [
+            {
+              "name": "DriveSpec",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFile",
+          "type": "File",
+          "parameters": [
+            {
+              "name": "FilePath",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFolder",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "FolderPath",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetSpecialFolder",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "SpecialFolder",
+              "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0003",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DeleteFile",
+          "parameters": [
+            {
+              "name": "FileSpec",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "DeleteFolder",
+          "parameters": [
+            {
+              "name": "FolderSpec",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "MoveFile",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "MoveFolder",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CopyFile",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "OverWriteFiles",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            }
+          ]
+        },
+        {
+          "name": "CopyFolder",
+          "parameters": [
+            {
+              "name": "Source",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "OverWriteFiles",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            }
+          ]
+        },
+        {
+          "name": "CreateFolder",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "Path",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateTextFile",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "FileName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Overwrite",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            },
+            {
+              "name": "Unicode",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "OpenTextFile",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "FileName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "IOMode",
+              "type": "IOMode",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "1"
+            },
+            {
+              "name": "Create",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            },
+            {
+              "name": "Format",
+              "type": "Tristate",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "name": "GetStandardStream",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "StandardStreamType",
+              "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0004",
+              "isByVal": true
+            },
+            {
+              "name": "Unicode",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "GetFileVersion",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "FileName",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Drive",
+      "defaultInterface": "IDrive",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Path",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "DriveLetter",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ShareName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "DriveType",
+          "kind": "propertyGet",
+          "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0002"
+        },
+        {
+          "name": "RootFolder",
+          "kind": "propertyGet",
+          "type": "Folder"
+        },
+        {
+          "name": "AvailableSpace",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "FreeSpace",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "TotalSize",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "VolumeName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "VolumeName",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FileSystem",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "SerialNumber",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "IsReady",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "name": "Drives",
+      "defaultInterface": "IDriveCollection",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Drive",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Key",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long"
+        }
+      ]
+    },
+    {
+      "name": "Folder",
+      "defaultInterface": "IFolder",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Path",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ShortPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ShortName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Drive",
+          "kind": "propertyGet",
+          "type": "Drive"
+        },
+        {
+          "name": "ParentFolder",
+          "kind": "propertyGet",
+          "type": "Folder"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyGet",
+          "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0001"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0001",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DateCreated",
+          "kind": "propertyGet",
+          "type": "Date"
+        },
+        {
+          "name": "DateLastModified",
+          "kind": "propertyGet",
+          "type": "Date"
+        },
+        {
+          "name": "DateLastAccessed",
+          "kind": "propertyGet",
+          "type": "Date"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "Copy",
+          "parameters": [
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "OverWriteFiles",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            }
+          ]
+        },
+        {
+          "name": "Move",
+          "parameters": [
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "IsRootFolder",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Size",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "SubFolders",
+          "kind": "propertyGet",
+          "type": "Folders"
+        },
+        {
+          "name": "Files",
+          "kind": "propertyGet",
+          "type": "Files"
+        },
+        {
+          "name": "CreateTextFile",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "FileName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Overwrite",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            },
+            {
+              "name": "Unicode",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Folders",
+      "defaultInterface": "IFolderCollection",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Add",
+          "type": "Folder",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Folder",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Key",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long"
+        }
+      ]
+    },
+    {
+      "name": "File",
+      "defaultInterface": "IFile",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Path",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ShortPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ShortName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Drive",
+          "kind": "propertyGet",
+          "type": "Drive"
+        },
+        {
+          "name": "ParentFolder",
+          "kind": "propertyGet",
+          "type": "Folder"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyGet",
+          "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0001"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "__MIDL___MIDL_itf_iwshom_0000_0000_0001",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DateCreated",
+          "kind": "propertyGet",
+          "type": "Date"
+        },
+        {
+          "name": "DateLastModified",
+          "kind": "propertyGet",
+          "type": "Date"
+        },
+        {
+          "name": "DateLastAccessed",
+          "kind": "propertyGet",
+          "type": "Date"
+        },
+        {
+          "name": "Size",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "Copy",
+          "parameters": [
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "OverWriteFiles",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "True"
+            }
+          ]
+        },
+        {
+          "name": "Move",
+          "parameters": [
+            {
+              "name": "Destination",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "OpenAsTextStream",
+          "type": "TextStream",
+          "parameters": [
+            {
+              "name": "IOMode",
+              "type": "IOMode",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "1"
+            },
+            {
+              "name": "Format",
+              "type": "Tristate",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "defaultInterface": "IFileCollection",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "File",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Key",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long"
+        }
+      ]
+    },
+    {
+      "name": "TextStream",
+      "defaultInterface": "ITextStream",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Line",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Column",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "AtEndOfStream",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "AtEndOfLine",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Read",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Characters",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ReadLine",
+          "type": "String"
+        },
+        {
+          "name": "ReadAll",
+          "type": "String"
+        },
+        {
+          "name": "Write",
+          "parameters": [
+            {
+              "name": "Text",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "WriteLine",
+          "parameters": [
+            {
+              "name": "Text",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "WriteBlankLines",
+          "parameters": [
+            {
+              "name": "Lines",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Skip",
+          "parameters": [
+            {
+              "name": "Characters",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "SkipLine"
+        },
+        {
+          "name": "Close"
+        }
+      ]
+    },
+    {
+      "name": "WshShell",
+      "description": "Shell Object",
+      "progId": "WScript.Shell",
+      "isCreatable": true,
+      "defaultInterface": "IWshShell3",
+      "members": [
+        {
+          "name": "SpecialFolders",
+          "kind": "propertyGet",
+          "type": "WshCollection"
+        },
+        {
+          "name": "Environment",
+          "kind": "propertyGet",
+          "type": "WshEnvironment",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Run",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Command",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "WindowStyle",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "WaitOnReturn",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Popup",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Text",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "SecondsToWait",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Title",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateShortcut",
+          "type": "Object",
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ExpandEnvironmentStrings",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Src",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegRead",
+          "type": "Variant",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegWrite",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant"
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RegDelete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "LogEvent",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant"
+            },
+            {
+              "name": "Message",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Target",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "AppActivate",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "App",
+              "type": "Variant"
+            },
+            {
+              "name": "Wait",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "SendKeys",
+          "parameters": [
+            {
+              "name": "Keys",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Wait",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Exec",
+          "type": "WshExec",
+          "parameters": [
+            {
+              "name": "Command",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CurrentDirectory",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "CurrentDirectory",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IWshShell_Class",
+      "description": "Shell Object",
+      "progId": "WScript.Shell",
+      "isCreatable": true,
+      "isHidden": true,
+      "defaultInterface": "IWshShell3",
+      "members": [
+        {
+          "name": "SpecialFolders",
+          "kind": "propertyGet",
+          "type": "WshCollection"
+        },
+        {
+          "name": "Environment",
+          "kind": "propertyGet",
+          "type": "WshEnvironment",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Run",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Command",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "WindowStyle",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "WaitOnReturn",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Popup",
+          "type": "Long",
+          "parameters": [
+            {
+              "name": "Text",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "SecondsToWait",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Title",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateShortcut",
+          "type": "Object",
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ExpandEnvironmentStrings",
+          "type": "String",
+          "parameters": [
+            {
+              "name": "Src",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegRead",
+          "type": "Variant",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegWrite",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant"
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RegDelete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "LogEvent",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant"
+            },
+            {
+              "name": "Message",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Target",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "AppActivate",
+          "type": "Boolean",
+          "parameters": [
+            {
+              "name": "App",
+              "type": "Variant"
+            },
+            {
+              "name": "Wait",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "SendKeys",
+          "parameters": [
+            {
+              "name": "Keys",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Wait",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Exec",
+          "type": "WshExec",
+          "parameters": [
+            {
+              "name": "Command",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CurrentDirectory",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "CurrentDirectory",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "WshShortcut",
+      "description": "Shortcut Object",
+      "defaultInterface": "IWshShortcut",
+      "members": [
+        {
+          "name": "FullName",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "Arguments",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Arguments",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Description",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Description",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Hotkey",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Hotkey",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "IconLocation",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IconLocation",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RelativePath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "WindowStyle",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "WindowStyle",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "WorkingDirectory",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "WorkingDirectory",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Load",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Save"
+        }
+      ]
+    },
+    {
+      "name": "IWshShortcut_Class",
+      "description": "Shortcut Object",
+      "isHidden": true,
+      "defaultInterface": "IWshShortcut",
+      "members": [
+        {
+          "name": "FullName",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "Arguments",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Arguments",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Description",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Description",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Hotkey",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Hotkey",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "IconLocation",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IconLocation",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RelativePath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "WindowStyle",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "WindowStyle",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "WorkingDirectory",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "WorkingDirectory",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Load",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Save"
+        }
+      ]
+    },
+    {
+      "name": "WshNetwork",
+      "description": "Network Object",
+      "progId": "WScript.Network",
+      "isCreatable": true,
+      "defaultInterface": "IWshNetwork2",
+      "members": [
+        {
+          "name": "UserDomain",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserProfile",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "ComputerName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Organization",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "Site",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "MapNetworkDrive",
+          "parameters": [
+            {
+              "name": "LocalName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "RemoteName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UserName",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RemoveNetworkDrive",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "EnumNetworkDrives",
+          "type": "WshCollection"
+        },
+        {
+          "name": "AddPrinterConnection",
+          "parameters": [
+            {
+              "name": "LocalName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "RemoteName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UserName",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RemovePrinterConnection",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "EnumPrinterConnections",
+          "type": "WshCollection"
+        },
+        {
+          "name": "SetDefaultPrinter",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "AddWindowsPrinterConnection",
+          "parameters": [
+            {
+              "name": "PrinterName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DriverName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            },
+            {
+              "name": "Port",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022LPT1\u0022"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IWshNetwork_Class",
+      "description": "Network Object",
+      "progId": "WScript.Network",
+      "isCreatable": true,
+      "isHidden": true,
+      "defaultInterface": "IWshNetwork2",
+      "members": [
+        {
+          "name": "UserDomain",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserProfile",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "ComputerName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Organization",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "Site",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "MapNetworkDrive",
+          "parameters": [
+            {
+              "name": "LocalName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "RemoteName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UserName",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RemoveNetworkDrive",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "EnumNetworkDrives",
+          "type": "WshCollection"
+        },
+        {
+          "name": "AddPrinterConnection",
+          "parameters": [
+            {
+              "name": "LocalName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "RemoteName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UserName",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RemovePrinterConnection",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Force",
+              "type": "Variant",
+              "isOptional": true
+            },
+            {
+              "name": "UpdateProfile",
+              "type": "Variant",
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "EnumPrinterConnections",
+          "type": "WshCollection"
+        },
+        {
+          "name": "SetDefaultPrinter",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "AddWindowsPrinterConnection",
+          "parameters": [
+            {
+              "name": "PrinterName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DriverName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            },
+            {
+              "name": "Port",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022LPT1\u0022"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "WshCollection",
+      "description": "Generic Collection Object",
+      "defaultInterface": "IWshCollection",
+      "members": [
+        {
+          "name": "Item",
+          "type": "Variant",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Index",
+              "type": "Variant"
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "type": "Long"
+        },
+        {
+          "name": "length",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "IWshCollection_Class",
+      "description": "Generic Collection Object",
+      "isHidden": true,
+      "defaultInterface": "IWshCollection",
+      "members": [
+        {
+          "name": "Item",
+          "type": "Variant",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Index",
+              "type": "Variant"
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "type": "Long"
+        },
+        {
+          "name": "length",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "WshEnvironment",
+      "description": "Environment Variables Collection Object",
+      "defaultInterface": "IWshEnvironment",
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "type": "Long"
+        },
+        {
+          "name": "length",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Remove",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IWshEnvironment_Class",
+      "description": "Environment Variables Collection Object",
+      "isHidden": true,
+      "defaultInterface": "IWshEnvironment",
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "type": "Long"
+        },
+        {
+          "name": "length",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Remove",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "WshURLShortcut",
+      "description": "URLShortcut Object",
+      "defaultInterface": "IWshURLShortcut",
+      "members": [
+        {
+          "name": "FullName",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Load",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Save"
+        }
+      ]
+    },
+    {
+      "name": "IWshURLShortcut_Class",
+      "description": "URLShortcut Object",
+      "isHidden": true,
+      "defaultInterface": "IWshURLShortcut",
+      "members": [
+        {
+          "name": "FullName",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "TargetPath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Load",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "PathLink",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Save"
+        }
+      ]
+    },
+    {
+      "name": "WshExec",
+      "description": "WSHExec object",
+      "defaultInterface": "IWshExec",
+      "members": [
+        {
+          "name": "Status",
+          "kind": "propertyGet",
+          "type": "__MIDL___MIDL_itf_iwshom_0001_0037_0001"
+        },
+        {
+          "name": "StdIn",
+          "kind": "propertyGet",
+          "type": "TextStream"
+        },
+        {
+          "name": "StdOut",
+          "kind": "propertyGet",
+          "type": "TextStream"
+        },
+        {
+          "name": "StdErr",
+          "kind": "propertyGet",
+          "type": "TextStream"
+        },
+        {
+          "name": "ProcessID",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "ExitCode",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Terminate"
+        }
+      ]
+    }
+  ]
+}
