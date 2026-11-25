@@ -1,7 +1,9 @@
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
@@ -10,8 +12,25 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Symbols;
 
-// a module of a project that has a parse, addressed under the project's root.
-public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse);
+// a module of a project that has a parse, addressed under the project's root. A module of parts has the directives they state (ModuleAssembly); any
+// other has its tree's (Directives is null).
+public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse, ModuleDirectives? Directives = null)
+{
+    // the modules the parts of a project make, addressed under its root, and those that its parts make invalid (ModuleAssembly.Of), in the order of each
+    // module's first part.
+    public static (IReadOnlyList<ParsedModule> Modules, IReadOnlyList<RefusedModule> Refused) Assemble(Uri root, IEnumerable<ModulePart> parts)
+    {
+        var (modules, refused) = ModuleAssembly.Of(parts);
+        return (
+            [.. modules.Select(module => new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Kind, module.Parse, module.Directives))],
+            refused);
+    }
+
+    // the directives of each module of parts, by its name (WorkspaceSymbolResolver.Compose).
+    public static IReadOnlyDictionary<string, ModuleDirectives> DirectivesOf(IEnumerable<ParsedModule> modules)
+        => modules.Where(module => module.Directives is not null)
+            .ToDictionary(module => module.Name, module => module.Directives!.Value, StringComparer.OrdinalIgnoreCase);
+}
 
 // a project the session's project references (MS-VBAL §4.1), as its modules are defined in the session: addressed under its own root, bound among its own
 // project's names (Resolver), and named as the project at the precedence of the reference (DefineSymbolsParams.Library, LibraryPriority).
@@ -53,7 +72,7 @@ public sealed record class SessionDefinition(
             WorkspaceRoot = SessionRoot,
             ModuleUri = Module.Uri,
             ModuleName = Module.Name,
-            Directives = ModuleKinds.DirectivesOf(Module.Kind, tree.GetModuleDirectives()),
+            Directives = ModuleKinds.DirectivesOf(Module.Kind, Module.Directives ?? tree.GetModuleDirectives()),
             ImplementedInterfaceNames = tree?.GetImplementedInterfaceNames() ?? [],
             ImplementedInterfaceRanges = tree?.GetImplementedInterfaceRanges() ?? [],
             Library = Referenced?.Name,

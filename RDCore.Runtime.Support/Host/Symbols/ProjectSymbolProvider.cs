@@ -25,7 +25,8 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// </para>
 /// <para>
 /// A built program runs where its workspace's sources are not: the modules its build read of each file are given instead (<c>known</c>), and no source
-/// of a file named there is read. A file of several modules (its <c>Class</c> and <c>Module</c> blocks) has a symbol for each.
+/// of a file named there is read. A file of several modules (its <c>Class</c> and <c>Module</c> blocks) has a symbol for each. The parts of one module
+/// (its <c>Partial</c> blocks) have one symbol, of the plain part's name and kind, or of the first part's when every part is <c>Partial</c>.
 /// </para>
 /// </remarks>
 /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
@@ -43,25 +44,32 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
     public IEnumerable<Symbol> ProvideSymbols()
     {
         var modules = new List<Symbol>();
+        var parts = new List<(RDCoreModule File, DeclaredModule Module)>();
         foreach (var module in project.Modules)
+        {
+            // a file of several modules declares each (ModuleKinds.ModulesOf): its own, which the project's word is about, then each block's.
+            var declared = known is not null && known.TryGetValue(module.RelativeUri, out var given)
+                ? given
+                : ModuleKinds.ModulesOf(module, ReadSourceOrNull(module.RelativeUri));
+            parts.AddRange(declared.Select(each => (module, each)));
+        }
+
+        // the Partial parts of a name join its plain part, and the first of them is the module when every part of the name is Partial (ModuleAssembly).
+        var plain = parts.Where(part => !part.Module.IsPartial).Select(part => part.Module.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var partial = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (module, (name, kind, isBlock)) in parts.Where(part => !part.Module.IsPartial
+            || (!plain.Contains(part.Module.Name) && partial.Add(part.Module.Name))))
         {
             // the kind is the project's word for a document module, and the source's otherwise (ModuleKinds.Of), as the language server reads it. What a
             // document module's attributes make it is the language server's to send with its members (DefineSymbolsParams.Directives).
             // A document module's host class is the project's word too (ModuleKinds.HostClassOf): its code names that class's members.
-            // A file of several modules gives one symbol for each (ModuleKinds.ModulesOf): its own, which the project's word is about, then each block's.
-            var declared = known is not null && known.TryGetValue(module.RelativeUri, out var given)
-                ? given
-                : ModuleKinds.ModulesOf(module, ReadSourceOrNull(module.RelativeUri));
-            foreach (var (name, kind, isBlock) in declared)
-            {
-                modules.Add(kind.IsClass()
-                    ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
-                    {
-                        IsDocument = kind == ModuleType.DocumentModule,
-                        HostClass = !isBlock && module.Super is { } super ? ModuleKinds.HostClassOf(super) : null,
-                    }
-                    : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name));
-            }
+            modules.Add(kind.IsClass()
+                ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
+                {
+                    IsDocument = kind == ModuleType.DocumentModule,
+                    HostClass = !isBlock && module.Super is { } super ? ModuleKinds.HostClassOf(super) : null,
+                }
+                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name));
         }
 
         // the project itself, by its name: what qualifies the names of its own modules and types (MVVM.AppContext, MS-VBAL §5.6.12), as a library's name

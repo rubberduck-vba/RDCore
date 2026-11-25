@@ -627,6 +627,21 @@
   <data name="VBCompileError_ModuleNameTaken_Verbose" xml:space="preserve">
     <value>Un autre module du projet se nomme '{0}' : donnez un autre nom à l'un d'eux.</value>
   </data>
+  <data name="VBCompileError_ModulePartTwiceInAFile_Verbose" xml:space="preserve">
+    <value>Le fichier contient une autre partie du module '{0}' : écrivez ce code dans ce bloc-là.</value>
+  </data>
+  <data name="VBCompileError_ModulePartOfAnotherKind" xml:space="preserve">
+    <value>Partie de module d&apos;un autre type</value>
+  </data>
+  <data name="VBCompileError_ModulePartOfAnotherKind_Verbose" xml:space="preserve">
+    <value>Cette partie du module '{0}' n&apos;est pas du type du module : les parties d&apos;un module de classe sont des parties Class, et celles d&apos;un module standard, des parties Module.</value>
+  </data>
+  <data name="VBCompileError_ModuleDirectiveStatedDifferently" xml:space="preserve">
+    <value>Directive de module énoncée autrement</value>
+  </data>
+  <data name="VBCompileError_ModuleDirectiveStatedDifferently_Verbose" xml:space="preserve">
+    <value>'{1}' dit autre chose qu&apos;une autre partie du module '{0}' : énoncez-le dans une seule partie, ou de la même façon dans chacune.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
   </data>

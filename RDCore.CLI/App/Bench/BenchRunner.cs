@@ -8,6 +8,7 @@ using RDCore.External.Interaction;
 using RDCore.Parsing;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
@@ -443,7 +444,8 @@ internal sealed class BenchRunner(
             var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project, composed.Language);
             var projectResolver = WorkspaceSymbolResolver.Compose(
                 projectRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit), each.Name,
-                scope, [.. new LibrarySymbolProvider(projectRoot, ownLibraries, composed.Is64Bit).ProvideSymbols()], HostsOf(each.Workspace));
+                scope, [.. new LibrarySymbolProvider(projectRoot, ownLibraries, composed.Is64Bit).ProvideSymbols()], HostsOf(each.Workspace),
+                ParsedModule.DirectivesOf(modules));
             return new ReferencedProjectModules(each.Name, referenced.Priorities.GetValueOrDefault(each.Name), projectRoot, modules, projectResolver);
         }).ToArray();
 
@@ -455,7 +457,7 @@ internal sealed class BenchRunner(
 
         var resolver = WorkspaceSymbolResolver.Compose(
             root, own.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit),
-            workspace.Project.Name, scope, librarySymbols, HostsOf(workspace));
+            workspace.Project.Name, scope, librarySymbols, HostsOf(workspace), ParsedModule.DirectivesOf(own));
 
         var define = new DefineSymbolsHandler(
             provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries), errorDetails,
@@ -506,11 +508,12 @@ internal sealed class BenchRunner(
     // the modules of a workspace that parse, addressed under root; what keeps one from parsing is a problem, named with the prefix (its project's, for a
     // referenced one). A module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a
     // branch of a #If that is excluded, which only the host knows. The parser reads text alone: a form's designer is set on its parse from its text and its
-    // companion file, as the language server sets it. A file of several modules is parsed once, and each of its modules is defined with its own part of the
-    // parse (RDCoreDocument.ParseOf): the file's own module first, then each block's, named as its header writes it.
-    private List<ParsedModule> Parsed(BenchWorkspace workspace, Uri root, List<string> problems, string prefix)
+    // companion file, as the language server sets it. A file of several modules is parsed once, and each of its modules is a part with its own part of the
+    // parse (RDCoreDocument.ParseOf): the file's own module first, then each block's, named as its header writes it. The parts of one name are one module
+    // (ModuleAssembly); a module its parts make invalid is a problem, and none of its parts is defined.
+    private IReadOnlyList<ParsedModule> Parsed(BenchWorkspace workspace, Uri root, List<string> problems, string prefix)
     {
-        var modules = new List<ParsedModule>();
+        var parts = new List<ModulePart>();
         foreach (var module in workspace.Modules)
         {
             var file = workspace.DocumentOf(module);
@@ -529,12 +532,13 @@ internal sealed class BenchRunner(
                 continue;
             }
 
-            var document = new RDCoreDocument(file, parse);
-            modules.Add(new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Type, document.ParseOf(file)!));
-            foreach (var block in parse.BlockModules)
-            {
-                modules.Add(new ParsedModule(SymbolUri.Module(root, block.Name), block.Name, block.Kind, document.ParseOf(block.Uri)!));
-            }
+            parts.AddRange(ModulePart.PartsOf(file, module.Name, module.Type, parse));
+        }
+
+        var (modules, refused) = ParsedModule.Assemble(root, parts);
+        foreach (var invalid in refused)
+        {
+            problems.Add($"{prefix}{invalid.Name}: {string.Join("; ", invalid.Errors.Select(error => error.Description))}");
         }
 
         return modules;

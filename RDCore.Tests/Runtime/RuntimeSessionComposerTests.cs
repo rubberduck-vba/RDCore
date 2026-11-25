@@ -227,4 +227,29 @@ public sealed class RuntimeSessionComposerTests
         Assert.IsNull(account.HostClass, "what the project says of the file is not said of a block");
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(modules[2]);
     }
+
+    // the parts of one module have one symbol, where its plain part is: of its kind, whatever a Partial part says. Parts that are all Partial have one, of
+    // the first part's name and kind.
+    [TestMethod]
+    public void ThePartsOfAModule_HaveOneSymbol_OfThePlainPartsKind_OrOfTheFirstPartsWhenAllArePartial()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-composer-parts");
+        var project = new RDCoreProject
+        {
+            Modules = [new RDCoreModule { RelativeUri = "Blocks.bas" }, new RDCoreModule { RelativeUri = "Helpers.bas" }],
+        };
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(root, "Blocks.bas")] = new(string.Join("\r\n", "Attribute VB_Name = \"Blocks\"",
+                "Partial Class Helpers", "End Class", "Partial Class Account", "End Class") + "\r\n"),
+            [Path.Combine(root, "Helpers.bas")] = new(string.Join("\r\n",
+                "Attribute VB_Name = \"Helpers\"", "Partial Module ACCOUNT", "End Module") + "\r\n"),
+        });
+
+        var modules = new ProjectSymbolProvider(new Uri(root), project, fs).ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
+
+        CollectionAssert.AreEqual(new[] { "Blocks", "Account", "Helpers" }, modules.Select(module => module.Name).ToArray());
+        Assert.IsInstanceOfType<VBClassModuleSymbol>(modules[1], "the first part's kind");
+        Assert.IsInstanceOfType<VBStandardModuleSymbol>(modules[2], "the plain part's kind");
+    }
 }
