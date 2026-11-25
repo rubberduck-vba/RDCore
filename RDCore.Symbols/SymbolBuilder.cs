@@ -577,13 +577,20 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     // <paramref name="isConditional"/> says whether a position is in a branch of a #If block: a name the procedure declares only there is declared by the
     // statement of the live branch, which the host knows and this does not, and a ReDim or a reference of it declares it for when each is dead, as one of an
     // outer name does (MS-VBAL §3.4).
+    // <paramref name="ofTheModule"/> says that what the body declares is the module's: a script's code (ProgramEntryPoint.ScriptName) declares the file's own
+    // variables and constants, as VBScript's global code does, by a Dim or a Const anywhere in it, a ReDim, or a name it uses; the procedures see them.
     public IEnumerable<Symbol> BuildLocals(
         MemberDeclarationNode member, Uri procedureUri, IReadOnlySet<string> outerScopeNames,
         ModuleDirectives directives = default, bool withImplicitDeclarations = true,
         ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure,
         IReadOnlyDictionary<string, ImmutableArray<SourcePosition>>? conditionalOuter = null,
-        Func<SourcePosition, bool>? isConditional = null)
+        Func<SourcePosition, bool>? isConditional = null, bool ofTheModule = false)
     {
+        if (ofTheModule)
+        {
+            implicitScope = ImplicitDeclarationScope.Module;
+        }
+
         var results = new List<Symbol>();
         var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sites = new Dictionary<string, List<SourcePosition>>(StringComparer.OrdinalIgnoreCase);
@@ -602,6 +609,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
                 : !declared.Contains(name) ? outer : null;
         }
 
+        Symbol Redimmed(RedimDeclarationNode redim) => ofTheModule ? BuildRedimModuleVariable(redim) : BuildRedimLocal(redim, procedureUri);
+
         // a declaration nested in an If/ElseIf/Else branch still parents to the procedure symbol —
         // VBA has no block scope (MS-VBAL 5.4.3.1-3) — so locals are hunted for through the whole
         // body, not just the member's immediate children.
@@ -614,13 +623,13 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             switch (child)
             {
                 case VariableDeclarationNode local:
-                    results.Add(BuildLocalVariable(local, procedureUri));
+                    results.Add(ofTheModule ? BuildModuleField(local) : BuildLocalVariable(local, procedureUri));
                     declared.Add(local.Name);
                     (sites.TryGetValue(local.Name, out var variableSites) ? variableSites : sites[local.Name] = []).Add(local.SourceLocation.Range.Start);
                     break;
 
                 case ConstantDeclarationNode { ConstKind: ConstKind.Local } local:
-                    results.Add(BuildLocalConstant(local, procedureUri));
+                    results.Add(ofTheModule ? BuildConstant(local) : BuildLocalConstant(local, procedureUri));
                     declared.Add(local.Name);
                     (sites.TryGetValue(local.Name, out var constantSites) ? constantSites : sites[local.Name] = []).Add(local.SourceLocation.Range.Start);
                     break;
@@ -655,7 +664,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             {
                 declared.Add(redim.Name);
                 declaredUnlessLive.Add(redim.Name);
-                results.Add(BuildRedimLocal(redim, procedureUri).With(SymbolProperties.UnlessLive, unlessLive));
+                results.Add(Redimmed(redim).With(SymbolProperties.UnlessLive, unlessLive));
                 continue;
             }
 
@@ -667,7 +676,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             }
 
             declared.Add(redim.Name);
-            results.Add(BuildRedimLocal(redim, procedureUri));
+            results.Add(Redimmed(redim));
         }
 
         // pass 3 — implicit declarations. MS-VBAL 5.6.10: a simple name expression in the default
@@ -1105,6 +1114,17 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         return new VBLocalVariableSymbol(
             workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, range,
             ResolvedType: ResizableArrayType(elementType), DeclaredBy: LocalDeclarationKind.ReDim);
+    }
+
+    // the array a ReDim of a script's code declares (BuildLocals, ofTheModule): the module's, marked as implicit as an implicit module variable is, so that a
+    // later pass, whose resolver holds it, declares it again rather than matching it (IsOwnModuleVariable).
+    private Symbol BuildRedimModuleVariable(RedimDeclarationNode node)
+    {
+        var range = RangeOf(node);
+        var elementType = ArrayElementType(node.Name, AsTypeOf(node), node.TypeHint, moduleUri);
+        return new VBModuleFieldVariableMemberSymbol(workspaceRoot, moduleUri, node.Name, memberScope, ResizableArrayType(elementType), range, range,
+                AccessModifier.Implicit)
+            .With(SymbolProperties.ImplicitlyDeclared, true);
     }
 
     // The element type for an array declaration also reads the name behind a trailing `()` on the

@@ -194,6 +194,21 @@ public sealed class ScriptRunTests
         Assert.AreEqual(Lines("hi 42"), output);
     }
 
+    // what the script's code declares anywhere in it is the file's, as a VBScript global is: a name it assigns without declaring it, a Dim in one of its
+    // statements (a Dim on a line of its own is a declaration of the file already), and a ReDim of a name nothing declares. Each is read back by a procedure
+    // the script calls after setting it.
+    [TestMethod]
+    [DataRow("count = 5", "WScript.Echo count", "5", DisplayName = "a name it assigns")]
+    [DataRow("If True Then Dim label : label = \"set\"", "WScript.Echo label", "set", DisplayName = "a Dim in a single-line If")]
+    [DataRow("ReDim items(2) : items(1) = \"b\"", "WScript.Echo items(1)", "b", DisplayName = "a ReDim")]
+    public async Task WhatTheScriptsCodeDeclares_IsTheFilesOwn_ThatItsProceduresSee(string code, string echo, string expected)
+    {
+        var (exit, output, error) = await RunAsync([], code, "Show", "Sub Show()", echo, "End Sub");
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines(expected), output);
+    }
+
     [TestMethod]
     public async Task AScriptOfProceduresOnly_RunsNothing()
     {
