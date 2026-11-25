@@ -452,7 +452,7 @@ public sealed class VisualBasicFormLanguageTests
     [TestMethod]
     public async Task AnObjectByName_WithRDFormsAndNoAutomationServer_IsError429_AsWithNoFormHost()
     {
-        // a class only a server has: the platform's own (Scripting.Dictionary) need none.
+        // a class only a server has, since the platform's own classes (Scripting.Dictionary) need none.
         var printed = await RunWithRDFormsAsync(
             "On Error Resume Next\r\nDim x As Object\r\nSet x = CreateObject(\"ADODB.Connection\")\r\nDebug.Print Err.Number");
 

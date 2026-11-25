@@ -270,7 +270,7 @@ public sealed class RuntimeExecutionPipeline
                     fonts,
                     // and Visual Basic 6.0's App, which says what the session knows of its program.
                     app,
-                    // the Scripting library's Dictionary is the platform's own too, ahead of the server that would answer it where there is one.
+                    // the Scripting library's Dictionary and FileSystemObject are the platform's own too, ahead of the server that would answer it where there is one.
                     scripting,
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
@@ -279,7 +279,7 @@ public sealed class RuntimeExecutionPipeline
                     new DeclaredProcedureProvider(session, world.Libraries),
                 ],
                 // a library the platform implements does not count as automation: an environment that allows none still has stdole's pictures
-                // and fonts, App, and Scripting's Dictionary.
+                // and fonts, App, and Scripting's Dictionary and FileSystemObject.
                 implementations: [pictures, fonts, app, scripting]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         // Unload runs a form's QueryClose and Terminate, which are code the bindings call: the last edge of that cycle too.

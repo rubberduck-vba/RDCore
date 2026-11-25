@@ -26,7 +26,7 @@ public sealed class CommandModeExternalHostTests
             "Attribute VB_Name = \"Program\"",
             "Option Explicit",
             "Public Sub Main()",
-            // a class only a server has: the platform's own (Scripting.Dictionary) start no host.
+            // a class only a server has, since the platform's own classes (Scripting.Dictionary) start no host.
             "    Dim connection As Object",
             "    Set connection = CreateObject(\"ADODB.Connection\")",
             "    Debug.Print \"state: \" & connection.State",

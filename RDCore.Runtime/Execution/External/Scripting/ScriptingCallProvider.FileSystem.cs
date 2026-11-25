@@ -450,7 +450,7 @@ public sealed partial class ScriptingCallProvider
         }
     }
 
-    // a volume is labelled only where the platform labels one (Windows); elsewhere, as where the machine refuses it, the program may not (70).
+    // a volume is labeled only where the platform labels one (Windows); elsewhere, as where the machine refuses it, the program may not (70).
     private static VBRuntimeErrorId? Labelled(System.IO.Abstractions.IDriveInfo info, string label)
     {
         if (!OperatingSystem.IsWindows())

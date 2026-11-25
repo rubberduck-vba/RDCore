@@ -122,7 +122,7 @@ public sealed class VisualBasicFormAutomationPolicyTests
         CollectionAssert.AreEqual(new[] { "70", "0" }, printed, string.Join(" | ", printed));
     }
 
-    // a class only a server has: the platform's own (Scripting.Dictionary) are made where no automation is allowed.
+    // a class only a server has, since the platform's own classes (Scripting.Dictionary) are made where no automation is allowed.
     [TestMethod]
     [DataRow("Set d = CreateObject(\"ADODB.Connection\")", DisplayName = "created")]
     [DataRow("Set d = GetObject(, \"ADODB.Connection\")", DisplayName = "obtained")]
