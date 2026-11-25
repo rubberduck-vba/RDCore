@@ -155,7 +155,9 @@ public sealed class EnvironmentSessionProvider(
     IFileSystem fileSystem,
     ILogger<EnvironmentSessionProvider> logger,
     ILibrarySource? librarySource = null,
-    ExternalWorld? outside = null) : IEnvironmentSessionProvider, IDisposable
+    ExternalWorld? outside = null,
+    // what the session's file statements act on, its current directory included; omitted, the file system the modules are read from.
+    IFileSystem? sessionFileSystem = null) : IEnvironmentSessionProvider, IDisposable
 {
     private IRuntimeSession? _session;
     private ExternalWorld? _world;
@@ -291,7 +293,8 @@ public sealed class EnvironmentSessionProvider(
         LeaveSession();
 
         _world = ComposeWorld(project, workspaceRoot);
-        var (session, referenced, constants) = ComposeSession(_environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
+        var (session, referenced, constants) = ComposeSession(
+            _environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known, sessionFileSystem ?? fileSystem);
         _session = session;
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
@@ -342,10 +345,11 @@ public sealed class EnvironmentSessionProvider(
     /// <param name="workspaceRoot">The root the project's modules are relative to, and addressed under.</param>
     /// <param name="output">The session's output channel.</param>
     /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+    /// <param name="sessionFileSystem">What the session's file statements act on; omitted, the real file system.</param>
     /// <returns>The session, the libraries it references, and how many precompiler constants it has (built-ins included).</returns>
     internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants) ComposeSession(
         IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILibrarySource? librarySource, ILogger logger, RDCoreProject project, Uri workspaceRoot,
-        RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null)
+        RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null, IFileSystem? sessionFileSystem = null)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known, environment.AnsiCodePage);
@@ -367,7 +371,7 @@ public sealed class EnvironmentSessionProvider(
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else. The
         // project's build section names the procedure a run of the project starts with.
         var session = RuntimeSessionComposer.Compose(environment, LibrarySymbolProvider.ReferencePriorities(project, environment.Language),
-            [configuration, stdLib, libraries, modules], output, libraries: source, build: project.Build);
+            [configuration, stdLib, libraries, modules], output, sessionFileSystem, libraries: source, build: project.Build);
         // a predefined constant the project defines has the project's value on every platform a #If is evaluated for, and not that platform's.
         RDCore.Runtime.Semantics.Precompiler.ProjectConditionalConstants.Set(session, project.PrecompilerConstants.Select(constant => constant.Key));
         // an error raised with no source is the project's (Err.Source).
