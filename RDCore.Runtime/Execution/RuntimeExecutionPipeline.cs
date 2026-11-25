@@ -270,7 +270,8 @@ public sealed class RuntimeExecutionPipeline
                     fonts,
                     // and Visual Basic 6.0's App, which says what the session knows of its program.
                     app,
-                    // the Scripting library's Dictionary and FileSystemObject are the platform's own too, ahead of the server that would answer it where there is one.
+                    // the Scripting library's Dictionary and FileSystemObject are the platform's own too, ahead of the server that would answer them
+                    // where there is one.
                     scripting,
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
