@@ -6,15 +6,14 @@ namespace RDCore.Tests.Runtime.StdLib.Information;
 
 /// <summary>
 /// <strong>MS-VBAL §6.1.2.7.1.12 TypeName</strong> and <strong>§6.1.2.7.1.13 VarType</strong> of an object of a referenced library: the
-/// name its library gives its class, and the subtype of an object whose default member takes an argument it is not given. These need the
-/// servers of a Windows machine, and are skipped everywhere else.
+/// name its library gives its class, and the subtype of an object whose default member takes an argument it is not given. The Scripting library's
+/// classes are the platform's own, on every platform.
 /// </summary>
 /// <remarks>
 /// Each expected value is what MS-VBA printed for the same objects, in Excel.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.7 Information")]
-[OSCondition(OperatingSystems.Windows)]
 public sealed class AutomationObjectTypeTests
 {
     private static WorkspaceLibraries Scripting

@@ -549,6 +549,14 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         return fileSystem.Path.IsPathFullyQualified(path) || CurrentDirectory() is not null ? null : VBRuntimeErrorId.PathNotFound.ToCode();
     }
 
+    // the file system, the ANSI encoding and the path resolution the Scripting library's FileSystemObject acts through too: one current directory, and
+    // one rule for separators, for every file function of the session.
+    internal IFileSystem FileSystem => fileSystem;
+
+    internal Encoding AnsiEncoding => encoding;
+
+    internal bool TryResolve(ref string path) => Resolve(ref path) is null;
+
     // null when the current directory cannot be read: once it is deleted, every read of it fails on Linux.
     private string? CurrentDirectory()
     {
