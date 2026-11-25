@@ -13,7 +13,7 @@ namespace RDCore.Tests.External;
 
 /// <summary>
 /// The program's own objects handed to a COM server, as MS-VBA hands them: an object of a class module, or the standard library's <c>Collection</c>, is held by
-/// the server - <c>d.Add "key", New Widget</c> - is the same object when it comes back (<c>d("key") Is w</c>), and is called as itself. In the process, on one
+/// the server - <c>s.Add "key", w</c> - is the same object when it comes back (<c>s("key").Value Is w</c>), and is called as itself. In the process, on one
 /// apartment, and through an external host, as <c>rdc</c> runs a program.
 /// </summary>
 [TestClass]
@@ -38,7 +38,7 @@ public sealed class SessionObjectTests
         using var apartment = new ComApartment();
         using var host = external ? ExternalHosts.New() : null;
         var world = host is null ? new ExternalWorld(new ComAutomationServer(apartment), UnavailableNativeLibraryHost.Instance) : ExternalHosts.WorldOf(host);
-        return await ModuleWorkspace.RunAsync([Widget], Program(body), new ModuleWorkspace.WorkspaceLibraries(["Scripting"], Shipped, Outside: world));
+        return await ModuleWorkspace.RunAsync([Widget], Program(body), new ModuleWorkspace.WorkspaceLibraries([], Shipped, Outside: world));
     }
 
     // what answers for the objects a test hands a server: it records the calls and the releases, and answers each call with what it is told to.
@@ -182,6 +182,8 @@ public sealed class SessionObjectTests
         Assert.AreEqual(5, arguments[2]);
     }
 
+    // a server that holds what it is given and gives it back: WMI's named values, which every Windows machine has. The Scripting library's Dictionary is the
+    // platform's own, which no server holds.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     [DataRow(false, DisplayName = "in the process")]
@@ -189,25 +191,22 @@ public sealed class SessionObjectTests
     public async Task AnObjectOfTheProgram_HeldByAServer_IsItselfWhenItComesBack(bool external)
     {
         var printed = await RunAsync(external,
-            "Dim d As New Scripting.Dictionary",
+            "Dim s As Object",
+            "Set s = CreateObject(\"WbemScripting.SWbemNamedValueSet\")",
             "Dim w As New Widget",
             "w.Value = 21",
-            "d.Add \"w\", w",
-            "Debug.Print TypeName(d(\"w\"))",
-            "Debug.Print d(\"w\") Is w",
-            "Debug.Print d(\"w\").Twice",
-            "d(\"w\").Value = 5",
+            "s.Add \"w\", w",
+            "Debug.Print TypeName(s(\"w\").Value)",
+            "Debug.Print s(\"w\").Value Is w",
+            "Debug.Print s(\"w\").Value.Twice",
+            "s(\"w\").Value.Value = 5",
             "Debug.Print w.Value",
             "Dim c As New Collection",
             "c.Add \"one\"",
-            "d.Add \"c\", c",
-            "Debug.Print d(\"c\").Count",
-            "Debug.Print d(\"c\")(1)",
-            "Debug.Print d.Items()(0) Is w",
-            "d.Add w, \"keyed by the object\"",
-            "Debug.Print d(w)",
-            "Debug.Print d.Exists(w)");
+            "s.Add \"c\", c",
+            "Debug.Print s(\"c\").Value.Count",
+            "Debug.Print s(\"c\").Value.Item(1)");
 
-        CollectionAssert.AreEqual(new[] { "Widget", "True", "42", "5", "1", "one", "True", "keyed by the object", "True" }, printed, string.Join(" | ", printed));
+        CollectionAssert.AreEqual(new[] { "Widget", "True", "42", "5", "1", "one" }, printed, string.Join(" | ", printed));
     }
 }

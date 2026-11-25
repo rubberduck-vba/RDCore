@@ -216,7 +216,7 @@ public sealed class LoadPictureTests
 
     [TestMethod]
     public async Task AServersObject_IsRefused_WhereNoAutomationIsAllowed()
-        => Printed(new[] { "70" }, await RunWithoutAutomationAsync("Dim d As Object: Set d = New Scripting.Dictionary: Debug.Print Err.Number"));
+        => Printed(new[] { "70" }, await RunWithoutAutomationAsync("Dim d As Object: Set d = CreateObject(\"ADODB.Connection\"): Debug.Print Err.Number"));
 
     [TestMethod]
     public async Task ANewStdPicture_HoldsNoPicture()

@@ -26,10 +26,10 @@ public sealed class CommandModeExternalHostTests
             "Attribute VB_Name = \"Program\"",
             "Option Explicit",
             "Public Sub Main()",
-            "    Dim items As Object",
-            "    Set items = CreateObject(\"Scripting.Dictionary\")",
-            "    items.Add \"key\", 1",
-            "    Debug.Print \"items: \" & items.Count",
+            // a class only a server has: the platform's own (Scripting.Dictionary) start no host.
+            "    Dim connection As Object",
+            "    Set connection = CreateObject(\"ADODB.Connection\")",
+            "    Debug.Print \"state: \" & connection.State",
             "End Sub",
             ""));
 
@@ -55,7 +55,7 @@ public sealed class CommandModeExternalHostTests
 
             var printed = await output.WaitAsync(Bound);
             Assert.AreEqual(0, rdc.ExitCode, $"{printed}\n{await errors.WaitAsync(Bound)}");
-            StringAssert.Contains(printed, "items: 1", "the program reached its automation server, through the external host");
+            StringAssert.Contains(printed, "state: 0", "the program reached its automation server, through the external host");
             Assert.IsEmpty(left, $"still running once rdc exited: {string.Join(", ", left)}");
         }
         finally

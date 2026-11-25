@@ -108,13 +108,13 @@ public sealed class VisualBasicFormAutomationPolicyTests
         CollectionAssert.AreEqual(new[] { "2", "added", "Label1", "Command1", "lblNew" }, printed, string.Join(" | ", printed));
     }
 
-    // a form's property can hold nothing automation made: the object to store is refused where it is made.
+    // a form's property can hold nothing automation made: the object to store is refused where it is made. The class is one only a server has.
     [TestMethod]
     public async Task AnObjectStoredInAFormsProperty_IsRefused()
     {
         var printed = await RunAsync(
             "On Error Resume Next",
-            "Form1.Tag = CreateObject(\"Scripting.Dictionary\")",
+            "Form1.Tag = CreateObject(\"ADODB.Connection\")",
             "Debug.Print Err.Number",
             "Debug.Print Len(Form1.Tag)",
             "Unload Form1");
@@ -122,9 +122,10 @@ public sealed class VisualBasicFormAutomationPolicyTests
         CollectionAssert.AreEqual(new[] { "70", "0" }, printed, string.Join(" | ", printed));
     }
 
+    // a class only a server has: the platform's own (Scripting.Dictionary) are made where no automation is allowed.
     [TestMethod]
-    [DataRow("Set d = CreateObject(\"Scripting.Dictionary\")", DisplayName = "created")]
-    [DataRow("Set d = GetObject(, \"Scripting.Dictionary\")", DisplayName = "obtained")]
+    [DataRow("Set d = CreateObject(\"ADODB.Connection\")", DisplayName = "created")]
+    [DataRow("Set d = GetObject(, \"ADODB.Connection\")", DisplayName = "obtained")]
     public async Task AnObjectOfAnotherClass_IsRefused_BesideAForm(string made)
     {
         var printed = await RunAsync(

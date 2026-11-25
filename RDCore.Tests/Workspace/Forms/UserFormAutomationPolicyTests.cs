@@ -118,9 +118,10 @@ public sealed class UserFormAutomationPolicyTests
         CollectionAssert.AreEqual(new[] { "0", "14" }, printed, string.Join(" | ", printed));
     }
 
+    // a class only a server has: the platform's own (Scripting.Dictionary) are made where no automation is allowed.
     [TestMethod]
-    [DataRow("Set d = CreateObject(\"Scripting.Dictionary\")", DisplayName = "created")]
-    [DataRow("Set d = GetObject(, \"Scripting.Dictionary\")", DisplayName = "obtained")]
+    [DataRow("Set d = CreateObject(\"ADODB.Connection\")", DisplayName = "created")]
+    [DataRow("Set d = GetObject(, \"ADODB.Connection\")", DisplayName = "obtained")]
     [DataRow("Set d = New MSForms.DataObject", DisplayName = "a class of Microsoft Forms created")]
     public async Task AnObjectOfAnotherClass_IsRefused_BesideAForm(string made)
     {
