@@ -183,8 +183,8 @@ public sealed class SyntaxTreeSymbolProvider(
             conditional.Remove(control.Name);
         }
 
-        // a script's code (ProgramEntryPoint.ScriptName) is the file's own: what it declares - by a Dim or a Const anywhere in it, a ReDim, or a name it
-        // uses - is the module's, as a VBScript global is, and every procedure of the module sees it. It is read first, so the procedures know those names.
+        // a script's code (ProgramEntryPoint.ScriptName) is the file's own: what it declares (by a Dim or a Const anywhere in it, a ReDim, or a name it
+        // uses) is the module's, as a VBScript global is, and every procedure of the module sees it. It is read first, so the procedures know those names.
         var script = module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(IsScript);
         var scriptSymbols = script is null
             ? []
