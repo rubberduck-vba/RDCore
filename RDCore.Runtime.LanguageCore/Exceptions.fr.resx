@@ -624,6 +624,9 @@
   <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose" xml:space="preserve">
     <value>'{0}' est une bibliothèque ou un projet auquel le projet fait référence : donnez un autre nom au module.</value>
   </data>
+  <data name="VBCompileError_ModuleNameTaken_Verbose" xml:space="preserve">
+    <value>Un autre module du projet se nomme '{0}' : donnez un autre nom à l'un d'eux.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
   </data>

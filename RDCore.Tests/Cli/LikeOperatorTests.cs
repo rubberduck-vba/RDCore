@@ -145,4 +145,18 @@ public sealed class LikeOperatorTests
         Assert.IsFalse(matched);
         Assert.IsLessThanOrEqualTo(1000L * ("*a*a*a*b".Length + 1), steps, $"{steps:n0} steps");
     }
+
+    // a pattern longer than the ones kept is parsed for each match, and matched as any other: a program that matches against its input does not grow the
+    // process with each pattern it is given.
+    [TestMethod]
+    public async Task APatternLongerThanTheOnesKept_IsParsedForEachMatch_AndMatchesAsAnyOther()
+    {
+        var length = RDCore.Runtime.Semantics.Operators.Relational.LikePattern.LongestCachedPattern;
+        var pattern = new string('a', length) + "*";
+
+        Assert.AreNotSame(RDCore.Runtime.Semantics.Operators.Relational.LikePattern.Get(pattern),
+            RDCore.Runtime.Semantics.Operators.Relational.LikePattern.Get(pattern));
+        CollectionAssert.AreEqual(new[] { "True", "False" }, await RunAsync("Binary",
+            $"String({length}, 'a') & 'b' Like String({length}, 'a') & '*' ;; String({length - 1}, 'a') Like String({length}, 'a') & '*'"));
+    }
 }

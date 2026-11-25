@@ -51,8 +51,28 @@ internal sealed partial class SessionFileChannels
             return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
-        fileSystem.Directory.SetCurrentDirectory(fileSystem.Path.GetFullPath(path));
+        // the session's alone: the process, and every other session of it, stay where they are. CurDir gives it with no separator at its end, except a root's.
+        _current = Path.TrimEndingDirectorySeparator(AsTheSystemKeepsIt(fileSystem.Path.GetFullPath(path)));
         return null;
+    }
+
+    // a current directory as the system keeps a process's: Windows keeps the path it is given, and elsewhere it is the real path, each link on the way where
+    // it leads (macOS's /var is a link to /private/var). A link that cannot be read leaves the path as it is.
+    private static string AsTheSystemKeepsIt(string full)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return full;
+        }
+
+        try
+        {
+            return SDK.Platform.PlatformRootConfinement.RealPath(full);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return full;
+        }
     }
 
     /// <inheritdoc/>
@@ -70,7 +90,7 @@ internal sealed partial class SessionFileChannels
 
         if (CurrentDirectory() is not { } current || !IsOnDrive(current, root))
         {
-            fileSystem.Directory.SetCurrentDirectory(fileSystem.Path.GetFullPath(root[..2]));
+            _current = fileSystem.Path.GetFullPath(root[..2]);
         }
 
         return null;
@@ -180,8 +200,8 @@ internal sealed partial class SessionFileChannels
         {
             if (pattern.Length == 0)
             {
-                directory = fileSystem.Directory.GetCurrentDirectory();
-                return true;
+                directory = CurrentDirectory() ?? string.Empty;
+                return directory.Length > 0;
             }
 
             var full = fileSystem.Path.GetFullPath(pattern);
@@ -206,7 +226,7 @@ internal sealed partial class SessionFileChannels
     {
         try
         {
-            var root = fileSystem.Path.GetPathRoot(fileSystem.Path.GetFullPath(pattern.Length == 0 ? "." : pattern));
+            var root = fileSystem.Path.GetPathRoot(fileSystem.Path.GetFullPath(pattern.Length == 0 ? CurrentDirectory() ?? "." : pattern));
             return root is { Length: > 0 } ? fileSystem.DriveInfo.New(root).VolumeLabel : string.Empty;
         }
         catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
@@ -331,7 +351,10 @@ internal sealed partial class SessionFileChannels
             return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
-        if (fileSystem.Directory.EnumerateFileSystemEntries(path).Any())
+        // Windows refuses to delete the directory a process is in, and MS-VBA's current directory is its process's: on Windows, the session's is refused too.
+        // Linux lets a process's directory be deleted, and lets the session's be deleted as well.
+        if (fileSystem.Directory.EnumerateFileSystemEntries(path).Any()
+            || OperatingSystem.IsWindows() && CurrentDirectory() is { } current && PathsMatch(current, path))
         {
             return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }

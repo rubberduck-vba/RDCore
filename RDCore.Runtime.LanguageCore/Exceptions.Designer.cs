@@ -1226,6 +1226,15 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Another module of the project is named &apos;{0}&apos;: give one of them another name..
+        /// </summary>
+        internal static string VBCompileError_ModuleNameTaken_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModuleNameTaken_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
         internal static string VBCompileError_NameIsAProject_Verbose {
