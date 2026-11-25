@@ -67,8 +67,8 @@ public sealed class ParallelSessionsTests
         }
     }
 
-    // each session moves to a folder of its own and writes a file there by a relative name; with a current directory of the process, every session would
-    // read the file of the last one to move.
+    // each session moves to a folder of its own, and writes and opens a file there by a relative name; with one current directory for the process, a
+    // session could write or open another session's file, and CurDir after the gate would give the folder of the last one to move.
     private static readonly string FilesProgram = string.Join("\r\n",
         $"Attribute VB_Name = \"{ModuleName}\"",
         "Private Mine As String",
