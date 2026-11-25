@@ -67,7 +67,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     private ProgramState _state;
     private SuspendableExecution? _execution;
 
-    // ends the program under a debugger that waits for its Visual Basic 6.0 forms to be unloaded (RuntimeExecutionPipeline.RunProgram): the debugger's End.
+    // the debugger's End, for a program that waits for its Visual Basic 6.0 forms to be unloaded (RuntimeExecutionPipeline.RunProgram): it ends the wait.
     private CancellationTokenSource _ending = new();
     private RuntimeOutputBuffer _output = new();
     private ProgramEdits? _suspendedWith;

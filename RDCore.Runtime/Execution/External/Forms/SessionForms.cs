@@ -280,7 +280,7 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Waits while a Visual Basic 6.0 form is loaded: a VB6 program does not end with its entry point, and runs until its last form is unloaded (measured in
+    /// Waits while a Visual Basic 6.0 form is loaded: a VB6 program does not end with its entry point, and runs until its last form is unloaded (observed in
     /// VB6, a form shown or only loaded). Meanwhile the turn is given up, so that the forms' events are handled as the program's, as in a modal form's
     /// <c>Show</c>, and the messages of the forms' windows are let through, as they are once a program ends (<see cref="HoldWhileRunning"/>). Returns at once
     /// when no VB6 form is loaded.
