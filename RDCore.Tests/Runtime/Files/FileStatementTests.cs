@@ -47,11 +47,13 @@ public sealed class FileStatementTests
     [TestMethod]
     public void Open_AssociatesTheFileNumber()
     {
-        var (session, outcome) = Run(WithFile($"{Root}/data.txt"), $"Open \"{Root}/data.txt\" For Input As #1");
+        var fileSystem = WithFile($"{Root}/data.txt");
+        var (session, outcome) = Run(fileSystem, $"Open \"{Root}/data.txt\" For Input As #1");
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
         Assert.IsTrue(session.Files.TryGet(1, out var channel));
-        Assert.AreEqual($"{Root}/data.txt", channel!.Path);
+        // the file opened, by its full path: a path that is not fully qualified (/ws on Windows) is in the session's current directory, on its drive.
+        Assert.AreEqual(fileSystem.Path.GetFullPath($"{Root}/data.txt"), channel!.Path);
         Assert.AreEqual(VBFileMode.Input, channel.Mode);
     }
 

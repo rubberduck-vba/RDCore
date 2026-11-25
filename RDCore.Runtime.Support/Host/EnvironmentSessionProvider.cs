@@ -118,8 +118,8 @@ public interface IEnvironmentSessionProvider
     /// </summary>
     /// <remarks>
     /// The current directory of the session is then the workspace root (RD-VBAL §6.1.2.5), at start-up and after a reload alike; a root that is the shell's
-    /// scratch workspace (<see cref="ScratchWorkspace.Is"/>), that is not a full path on this platform, or that is not there, leaves it where it was.
-    /// The session it replaces first gives the process back the directory that session was composed in.
+    /// scratch workspace (<see cref="ScratchWorkspace.Is"/>), that is not a full path on this platform, or that is not there, leaves it the process's
+    /// directory, which no session moves.
     /// </remarks>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
@@ -156,9 +156,6 @@ public sealed class EnvironmentSessionProvider(
 
     // the environment the sessions are composed in: the host's, in the language the project was last composed in.
     private IRuntimeEnvironmentProfile _environment = environment;
-
-    // the directory the process was in when the session was composed, given back when the session is replaced or the provider disposed.
-    private string? _directoryBefore;
 
     /// <inheritdoc/>
     public ExternalWorld Outside => _world ?? outside ?? MachineExternal.World;
@@ -302,7 +299,6 @@ public sealed class EnvironmentSessionProvider(
         // and its forms keep the system's theme as the project says, until the program says otherwise: the host knows it before it makes the first one.
         SessionApplication.Of(_session).KeepSystemTheme = project.KeepSystemTheme;
         Outside.Forms.KeepSystemTheme = project.KeepSystemTheme;
-        _directoryBefore = CurrentDirectory();
         EnterWorkspaceRoot(workspaceRoot);
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
@@ -450,8 +446,7 @@ public sealed class EnvironmentSessionProvider(
         }
     }
 
-    // the directory is the process's, so a session that ends gives it back. Otherwise Windows could not delete the folder the process is in, and on Linux,
-    // once that folder is deleted, every later read of the current directory fails. When the directory the session found is gone, the process stays where it is.
+    // the current directory is the session's and goes with it; the process's does not move, so nothing is given back.
     private void LeaveSession()
     {
         // a program that waits at a stop holds a thread of its own, and the session it runs in, until it is ended: nothing resumes it once its session is left.
@@ -464,45 +459,6 @@ public sealed class EnvironmentSessionProvider(
         // and the evaluation of its code is the session's too: a session replaced or let go of has no use for what is still to be found out, which can
         // take seconds and gigabytes (an array of millions of elements).
         Image.Semantics.StopEvaluations();
-
-        if (_session is null || _directoryBefore is not { } before)
-        {
-            return;
-        }
-
-        _directoryBefore = null;
-        if (string.Equals(CurrentDirectory(), before, WorkspacePaths.Comparison))
-        {
-            return;
-        }
-
-        RDCoreDiagnosticCode? error;
-        try
-        {
-            error = _session.Files.TryChangeDirectory(before);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            error = VBRuntimeErrorId.PathNotFound.ToCode();
-        }
-
-        if (error is not null && logger.IsEnabled(LogLevel.Warning))
-        {
-            logger.LogWarning("📂 The directory {directory} the session was composed in could not be made the current directory again ({error}).", before, error);
-        }
-    }
-
-    // null when the current directory was deleted, which Linux lets a process's be.
-    private string? CurrentDirectory()
-    {
-        try
-        {
-            return _session!.Files.TryGetCurrentDirectory(null, out var path) is null ? path : null;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
     }
 
     public void Dispose() => LeaveSession();

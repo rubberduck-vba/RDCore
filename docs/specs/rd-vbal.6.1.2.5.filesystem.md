@@ -24,7 +24,10 @@ platform's storage (**MS-VBAL §2.7.3**). In RD-VBA:
   reloaded. A relative path in `Open`, `Dir` or `Kill` is a file of the workspace.
 - A project that a `.rdworkspace` lists ([**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md)) starts in the folder of that
   `.rdworkspace`, and goes back to it when it is reloaded. `App.Path` is still the folder of the project's own `.rdproj`.
-- `ChDir` and `ChDrive` move it. `End` leaves it where the program put it.
+- The current directory is the session's own. `ChDir` and `ChDrive` move it for that session alone: the environment host's process, and any other
+  session it runs, stay where they are. `End` leaves it where the program put it, and `Shell` starts a program in it.
+- On Windows, `RmDir` of the current directory raises error `75`, as **MS-VBA** does: its current directory is its process's, which Windows does not
+  delete. On Linux and macOS, `RmDir` deletes it.
 - The interactive shell started without a workspace runs in a temporary one, and its session stays in the folder the environment host was started in.
 
 ## Path separators
@@ -33,8 +36,8 @@ A path given to a file statement or a `FileSystem` member may separate its folde
 separator is `/` (Linux, macOS), each `\` in the path is read as `/`: `Open "Data\in.txt"` opens `Data/in.txt` in the current directory. On Windows a path
 is used as given. `CurDir` gives the path as the file system spells it, with `/` on Linux and macOS, and `Dir` gives names with no directory part.
 
-When the current directory is deleted (Linux and macOS allow it), `CurDir` and a relative path given to a file statement or a `FileSystem`
-member raise error `76` (RD-VBA addition). A full path still works.
+When the current directory is deleted (by another program, or on Linux and macOS by the program itself), `CurDir` and a relative path given to a
+file statement or a `FileSystem` member raise error `76` (RD-VBA addition). A full path still works.
 
 > [!NOTE]
 > On Linux and macOS, a file or folder whose name contains `\` cannot be reached through the VBA file functions.
