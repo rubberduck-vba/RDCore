@@ -49,6 +49,18 @@ public static class ModuleNameStaticSemantics
             string.Format(Exceptions.VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose, symbol.Name))];
     }
 
+    // MS-VBAL §4.2: every module of a project has a name no other module of it has, case aside. Of the modules that share one, none is the module of that
+    // name, and none loads: which one would is the order the project lists them in, and the program is invalid. MS-VBA refuses to rename a module to a name
+    // another has ("Name conflicts with existing module, project, or object library"), and names one it imports so another way (Dup1).
+    public static IReadOnlySet<string> NamesTakenTwice(IEnumerable<string> names)
+        => names.GroupBy(name => name, StringComparer.OrdinalIgnoreCase).Where(group => group.Skip(1).Any())
+            .Select(group => group.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    // the error of a module whose name another module of its project has (NamesTakenTwice).
+    public static VBCompileErrorInfo NameTaken(ModuleNode module, string name)
+        => VBCompileErrorInfo.For(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary, LocationOf(module),
+            string.Format(Exceptions.VBCompileError_ModuleNameTaken_Verbose, name));
+
     // the name is reported where the module says it, and at the start of the module when its file says it.
     private static SourceLocation LocationOf(ModuleNode module)
         => module.GetDeclaredNameDirective()?.Location ?? new SourceLocation(module.SourceLocation.Uri, new SourceRange(0, 0, 0, 0));
