@@ -630,8 +630,8 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
         return value;
     }
 
-    // MS-VBAL 6.1.1.7: Sunday is 1 and Saturday 7, and 0 is the first day of the week of the system: the regional settings of the session's environment,
-    // as Format reads them, and never the culture of whatever thread the program runs on.
+    // MS-VBAL 6.1.1.7: Sunday is 1 and Saturday 7, and 0 is the first day of the week of the system: that of the culture the session's Lcid
+    // selects, and never the culture of whatever thread the program runs on.
     private bool TryFirstDayOfWeek(VBDayOfWeek firstDayOfWeek, out DayOfWeek weekStart)
     {
         weekStart = firstDayOfWeek is VBDayOfWeek.VBUseSystemDayOfWeek

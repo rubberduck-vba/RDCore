@@ -259,7 +259,7 @@ public sealed class StdDateTimeTests
             "Debug.Print Weekday(DateSerial(2026, 10, 14), vbMonday)",
             "Debug.Print Weekday(DateSerial(2026, 10, 14), vbWednesday)"));
 
-    // the system's first day of the week and first week of the year are the regional settings of the session's environment, whatever the culture of the thread
+    // the system's first day of the week and first week of the year are those of the culture the session's Lcid selects, whatever the culture of the thread
     // the session runs on: fr-FR's weeks begin on Monday and its first week is the first of four days, en-US's begin on Sunday and its first has January 1.
     [TestMethod]
     [DataRow("en-US", 1036, 3, 53)]

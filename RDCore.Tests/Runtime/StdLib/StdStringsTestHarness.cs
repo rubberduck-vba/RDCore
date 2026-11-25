@@ -39,8 +39,11 @@ internal static class StdStringsTestHarness
 
     /// <summary>
     /// A session with no symbols, whose environment has <paramref name="lcid"/>'s culture (invariant at 0), <paramref name="codePage"/>'s ANSI encoding,
-    /// and <paramref name="regional"/> settings: what <see cref="Module"/> is over, for the tests of another module.
+    /// and <paramref name="regional"/> settings: the session <see cref="Module"/> is made with, for the tests of another module.
     /// </summary>
+    /// <param name="lcid">The locale of the session's environment; 0 for the invariant culture.</param>
+    /// <param name="codePage">The ANSI code page of the session's environment.</param>
+    /// <param name="regional">The regional settings of the session's environment, or <see langword="null"/> for the defaults.</param>
     public static IRuntimeSession SessionOf(int lcid = 0, int codePage = 1252, RegionalSettings? regional = null)
         => RuntimeSessionComposer.Compose(
             new RuntimeEnvironmentProfile(Is64Bit: true, lcid, codePage, SupportsOptionCompareDatabase: false, RegionalSettings: regional), new NoSymbols());
