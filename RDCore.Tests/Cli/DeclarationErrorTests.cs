@@ -80,7 +80,7 @@ public sealed class DeclarationErrorTests
     [TestMethod]
     public async Task ANameDeclaredInEachBranchOfAConditionalCompilationBlock_IsDeclaredOnce_WhateverTheBranchesAreWorth()
     {
-        // the rule does not evaluate a block, it reads its branches: what the blocks declare is one declaration of each name, whichever branch compiles.
+        // what the branches of a block declare is one declaration of each name, whichever branch compiles.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
             "#If NothingDefinesThis Then",
             "Public Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As Long)",
@@ -101,10 +101,36 @@ public sealed class DeclarationErrorTests
     [TestMethod]
     public async Task ANameDeclaredTwiceInOneBranch_IsAnAmbiguousName_EvenWhenTheOtherBranchDeclaresItToo()
     {
+        // the branch that states it twice is the live one: a branch that is not live is not part of the module.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
-            "#If NothingDefinesThis Then", "Public Total As Long", "Public Total As Long", "#Else", "Public Total As Integer", "#End If"));
+            "#If NothingDefinesThis Then", "Public Total As Integer", "#Else", "Public Total As Long", "Public Total As Long", "#End If"));
 
-        Assert.HasCount(1, errors);
+        StringAssert.Contains(Assert.ContainsSingle(errors), "declared more than once");
+    }
+
+    [TestMethod]
+    [DataRow("#If 0 Then", null, false, DisplayName = "the If branch, not live")]
+    [DataRow("#If 1 Then", null, true, DisplayName = "the If branch, live")]
+    [DataRow("#If 1 Then", "#Else", false, DisplayName = "the Else branch, not live")]
+    [DataRow("#If 0 Then", "#Else", true, DisplayName = "the Else branch, live")]
+    public async Task ANameDeclaredOutsideABlock_AndInOneOfItsBranches_IsAnAmbiguousName_OnlyWhenThatBranchIsLive(string block, string? branch, bool live)
+    {
+        // MS-VBAL §3.4: only the live branch of a block is part of the module, so the declaration in another is not part of it. The rows follow the
+        // specification: no run of MS-VBA records a module that declares the name outside the block and in a branch that is not live.
+        var lines = new List<string> { "Public Total As Long", block };
+        lines.AddRange(branch is null ? ["Public Total As Long"] : ["Public Other As Long", branch, "Public Total As Long"]);
+        lines.Add("#End If");
+
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program([.. lines]));
+
+        if (live)
+        {
+            StringAssert.Contains(Assert.ContainsSingle(errors), "declared more than once");
+        }
+        else
+        {
+            CollectionAssert.AreEqual(Array.Empty<string>(), errors);
+        }
     }
 
     [TestMethod]
