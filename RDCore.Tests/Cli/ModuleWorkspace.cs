@@ -691,7 +691,7 @@ internal static class ModuleWorkspace
                         Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
                         Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree!.GetModuleDirectives()),
                         ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                        ImplementedInterfaceLocations = module.Parse.SyntaxTree!.GetImplementedInterfaceLocations(),
                         PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
                         Replace = true,
                         DeclareTypesOnly = declareTypesOnly,
@@ -710,7 +710,7 @@ internal static class ModuleWorkspace
                     ModuleName = module.Module.Name,
                     Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree.GetModuleDirectives()),
                     ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    ImplementedInterfaceLocations = module.Parse.SyntaxTree!.GetImplementedInterfaceLocations(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),
                     CodeOnly = true,
                 }, CancellationToken.None);

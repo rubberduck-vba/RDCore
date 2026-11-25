@@ -145,7 +145,7 @@ public static class WorkspaceSymbolResolver
                         BaseClass = parseResult.Designer?.BaseClass,
                         Directives = directives,
                         ImplementedInterfaceNames = implementedInterfaceNames,
-                        ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
+                        ImplementedInterfaceLocations = parseResult.SyntaxTree?.GetImplementedInterfaceLocations() ?? [],
                     }
                     .With(SymbolProperties.Creatable, directives.Creatable)
                     .With(SymbolProperties.PredeclaredId, directives.PredeclaredId)

@@ -206,7 +206,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
     private static bool IsAtDirective(VBClassModuleSymbol type, string implemented, VBCompileErrorInfo error)
     {
         var index = type.ImplementedInterfaceNames.ToList().FindIndex(name => string.Equals(name[(name.LastIndexOf('.') + 1)..], implemented, StringComparison.OrdinalIgnoreCase));
-        return index >= 0 && index < type.ImplementedInterfaceRanges.Length && error.Location.Range ==type.ImplementedInterfaceRanges[index];
+        return index >= 0 && index < type.ImplementedInterfaceLocations.Length && error.Location == type.ImplementedInterfaceLocations[index];
     }
 
     private async Task<ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)
