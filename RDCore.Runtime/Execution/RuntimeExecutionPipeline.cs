@@ -82,10 +82,10 @@ public sealed class RuntimeExecutionPipeline
     public IProcedureInvoker Invoker { get; }
 
     /// <summary>
-    /// Runs a program: invokes its entry point, and then, for a Visual Basic 6.0 program that returned with a form loaded, waits until its last form is unloaded,
-    /// handling the forms' events meanwhile (measured in VB6: the program runs past its <c>Sub Main</c> while a form is loaded). A program run unattended
-    /// (<see cref="IRuntimeSession.RunsUnattended"/>) has nobody to unload its forms: one that returns with a VB6 form loaded fails with <c>VBR50001</c>, as a
-    /// form's <c>Show</c> does.
+    /// Runs a program: invokes its entry point, and then, for a Visual Basic 6.0 program that returned with a form loaded, waits until its last form is
+    /// unloaded, handling the forms' events meanwhile (measured in VB6: the program runs past its <c>Sub Main</c> while a form is loaded). A program
+    /// run unattended (<see cref="IRuntimeSession.RunsUnattended"/>) has nobody to unload its forms: one that returns with a VB6 form loaded fails with
+    /// <c>VBR50001</c>, as a form's <c>Show</c> does.
     /// </summary>
     /// <param name="entryPoint">The procedure the program starts with.</param>
     /// <param name="resolver">What the program's names resolve with.</param>

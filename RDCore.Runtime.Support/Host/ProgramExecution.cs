@@ -1122,7 +1122,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         {
             using var registration = token.Register(() => Pause());
             var end = _ending.Token;
-            var stop = await execution.StartAsync(() => pipeline.RunProgram(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint), end));
+            var arguments = RuntimeProcedureInvoker.ProgramArguments(entryPoint);
+            var stop = await execution.StartAsync(() => pipeline.RunProgram(entryPoint, session.Symbols.Resolver, arguments, end));
             return Segment(session, stop);
         }
         catch

@@ -274,7 +274,9 @@ internal sealed class SessionForms
             loaded = [.. _loadedVisualBasic6];
         }
 
-        return loaded.Select(form => session.Symbols.TryGetInstance(form, out var live) ? live.ClassModule.Name : null).FirstOrDefault(name => name is not null);
+        return loaded
+            .Select(form => session.Symbols.TryGetInstance(form, out var live) ? live.ClassModule.Name : null)
+            .FirstOrDefault(name => name is not null);
     }
 
     /// <summary>
@@ -333,8 +335,8 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Wakes a program that waits for its forms to be unloaded (<see cref="WaitWhileLoaded"/>), so that it checks again whether its wait is over: an event was handled, which may
-    /// have ended it.
+    /// Wakes a program that waits for its forms to be unloaded (<see cref="WaitWhileLoaded"/>), so that it checks again whether its wait is over: an
+    /// event was handled, which may have ended it.
     /// </summary>
     public void Wake()
     {

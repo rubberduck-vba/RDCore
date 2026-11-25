@@ -34,7 +34,8 @@ public sealed class VisualBasicFormLifecycleTests
             "Private Sub Form_Initialize()", "    Debug.Print \"Initialize\"", .. counted, "    If FailInitialize Then Debug.Print 1 \\ pub", "End Sub",
             "Private Sub Form_Load()", "    Debug.Print \"Load\"", .. counted, "    If UnloadInLoad Then", "        Unload Me", "        Debug.Print \"rest of Load\"", "    End If",
             "    If FailLoad Then Debug.Print 1 \\ pub", "End Sub",
-            "Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)", "    Debug.Print \"QueryUnload \" & UnloadMode", .. counted, "    Cancel = CancelQuery", "    If EndInQueryUnload Then End", "End Sub",
+            "Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)", "    Debug.Print \"QueryUnload \" & UnloadMode", .. counted,
+            "    Cancel = CancelQuery", "    If EndInQueryUnload Then End", "End Sub",
             "Private Sub Form_Unload(Cancel As Integer)", "    Debug.Print \"Unload\"", .. counted, "    Cancel = CancelUnload", "End Sub",
             "Private Sub Form_Terminate()", "    Debug.Print \"Terminate\"", "End Sub",
             "Private Sub Form_Resize()",
@@ -543,7 +544,8 @@ public sealed class VisualBasicFormLifecycleTests
     [TestMethod]
     public async Task MainEnding_WithAFormLoaded_FailsARunUnattended()
     {
-        var result = await ModuleWorkspace.RunUnattendedAsync([], Program(["Load Form2", "Debug.Print \"main end\""]), Libraries, Forms(), SupportedLanguages.VB6);
+        var result = await ModuleWorkspace.RunUnattendedAsync(
+            [], Program(["Load Form2", "Debug.Print \"main end\""]), Libraries, Forms(), SupportedLanguages.VB6);
 
         Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
         Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
