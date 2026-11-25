@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Workspace;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
@@ -23,6 +24,32 @@ public sealed record class ModuleSurface(string Declarations, string References)
     private static readonly HashSet<string> Placement = ["Identity", "SourceLocation", "Location", "NameRange", "Children", "EqualityContract"];
 
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> Properties = new();
+
+    // the surface of every module of a document, its own first, then each block's under the kind and name its header says, which the other modules bind
+    // against too: a block the text gains, loses or renames changes what they are told.
+    public static ModuleSurface? Of(Uri document, ModuleParseResult parse)
+    {
+        if (parse.BlockModules.IsEmpty)
+        {
+            return Of(parse);
+        }
+
+        var file = new RDCoreDocument(document, parse);
+        if (Of(file.ParseOf(document)!) is not { } own)
+        {
+            return null;
+        }
+
+        var (declarations, references) = (new StringBuilder(own.Declarations), new StringBuilder(own.References));
+        foreach (var block in parse.BlockModules)
+        {
+            var surface = file.ParseOf(block.Uri) is { } part ? Of(part) : null;
+            declarations.Append('\u0001').Append(block.Kind).Append(' ').Append(block.Name).Append('\n').Append(surface?.Declarations);
+            references.Append('\u0001').Append(block.Name).Append('\n').Append(surface?.References);
+        }
+
+        return new ModuleSurface(declarations.ToString(), references.ToString());
+    }
 
     public static ModuleSurface? Of(ModuleParseResult parse)
     {

@@ -17,7 +17,7 @@ namespace RDCore.Runtime.Support.Host;
 /// <param name="ProjectName">The name the project declares; empty when it declares none.</param>
 /// <param name="Session">The session, composed of the project and the libraries it references.</param>
 /// <param name="Image">The code of the session: the lowered procedures of its modules, and their semantic models.</param>
-/// <param name="ModuleCount">The number of modules the project declares.</param>
+/// <param name="ModuleCount">The number of modules the project's files declare, a block of a file one of them.</param>
 public sealed record class ProjectAnalysisSession(Uri Root, string ProjectName, IRuntimeSession Session, ProgramImage Image, int ModuleCount);
 
 /// <summary>
@@ -103,8 +103,9 @@ public sealed class ProjectAnalysisSessions(
         ArgumentNullException.ThrowIfNull(root);
 
         // nothing it runs prints: its output goes nowhere.
-        var (session, _, _) = EnvironmentSessionProvider.ComposeSession(environment, fileSystem, librarySource, logger, project, root, new RuntimeOutputRouter());
-        var analysis = new ProjectAnalysisSession(root, project.Name, session, EnvironmentSessionProvider.NewImage(logger), project.Modules.Length);
+        var (session, _, _, moduleCount) = EnvironmentSessionProvider.ComposeSession(
+            environment, fileSystem, librarySource, logger, project, root, new RuntimeOutputRouter());
+        var analysis = new ProjectAnalysisSession(root, project.Name, session, EnvironmentSessionProvider.NewImage(logger), moduleCount);
         lock (_lock)
         {
             _sessions[root] = analysis;
@@ -113,7 +114,7 @@ public sealed class ProjectAnalysisSessions(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("🔍 Analysis session composed for {project} ({root}): {modules} module(s), {references} reference(s).",
-                project.Name, root, project.Modules.Length, session.References.Count);
+                project.Name, root, moduleCount, session.References.Count);
         }
 
         return analysis;

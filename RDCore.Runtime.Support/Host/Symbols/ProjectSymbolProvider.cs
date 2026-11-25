@@ -40,6 +40,9 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem,
     IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage) : ISymbolProvider
 {
+    // the modules the project's files declare, a block of a file one of them, as the symbols were last provided: none until they are.
+    public int ModuleCount { get; private set; }
+
     public IEnumerable<Symbol> ProvideSymbols()
     {
         var modules = new List<Symbol>();
@@ -63,6 +66,8 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
                     : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name));
             }
         }
+
+        ModuleCount = modules.Count;
 
         // the project itself, by its name: what qualifies the names of its own modules and types (MVVM.AppContext, MS-VBAL §5.6.12), as a library's name
         // qualifies its own. It is of no library, which is what tells it from the libraries' projects. A module named as the project keeps the name, as the

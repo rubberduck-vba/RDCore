@@ -157,6 +157,26 @@ public sealed class ModuleSurfaceTests
     public void IsNull_ForAModuleWithNoSyntaxTree()
         => Assert.IsNull(ModuleSurface.Of(new ModuleParseResult()));
 
+    private const string ADocumentOfABlock = "Attribute VB_Name = \"Backup\"\r\nPublic Sub Run()\r\nEnd Sub\r\n"
+        + "Module Helpers\r\nPublic Function Twice(ByVal Value As Long) As Long\r\n    Twice = Value * 2\r\nEnd Function\r\nEnd Module\r\n";
+
+    private static ModuleSurface? SurfaceOfDocument(string source)
+        => ModuleSurface.Of(TestUri.TestModuleUri(), new ModuleParser().Parse(TestUri.TestModuleUri(), source));
+
+    // a document's surface is each of its modules': what a block declares and the name its header gives it are what the other modules are told; what its code
+    // does is not.
+    [TestMethod]
+    [DataRow("(ByVal Value As Long)", "(ByVal Value As Integer)", true, DisplayName = "a block's declaration")]
+    [DataRow("Module Helpers", "Module Tools", true, DisplayName = "a block's name")]
+    [DataRow("Value * 2", "Value + Value", false, DisplayName = "a block's code")]
+    public void OfADocument_TellsWhatEachOfItsBlocksDeclares(string written, string edited, bool changed)
+    {
+        var (before, after) = (SurfaceOfDocument(ADocumentOfABlock)!, SurfaceOfDocument(ADocumentOfABlock.Replace(written, edited))!);
+
+        Assert.Contains(written, ADocumentOfABlock);
+        Assert.AreEqual(changed, before.Declarations != after.Declarations);
+    }
+
     // the surface tells a node's values of the types it knows, and no other: a node that comes to hold a value of another type - a record that holds a location -
     // is told without it until the surface is taught what of it is told.
     private static readonly Type[] Told =

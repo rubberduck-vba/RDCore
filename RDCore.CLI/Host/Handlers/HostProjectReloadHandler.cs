@@ -66,10 +66,12 @@ internal sealed class HostProjectReloadHandler(
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("🔄 Runtime session composed again from the project file: {modules} module(s), in {language}.", project.ProjectInfo.Modules.Length, language.Name);
+            logger.LogInformation("🔄 Runtime session composed again from the project file: {modules} module(s), in {language}.",
+                sessionProvider.ModuleCount, language.Name);
         }
 
-        return new HostProjectReloadResult { Composed = true, ModuleCount = project.ProjectInfo.Modules.Length };
+        // the modules the session was composed of, a block of a file one of them.
+        return new HostProjectReloadResult { Composed = true, ModuleCount = sessionProvider.ModuleCount };
     }
 
     // a module the project gained while the program is in progress is not of the program, which is not resumed without it, and is defined once the program is

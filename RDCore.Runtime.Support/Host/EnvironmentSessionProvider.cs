@@ -287,7 +287,8 @@ public sealed class EnvironmentSessionProvider(
         LeaveSession();
 
         _world = ComposeWorld(project, workspaceRoot);
-        var (session, referenced, constants) = ComposeSession(_environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
+        var (session, referenced, constants, moduleCount)
+            = ComposeSession(_environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known);
         _session = session;
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
@@ -296,7 +297,7 @@ public sealed class EnvironmentSessionProvider(
         Execution.SessionStopsChanged();
         ProjectName = project.Name;
         WorkspaceRoot = workspaceRoot;
-        ModuleCount = project.Modules.Length;
+        ModuleCount = moduleCount;
         // App says the program is the workspace project, run from its folder; a built program says otherwise once it is composed.
         SessionApplication.Of(_session).Runs(project.Name, FolderOf(workspaceRoot) ?? string.Empty);
         // its forms' windows are an application named as App.Title is, the project's name until the program assigns another.
@@ -319,7 +320,7 @@ public sealed class EnvironmentSessionProvider(
         {
             logger.LogInformation(
                 "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
-                project.Modules.Length, _session.References.Count, constants, _environment.ExecutionEngine, _environment.Configuration);
+                moduleCount, _session.References.Count, constants, _environment.ExecutionEngine, _environment.Configuration);
         }
 
         return _session;
@@ -339,8 +340,11 @@ public sealed class EnvironmentSessionProvider(
     /// <param name="known">
     /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
     /// </param>
-    /// <returns>The session, the libraries it references, and how many precompiler constants it has (built-ins included).</returns>
-    internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants) ComposeSession(
+    /// <returns>
+    /// The session, the libraries it references, how many precompiler constants it has (built-ins included), and how many modules the project's files
+    /// declare (a block of a file is one).
+    /// </returns>
+    internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants, int Modules) ComposeSession(
         IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILibrarySource? librarySource, ILogger logger, RDCoreProject project, Uri workspaceRoot,
         RuntimeOutputRouter output, IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null)
     {
@@ -373,7 +377,7 @@ public sealed class EnvironmentSessionProvider(
             session.Errors.ProjectName = name;
         }
 
-        return (session, referenced, configuration.ProvideSymbols().Count());
+        return (session, referenced, configuration.ProvideSymbols().Count(), modules.ModuleCount);
     }
 
     /// <summary>

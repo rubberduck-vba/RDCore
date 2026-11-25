@@ -9,6 +9,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Workspace.Services;
 
@@ -167,7 +168,7 @@ internal sealed class DocumentLifecycleService(
         // on disk is what the client's is told apart from.
         if (parsing.TryGetCached(documentUri, out var parsed))
         {
-            var surface = ModuleSurface.Of(parsed);
+            var surface = ModuleSurface.Of(documentUri, parsed);
             lock (_surfaceGate)
             {
                 _surfaces[documentUri] = (0, surface?.Declarations, surface?.References);
@@ -217,8 +218,8 @@ internal sealed class DocumentLifecycleService(
     {
         Supersede(documentUri);
 
-        // the name the host has the module under is read off the text it was defined from, which is gone once the document is.
-        var moduleName = ModuleNameOf(documentUri);
+        // the names the host has the document's modules under are read off the text they were defined from, which is gone once the document is.
+        var moduleNames = ModuleNamesOf(documentUri);
 
         var document = await documents.CloseAsync(documentUri);
         parsing.Invalidate(documentUri);
@@ -230,11 +231,15 @@ internal sealed class DocumentLifecycleService(
         {
             ScheduleRefresh(documentUri, publish: false);
         }
-        else if (moduleName is not null)
+        else if (moduleNames is not null)
         {
-            // the workspace has no document of it any more, and so no module: what the host holds of it - the variables its lines declared, and the storage
-            // they were given - is not the workspace's either, and what the other modules found of it is gone.
-            await DiscardModuleAsync(moduleName);
+            // the workspace has no document of it any more, and so none of its modules: what the host holds of them - the variables their lines declared, and
+            // the storage they were given - is not the workspace's either, and what the other modules found of them is gone.
+            foreach (var moduleName in moduleNames)
+            {
+                await DiscardModuleAsync(moduleName);
+            }
+
             lock (_surfaceGate)
             {
                 _surfaces.Remove(documentUri);
@@ -261,9 +266,9 @@ internal sealed class DocumentLifecycleService(
         }
     }
 
-    private string? ModuleNameOf(Uri documentUri)
-        => documents.TryGetDocument(documentUri, out var document) && parsing.TryGetCached(documentUri, out var parse) && parse.SyntaxTree is { } tree
-            ? tree.GetDeclaredName() ?? document.Name
+    private IReadOnlyList<string>? ModuleNamesOf(Uri documentUri)
+        => documents.TryGetDocument(documentUri, out var document) && parsing.TryGetCached(documentUri, out var parse) && parse.SyntaxTree is not null
+            ? ParsedModules.NamesOf(parse, document.Name)
             : null;
 
     private async Task DiscardModuleAsync(string moduleName)
@@ -471,7 +476,7 @@ internal sealed class DocumentLifecycleService(
             // what the other modules are told by this one changed: the host has them defined again against what it declares, and then what the client shows of
             // them is refreshed; what its code refers to changed, and nothing it declares: the counts of their members' references are. A refresh that is
             // superseded before the sync starts leaves it to the next one, which the host's others are still as they were for.
-            var surface = ModuleSurface.Of(parse);
+            var surface = ModuleSurface.Of(documentUri, parse);
             var (declarations, references) = (surface?.Declarations, surface?.References);
             lock (_surfaceGate)
             {

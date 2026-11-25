@@ -30,14 +30,13 @@ internal static class ProjectModules
             }
 
             workspaceRoot ??= SymbolUri.Root(document.WorkspaceRoot);
-            // the module's programmatic name is its Attribute VB_Name; the file name is the fallback.
-            var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
-            // module kind is never a parser input: it is read off the raw source, as the parsing pass reads it.
-            var moduleKind = ParsingClientService.ModuleTypeOf(document);
-            modules.Add(new ParsedModule(SymbolUri.Module(workspaceRoot, moduleName), moduleName, moduleKind, parseResult));
+            // the document's modules: its own, named by its Attribute VB_Name or else its file, of the kind its raw source says (never a parser input, as the
+            // parsing pass reads it), then each of its blocks'. A host document is the code of the file's own module.
+            var own = ParsedModules.Of(workspaceRoot, document.Id.Uri.ToUri(), parseResult, document.Name, ParsingClientService.ModuleTypeOf(document));
+            modules.AddRange(own);
             if (document.Super is { } super)
             {
-                hosts.TryAdd(moduleName, super);
+                hosts.TryAdd(own[0].Name, super);
             }
         }
 

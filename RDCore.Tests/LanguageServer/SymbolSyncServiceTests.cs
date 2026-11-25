@@ -422,6 +422,172 @@ public sealed class SymbolSyncServiceTests
         CollectionAssert.AreEqual(new[] { ("Mod1", false, true), ("Mod1", true, false) }, requests);
     }
 
+    // a workspace of Backup.bas, whose text is given, and Other.bas: what each is parsed to now is the text the test last gave it, and what the server has of
+    // it at the moment (a document being parsed again has nothing). What the host is sent is recorded: each definition (C for a code load) and each discard.
+    private sealed class BlocksWorkspace
+    {
+        public readonly Dictionary<string, string?> Texts = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Backup"] = null,
+            ["Other"] = "Public Sub Bar()\r\nEnd Sub",
+        };
+        public readonly List<string> Sent = [];
+        public readonly SymbolSyncService Sut;
+        public readonly Uri Backup = new(Path.Combine(Root, "src", "Backup.bas"));
+        public readonly Uri Other = new(Path.Combine(Root, "src", "Other.bas"));
+
+        public BlocksWorkspace(string backup)
+        {
+            Texts["Backup"] = backup;
+            var host = Substitute.For<IRDCoreClientApp>();
+            host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+            host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols), nameof(SessionDiscard)] });
+            host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    var request = call.Arg<DefineSymbolsParams>();
+                    Sent.Add(request.CodeOnly ? $"C {request.ModuleName}" : request.ModuleName);
+                    return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
+                });
+            host.SendRequestAsync<HostDiscardParams, DiscardResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    Sent.Add($"discard {call.Arg<HostDiscardParams>().ModuleName}");
+                    return Task.FromResult(new DiscardResult());
+                });
+
+            var orchestration = Substitute.For<IPlatformOrchestrationService>();
+            orchestration.RuntimeEnvironment.Returns(host);
+
+            var backupDocument = new WorkspaceDocument("src/Backup.bas", Root, backup, version: 2);
+            var documents = Substitute.For<IWorkspaceDocumentService>();
+            var otherDocument = new WorkspaceDocument("src/Other.bas", Root, "", version: 1);
+            documents.GetAllDocuments().Returns([backupDocument, otherDocument]);
+            documents.WorkspaceRoot.Returns(Root);
+            documents.TryGetDocument(Backup, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = backupDocument; return true; });
+            documents.TryGetDocument(Other, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = otherDocument; return true; });
+
+            bool Parsed(Uri uri, out ModuleParseResult parse)
+            {
+                var name = Path.GetFileNameWithoutExtension(uri.LocalPath);
+                parse = Texts[name] is { } text ? new ModuleParser().Parse(uri, text) : null!;
+                return parse is not null;
+            }
+
+            var parsing = Substitute.For<IParsingClientService>();
+            parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+                .Returns(call => { var found = Parsed((Uri)call[0], out var parse); call[1] = parse; return found; });
+            parsing.TryGetCached(Arg.Any<Uri>(), Arg.Any<int>(), out Arg.Any<ModuleParseResult>())
+                .Returns(call => { var found = Parsed((Uri)call[0], out var parse); call[2] = parse; return found; });
+
+            Sut = new SymbolSyncService(
+                orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries(),
+                NoOtherProjects());
+        }
+
+        // what was sent since the last time it was asked.
+        public string[] Taken()
+        {
+            var sent = Sent.ToArray();
+            Sent.Clear();
+            return sent;
+        }
+    }
+
+    private static string BackupOf(params string[] blocks)
+        => "Attribute VB_Name = \"Backup\"\r\nPublic Sub Run()\r\nEnd Sub\r\n"
+            + string.Concat(blocks.Select(block => $"Module {block}\r\nPublic Sub Go{block}()\r\nEnd Sub\r\nEnd Module\r\n"));
+
+    [TestMethod]
+    public async Task EachModuleOfAFile_IsDefinedInTheHost_ItsOwnThenEachBlocks_ThenTheCodeOfEach()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "Backup", "Helpers", "Tools", "Other", "C Backup", "C Helpers", "C Tools", "C Other" }, workspace.Taken());
+    }
+
+    // an edit that renames a block takes the old one out of the host and defines the new one, with the document's other modules; no other document's is sent.
+    [TestMethod]
+    public async Task ADocumentThatChanged_IsEachOfItsModulesDefinedAgain_AndABlockItNoLongerHasDiscarded()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Backup"] = BackupOf("Helpers", "Gadgets");
+        await workspace.Sut.SyncDocumentAsync(workspace.Backup, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "discard Tools", "Backup", "Helpers", "Gadgets", "C Backup", "C Helpers", "C Gadgets" }, workspace.Taken());
+    }
+
+    // a block that moved to another document is still a module of the workspace: the host keeps it, and the other document's sync defines it again.
+    [TestMethod]
+    public async Task ABlockThatMovedToAnotherDocument_IsNotDiscarded()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Backup"] = BackupOf("Helpers");
+        workspace.Texts["Other"] = "Public Sub Bar()\r\nEnd Sub\r\nModule Tools\r\nEnd Module\r\n";
+        await workspace.Sut.SyncDocumentAsync(workspace.Backup, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "Backup", "Helpers", "C Backup", "C Helpers" }, workspace.Taken());
+    }
+
+    // a block that moved is the other document's from then on: that document losing it takes it out of the host.
+    [TestMethod]
+    public async Task ABlockThatMovedToAnotherDocument_IsDiscarded_OnceThatDocumentLosesIt()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Texts["Backup"] = BackupOf("Helpers");
+        workspace.Texts["Other"] = "Public Sub Bar()\r\nEnd Sub\r\nModule Tools\r\nEnd Module\r\n";
+        await workspace.Sut.SyncDocumentAsync(workspace.Backup, CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Other"] = "Public Sub Bar()\r\nEnd Sub\r\n";
+        await workspace.Sut.SyncDocumentAsync(workspace.Other, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "discard Tools", "Other", "C Other" }, workspace.Taken());
+    }
+
+    // what a document declares is said by its parse: one the server has none of at the moment says nothing, and the host keeps its modules. A file that
+    // changed outside the editor and lost a block has it taken out by the workspace's sync.
+    [TestMethod]
+    [DataRow(true, DisplayName = "a document being parsed again")]
+    [DataRow(false, DisplayName = "a file that lost a block")]
+    public async Task TheWorkspacesSync_DiscardsOnlyWhatADocumentsParseNoLongerDeclares(bool beingParsed)
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Backup"] = beingParsed ? null : BackupOf("Helpers");
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        CollectionAssert.AreEqual(
+            beingParsed ? new[] { "Other", "C Other" } : new[] { "discard Tools", "Backup", "Helpers", "Other", "C Backup", "C Helpers", "C Other" },
+            workspace.Taken());
+    }
+
+    // a session composed anew holds none of what it was given: nothing of it is taken out.
+    [TestMethod]
+    public async Task ASessionComposedAnew_HasNothingDiscarded_ThatItWasNotGiven()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Sut.SessionComposedAnew();
+        workspace.Texts["Backup"] = BackupOf("Helpers");
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        CollectionAssert.AreEqual(new[] { "Backup", "Helpers", "Other", "C Backup", "C Helpers", "C Other" }, workspace.Taken());
+    }
+
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) ForDiscard(bool providesDiscard = true, bool hasHost = true)
     {
         var host = Substitute.For<IRDCoreClientApp>();
