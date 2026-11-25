@@ -1013,6 +1013,69 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         return new DebugAck { Acted = true };
     }
 
+    /// <summary>
+    /// Resets the session to what a new session of the program is: the objects the module variables hold are let go of, each running its
+    /// <c>Terminate</c>, and the session is then wiped as an <c>End</c> wipes it (<see cref="SessionWipe.Release"/>). A host that runs the program once for
+    /// each request resets the session between two requests, so that nothing one request left reaches the next.
+    /// </summary>
+    /// <returns>
+    /// What the <c>Terminate</c> handlers printed, and the error one left unhandled, reported as a run reports it. A program that waits is ended first, as a
+    /// run ends it; while one is running, the reset is refused.
+    /// </returns>
+    public Task<ExecuteResult> ResetAsync()
+    {
+        var session = provider.Session;
+        lock (_sync)
+        {
+            if (_state is ProgramState.Running || _alongside)
+            {
+                return Task.FromResult(Refused(Resources.Host_AProgramIsRunning));
+            }
+
+            if (_state is ProgramState.Suspended)
+            {
+                EndSuspended(session, wipe: false);
+            }
+
+            // a Terminate is program code, and runs as a program does: in the session's turn, on a thread of its own, with nothing else started meanwhile.
+            CloseToSessionStops(session);
+            Become(ProgramState.Running);
+            _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            (_terminating, _debugging, _stopWhenStarted, _streaming) = (false, false, false, false);
+        }
+
+        session.Turn.Enter();
+        lock (_sync)
+        {
+            _inTurn = true;
+        }
+
+        session.Halt.Clear();
+        HeldDefinitions.Hold(session);
+        return OffTheConnectionAsync(() => ResetToTheStart(session));
+    }
+
+    // the error a Terminate left unhandled is reported before the wipe clears the session's error state, which says where it was raised.
+    private ExecuteResult ResetToTheStart(IRuntimeSession session)
+    {
+        var output = new RuntimeOutputBuffer();
+        provider.Output.Target = output;
+        try
+        {
+            var result = SessionWipe.Release(session) is { } unhandled
+                ? Report(RuntimeSemanticsEvaluationResult.Error(unhandled), session, output, CancellationToken.None)
+                : new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
+            session.Halt.Clear();
+            SessionWipe.End(session);
+            session.Errors.ClearUntrappable();
+            return result;
+        }
+        finally
+        {
+            Finished(session);
+        }
+    }
+
     // a step into is due at the very next instruction, whichever procedure it is in: that is a pause. A program that was started and is not executing yet - it
     // waits for its turn, or is being set up - would lose a step asked of it now (a run starts as one that was never stopped): it is asked of it as it starts.
     // Called with the lock held.
