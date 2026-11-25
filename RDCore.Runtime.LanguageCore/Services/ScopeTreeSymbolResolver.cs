@@ -187,12 +187,18 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
         var from = _projects.OriginOf(origin);
+        if (global is null)
+        {
+            return SymbolResolutionResult.Unbound;
+        }
 
-        return global is not null
-            && SelectTier(global, global.DeclaredAs(name).Where(symbol => IsProjectOrModule(symbol) && _projects.IsSeen(symbol, from)), from.Library)
-                is { } result
-            ? result
-            : SymbolResolutionResult.Unbound;
+        // MS-VBAL §5.6.10's type binding tiers: a project, the enclosing one or a referenced one, and a module of the enclosing project, ahead of a module
+        // of a referenced project. A library whose class is named like the library itself (Windows Script Host's IHost) is the library, as a qualifier.
+        var seen = global.DeclaredAs(name).Where(symbol => IsProjectOrModule(symbol) && _projects.IsSeen(symbol, from)).ToArray();
+        bool IsOfTheEnclosingProjectTier(Symbol symbol) => symbol is VBProjectSymbol || ScopeTreeProjects.IsOwn(symbol, from);
+        return SelectTier(global, seen.Where(IsOfTheEnclosingProjectTier), from.Library)
+            ?? SelectTier(global, seen.Where(symbol => !IsOfTheEnclosingProjectTier(symbol)), from.Library)
+            ?? SymbolResolutionResult.Unbound;
     }
 
     // MS-VBAL §5.6.12
