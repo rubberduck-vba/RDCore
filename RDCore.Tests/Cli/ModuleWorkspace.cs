@@ -544,7 +544,9 @@ internal static class ModuleWorkspace
             environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
-            libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));
+            libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null),
+            // the real disk: the programs these tests run do their file I/O on real temporary files, which the modules' file system does not hold.
+            sessionFileSystem: new System.IO.Abstractions.FileSystem());
         var workspaceRoot = Wire.FileUri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
