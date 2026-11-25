@@ -51,7 +51,7 @@ End Class
 |Editing|A block that an edit takes out of its file, or renames, takes its module out of the environment host, unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
 
 > [!NOTE]
-> **Not implemented.** The analysis session of a project other than the primary one keeps the module of a block that its file no longer has. VBA and VB6
+> **Not implemented.** The analysis session of a project other than the primary one keeps the module of a block that an edit takes out of its file. VBA and VB6
 > have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own. Two blocks of
 > the same name are not reported either.
 
