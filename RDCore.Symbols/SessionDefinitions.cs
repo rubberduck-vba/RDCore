@@ -74,7 +74,7 @@ public sealed record class SessionDefinition(
             ModuleName = Module.Name,
             Directives = ModuleKinds.DirectivesOf(Module.Kind, Module.Directives ?? tree.GetModuleDirectives()),
             ImplementedInterfaceNames = tree?.GetImplementedInterfaceNames() ?? [],
-            ImplementedInterfaceRanges = tree?.GetImplementedInterfaceRanges() ?? [],
+            ImplementedInterfaceLocations = tree?.GetImplementedInterfaceLocations() ?? [],
             Library = Referenced?.Name,
             LibraryPriority = Referenced?.Priority ?? 0,
             ModuleType = Module.Kind,

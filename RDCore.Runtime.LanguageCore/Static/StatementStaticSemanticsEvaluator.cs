@@ -208,12 +208,12 @@ public static class StatementStaticSemanticsEvaluator
 
         // a name declared in each branch of a #If block is declared once, however the block evaluates.
         var blocks = walk.Options.Blocks ?? ConditionalCompilationBlocks.None;
-        if (prior.Any(site => !blocks.AreAlternatives(site, location.Range.Start)))
+        if (prior.Any(site => !blocks.AreAlternatives(site, location)))
         {
             walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, location, $"'{name}' is declared more than once in this procedure."));
         }
 
-        prior.Add(location.Range.Start);
+        prior.Add(location);
     }
 
     private static void EvaluateStatement(StaticEvaluationContext context, StatementNode statement, Walk walk)
@@ -1462,7 +1462,7 @@ public static class StatementStaticSemanticsEvaluator
         public List<ExpressionNode> LabelReferences { get; } = [];
 
         // the names the walked procedure has declared so far, and where: its parameters, variables and constants share one scope.
-        public Dictionary<string, List<SourcePosition>> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, List<SourceLocation>> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         // the names the procedure uses before the first ReDim that would declare them, and where that ReDim is: see FindNamesUsedBeforeTheirReDim.
         public Dictionary<string, SourcePosition> NamesUsedBeforeTheirReDim { get; } = new(StringComparer.OrdinalIgnoreCase);

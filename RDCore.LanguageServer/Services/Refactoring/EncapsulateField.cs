@@ -490,7 +490,7 @@ internal static class EncapsulateField
             return new(EncapsulationRefusalKind.NotSupported);
         }
 
-        return ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia).IsConditional(variable.SourceLocation.Range.Start)
+        return ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia).IsConditional(variable.SourceLocation)
             ? new(EncapsulationRefusalKind.Conditional)
             : null;
     }

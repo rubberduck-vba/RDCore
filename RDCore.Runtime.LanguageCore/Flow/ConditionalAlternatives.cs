@@ -32,7 +32,7 @@ internal sealed class ConditionalAlternatives
     public static ConditionalAlternatives? Of(InstructionList instructions, ConditionalCompilationBlocks blocks)
     {
         var items = instructions.Items;
-        var located = items.Select(instruction => instruction.Location is { } location ? blocks.BranchesAt(location.Range.Start, _ => true) : null).ToArray();
+        var located = items.Select(instruction => instruction.Location is { } location ? blocks.BranchesAt(location, _ => true) : null).ToArray();
         var before = new IReadOnlyList<(int Block, int Branch)>[items.Length];
         var after = new IReadOnlyList<(int Block, int Branch)>[items.Length];
         IReadOnlyList<(int Block, int Branch)> last = [];
