@@ -51,7 +51,7 @@ internal sealed partial class SessionFileChannels
             return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
-        // the session's alone: the process, and every other session of it, stay where they are. CurDir gives it with no separator after it, but a root's.
+        // the session's alone: the process, and every other session of it, stay where they are. CurDir gives it with no separator at its end, except a root's.
         _current = Path.TrimEndingDirectorySeparator(fileSystem.Path.GetFullPath(path));
         return null;
     }

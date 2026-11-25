@@ -578,7 +578,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         return null;
     }
 
-    // the session's current directory; null once it is gone, which a directory deleted while the session is in it is.
+    // the session's current directory; null once it no longer exists, as when it is deleted while the session is in it.
     private string? CurrentDirectory() => _current is { } current && fileSystem.Directory.Exists(current) ? current : null;
 
     private static string? DirectoryOfTheProcess(IFileSystem fileSystem)

@@ -508,8 +508,8 @@ public sealed class BenchCommandTests
     public async Task RunsThatAreNotPositive_AreRefused()
         => Assert.AreEqual(2, await Command(Files()).Command.ExecuteAsync([Root, "--runs", "0"], CancellationToken.None));
 
-    // while the session runs, its current directory is the corpus folder, and the process's stays where it was: the test runs alone, as a test that moved
-    // the process's directory would make it fail for a reason of its own.
+    // while the session runs, its current directory is the corpus folder, and the process's stays where it was: the test runs alone, so that a test that moves
+    // the process's directory cannot make it fail.
     [TestMethod]
     [DoNotParallelize]
     public async Task TheBuiltInCorpus_LoadsWithoutAProblem_AndHasTheCasesThePlanNames()
@@ -527,7 +527,7 @@ public sealed class BenchCommandTests
         {
             Assert.AreEqual(0, await command.ExecuteAsync(["--list"], CancellationToken.None), output.ToString());
 
-            // the run's session never moves the process, which Windows would refuse to delete the corpus under.
+            // the run's session leaves the process's directory where it is, so Windows lets the command delete the corpus.
             Assert.AreEqual(saved, Directory.GetCurrentDirectory());
             Assert.IsFalse(Directory.Exists(corpus), corpus);
         }

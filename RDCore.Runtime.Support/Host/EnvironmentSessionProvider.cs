@@ -118,8 +118,8 @@ public interface IEnvironmentSessionProvider
     /// </summary>
     /// <remarks>
     /// The current directory of the session is then the workspace root (RD-VBAL §6.1.2.5), at start-up and after a reload alike; a root that is the shell's
-    /// scratch workspace (<see cref="ScratchWorkspace.Is"/>), that is not a full path on this platform, or that is not there, leaves it where it was: the
-    /// directory of the process, which no session moves.
+    /// scratch workspace (<see cref="ScratchWorkspace.Is"/>), that is not a full path on this platform, or that is not there, leaves it the process's
+    /// directory, which no session moves.
     /// </remarks>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
@@ -446,7 +446,7 @@ public sealed class EnvironmentSessionProvider(
         }
     }
 
-    // the current directory is the session's and goes with it: the process's was never moved, and has nothing to be given back.
+    // the current directory is the session's and goes with it; the process's does not move, so nothing is given back.
     private void LeaveSession()
     {
         // a program that waits at a stop holds a thread of its own, and the session it runs in, until it is ended: nothing resumes it once its session is left.
