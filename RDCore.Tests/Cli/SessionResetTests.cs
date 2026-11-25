@@ -34,7 +34,8 @@ public sealed class SessionResetTests
     private static Task<ExecuteResult> Reset(EnvironmentSessionProvider provider) => provider.Execution.ResetAsync().WaitAsync(Patience);
 
     // everything a run leaves in the session that the next run reads: a module variable, a Static, an object, an open file, Err, and the random numbers.
-    private static readonly string Leaving = Program(
+    // The file is the test's own, in the temporary folder.
+    private static string Leaving(string kept) => Program(
         "Private Count As Long",
         "Private Held As Tracked",
         "Public Sub Main()",
@@ -49,25 +50,35 @@ public sealed class SessionResetTests
         "Set Held = New Tracked",
         "Held.Id = \"held\"",
         "On Error Resume Next",
-        "Open \"kept.txt\" For Output As #FreeFile",
+        $"Open \"{kept}\" For Output As #FreeFile",
         "Err.Raise 1000",
         "End Sub");
 
     [TestMethod]
     public async Task ARun_AfterAReset_PrintsWhatTheFirstRunPrinted()
-        => await ModuleWorkspace.InspectAsync(Tracked, Leaving, async (provider, first, runAgain) =>
+    {
+        var kept = Path.Combine(Path.GetTempPath(), $"rdcore-reset-{Guid.NewGuid():N}.txt");
+        try
         {
-            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
-            var second = await runAgain().WaitAsync(Patience);
-            CollectionAssert.AreNotEqual(Lines(first), Lines(second), "a run that follows another with no reset reads what the first left");
+            await ModuleWorkspace.InspectAsync(Tracked, Leaving(kept), async (provider, first, runAgain) =>
+            {
+                Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+                var second = await runAgain().WaitAsync(Patience);
+                CollectionAssert.AreNotEqual(Lines(first), Lines(second), "a run that follows another with no reset reads what the first left");
 
-            var reset = await Reset(provider);
-            var third = await runAgain().WaitAsync(Patience);
+                var reset = await Reset(provider);
+                var third = await runAgain().WaitAsync(Patience);
 
-            Assert.AreEqual(ExecutionOutcome.Completed, reset.Outcome, reset.ErrorMessage);
-            CollectionAssert.AreEqual(new[] { "terminated held" }, Lines(reset));
-            CollectionAssert.AreEqual(Lines(first), Lines(third), string.Join("|", Lines(third)));
-        });
+                Assert.AreEqual(ExecutionOutcome.Completed, reset.Outcome, reset.ErrorMessage);
+                CollectionAssert.AreEqual(new[] { "terminated held" }, Lines(reset));
+                CollectionAssert.AreEqual(Lines(first), Lines(third), string.Join("|", Lines(third)));
+            });
+        }
+        finally
+        {
+            File.Delete(kept);
+        }
+    }
 
     [TestMethod]
     public async Task AReset_RunsTheTerminateOfEachObjectTheModulesHold_Once()

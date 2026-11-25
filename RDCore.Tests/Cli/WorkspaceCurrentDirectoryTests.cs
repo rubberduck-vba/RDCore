@@ -177,6 +177,21 @@ public sealed class WorkspaceCurrentDirectoryTests
         Assert.AreEqual(_root, CurrentDirectoryOf(provider));
     }
 
+    // a reset between runs leaves behind what a run did to the session: the next run starts in the workspace root, as a new session does.
+    [TestMethod]
+    public async Task ARunAfterAReset_StartsInTheWorkspaceRoot()
+    {
+        using var provider = Compose(_root);
+        var moved = await RunAsync(provider, _root, "ChDir \"Sub\"");
+        Assert.AreEqual(Path.Combine(_root, "Sub"), CurrentDirectoryOf(provider), $"a run leaves the directory where it put it: {string.Join("|", moved)}");
+
+        var reset = await provider.Execution.ResetAsync();
+        Assert.AreEqual(ExecutionOutcome.Completed, reset.Outcome, reset.ErrorMessage);
+        var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")");
+
+        CollectionAssert.AreEqual(new[] { _root, "data.txt" }, printed, string.Join("|", printed));
+    }
+
     // the shell's scratch workspace is no folder of the user's: a session with no workspace of the user's starts where the host was started.
     [TestMethod]
     public async Task TheShellsScratchWorkspace_LeavesTheDirectoryWhereItWas()

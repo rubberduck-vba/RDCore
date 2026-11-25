@@ -1071,6 +1071,13 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             session.Halt.Clear();
             SessionWipe.End(session);
             session.Errors.ClearUntrappable();
+            // the next run starts where a new session does: the ChDir of a run, or of a Terminate, is left behind with the rest of it. A directory that is
+            // gone leaves the session where it is, as a new session is left where the host was.
+            if (provider.StartingDirectory is { } starting)
+            {
+                _ = session.Files.TryChangeDirectory(starting);
+            }
+
             return result;
         }
         finally
