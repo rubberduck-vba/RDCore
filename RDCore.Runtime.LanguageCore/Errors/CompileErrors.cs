@@ -186,5 +186,6 @@ public static class CompileErrors
         [VBCompileErrorId.OnlyValidInObjectModule] = Exceptions.VBCompileError_OnlyValidInObjectModule,
         [VBCompileErrorId.NotALegalObjectName] = Exceptions.VBCompileError_NotALegalObjectName,
         [VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary] = Exceptions.VBCompileError_NameConflictsWithModuleProjectOrLibrary,
+        [VBCompileErrorId.DuplicateOptionStatement] = Exceptions.VBCompileError_DuplicateOptionStatement,
     };
 }
