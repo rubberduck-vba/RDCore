@@ -115,8 +115,8 @@ public sealed class DeclarationErrorTests
     [DataRow("#If 0 Then", "#Else", true, DisplayName = "the Else branch, live")]
     public async Task ANameDeclaredOutsideABlock_AndInOneOfItsBranches_IsAnAmbiguousName_OnlyWhenThatBranchIsLive(string block, string? branch, bool live)
     {
-        // MS-VBAL §3.4: only the live branch of a block is part of the module, so the declaration in another is not part of it. The rows follow the specification:
-        // no run of MS-VBA records a module that declares the name outside the block and in a branch that is not live.
+        // MS-VBAL §3.4: only the live branch of a block is part of the module, so the declaration in another is not part of it. The rows follow the
+        // specification: no run of MS-VBA records a module that declares the name outside the block and in a branch that is not live.
         var lines = new List<string> { "Public Total As Long", block };
         lines.AddRange(branch is null ? ["Public Total As Long"] : ["Public Other As Long", branch, "Public Total As Long"]);
         lines.Add("#End If");
