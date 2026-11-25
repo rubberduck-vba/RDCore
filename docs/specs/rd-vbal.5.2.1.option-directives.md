@@ -13,6 +13,10 @@ _Directives_ include the `Option` statements
 |`Option Explicit`|Implicit declarations become compile-time errors (§5.2.1.3).|
 |`Option Private Module`|Determines the _accessibility_ of a module (§5.2.1.4).|
 
+A module states each directive at most once, whatever its value: `Option Base 1` after `Option Base 0` states `Option Base` twice. Each statement
+after the first is a **VBC09387** _Duplicate Option statement_ compile-time error ([VBC09387](../diagnostics/vbc09387.md)), and the module does not load.
+A directive stated in each branch of an `#If` block is stated once.
+
 A module's [LexicalScope](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.LexicalScope.html) carries its
 [ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)
 ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)):

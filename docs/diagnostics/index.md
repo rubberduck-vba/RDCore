@@ -143,6 +143,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09384](vbc09384.md)|Only valid in object module|A procedure of a standard module is declared `Friend`|
 |[VBC09385](vbc09385.md)|Not a legal object name|A module is named with a keyword of the language, such as `Circle`|
 |[VBC09386](vbc09386.md)|Name conflicts with existing module, project, or object library|A module is named as a library or a project that the project references, such as `Excel`|
+|[VBC09387](vbc09387.md)|Duplicate Option statement|A module states an option directive more than once, such as `Option Explicit`|
 
 ### Runtime errors
 
