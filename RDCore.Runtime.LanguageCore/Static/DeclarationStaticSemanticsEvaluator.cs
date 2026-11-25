@@ -135,9 +135,9 @@ public static class DeclarationStaticSemanticsEvaluator
             declarations.Add((kind, child.SourceLocation));
         }
 
-        // MS-VBAL §5.2.1: a module states each option directive at most once, whatever its value, so `Option Base 1` after `Option Base 0` is the option stated
-        // twice. MS-VBA refuses the second statement: "Duplicate Option statement" (observed in Excel). The branches of a conditional compilation block that
-        // each state it are one statement of it, as they are one declaration of a name.
+        // MS-VBAL §5.2.1: a module states each option directive at most once, whatever its value, so `Option Base 1` after `Option Base 0` is the option
+        // stated twice. MS-VBA refuses the second statement: "Duplicate Option statement" (observed in Excel). The branches of a conditional compilation
+        // block that each state it are one statement of it, as they are one declaration of a name.
         var options = new Dictionary<ModuleOptions, List<SourceLocation>>();
         foreach (var directive in module.Children.OfType<ModuleOptionDirectiveNode>())
         {
