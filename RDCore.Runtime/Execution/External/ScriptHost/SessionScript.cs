@@ -57,7 +57,8 @@ public sealed class SessionScript
     public TextWriter Error { get; private set; } = TextWriter.Null;
 
     /// <summary>
-    /// <c>WScript.Interactive</c>: whether the script runs in interactive mode. The program can change it, and it changes nothing.
+    /// What the program assigned to <c>WScript.Interactive</c>; <see langword="null"/> until it assigns it, while <c>WScript.Interactive</c> is whether the
+    /// session runs attended. Assigning it changes nothing else.
     /// </summary>
     public bool? Interactive { get; set; }
 
