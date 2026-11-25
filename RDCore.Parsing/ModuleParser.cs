@@ -54,7 +54,7 @@ public interface IModuleParser
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/>; optional, the default suits tests.</param>
 /// <param name="logger">Records the exceptions the resilience guards swallow; optional, no-op by default.</param>
 /// <param name="workspaceOptions">
-/// Says which documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.AllowsModuleLevelStatements"/>); optional, the
+/// Says which documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.AllowsFileLevelStatements"/>); optional, the
 /// default allows them in a document of a language that has them (a script).
 /// </param>
 public partial class ModuleParser(
@@ -91,7 +91,7 @@ public partial class ModuleParser(
         var result = LargeStackThread.Run(() =>
         {
             t_directiveLooks = 0;
-            t_moduleStatements = _workspace.AllowsModuleLevelStatements(uri.AbsolutePath);
+            t_fileStatements = _workspace.AllowsFileLevelStatements(uri.AbsolutePath);
             var parsed = Parse(uri, content, anchorOffset, [], Statistics, token);
             looks = t_directiveLooks;
             return parsed;
@@ -173,7 +173,7 @@ public partial class ModuleParser(
             // and its alternatives are read the same way after either.
             ModuleNode ast;
             ImmutableArray<SyntaxNode> trivia;
-            if (t_moduleStatements)
+            if (t_fileStatements)
             {
                 (ast, trivia) = ParseScript(uri, node, sanitized, anchorOffset, errorListener, token);
             }
@@ -211,7 +211,7 @@ public partial class ModuleParser(
 
             // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
             // the source, which a module that has one would have read as one block too many. A script's parts have had theirs (ParseScript).
-            if (!t_moduleStatements && errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
+            if (!t_fileStatements && errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
             {
                 errorListener.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, sanitized, anchorOffset));
             }
@@ -340,7 +340,7 @@ public partial class ModuleParser(
         return null;
     }
 
-    // a script (SdkWorkspaceOptions.AllowsModuleLevelStatements) read in three parts of its source, each with the others blank (ScriptSource): what it
+    // a script (SdkWorkspaceOptions.AllowsFileLevelStatements) read in three parts of its source, each with the others blank (ScriptSource): what it
     // declares outside its procedures and its procedures, each read as a module is, and its code, read as the body of a procedure whose header is on the
     // line before the first. The grammar is the one every module is read with, so a module that is no script is read as it always was. The module is what
     // the first two declare, in the order they are written, and its code is its ProgramEntryPoint.ScriptName procedure, which it has even when it has no
@@ -682,10 +682,10 @@ public partial class ModuleParser(
     [ThreadStatic]
     private static long t_directiveLooks;
 
-    // whether the module the thread parses may have statements outside its procedures (SdkWorkspaceOptions.AllowsModuleLevelStatements), which are the
+    // whether the module the thread parses may have statements outside its procedures (SdkWorkspaceOptions.AllowsFileLevelStatements), which are the
     // code of its (Script) procedure: set as the public Parse starts, and read by every parse of the module and of its parts.
     [ThreadStatic]
-    private static bool t_moduleStatements;
+    private static bool t_fileStatements;
 
     /// <summary>
     /// The work the directive passes of this thread's last <see cref="Parse(Uri, string, SourcePosition, CancellationToken)"/> did, the module's and its

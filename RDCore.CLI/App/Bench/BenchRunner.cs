@@ -182,7 +182,7 @@ internal sealed record class BuiltWorkspace(
 /// references Excel is benched with Excel's types.
 /// </param>
 /// <param name="options">
-/// The workspace's settings: which of its documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.ModuleLevelStatements"/>).
+/// The workspace's settings: which of its documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.FileLevelStatements"/>).
 /// The defaults when none are given, under which a script (a <c>.vbs</c> document) has them.
 /// </param>
 internal sealed class BenchRunner(

@@ -5,7 +5,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.Parsing;
 
 /// <summary>
-/// The source of a script (<see cref="SDK.Server.Configuration.SdkWorkspaceOptions.AllowsModuleLevelStatements"/>) in three texts, each the length and
+/// The source of a script (<see cref="SDK.Server.Configuration.SdkWorkspaceOptions.AllowsFileLevelStatements"/>) in three texts, each the length and
 /// the lines of the source: what it declares outside its procedures, its procedures, and its code, which is the statements outside its procedures that a
 /// module that is not a script refuses (MS-VBAL §5.1). Each text has the characters of the other two blank and every line ending kept, so that a position
 /// in any of them is the position in the source, and the grammar reads each as it reads a module, or a procedure's body.

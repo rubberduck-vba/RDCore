@@ -12,18 +12,18 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// A module that may have statements outside its procedures (<see cref="SdkWorkspaceOptions.AllowsModuleLevelStatements"/>: a script, or any module
+/// A module that may have statements outside its procedures (<see cref="SdkWorkspaceOptions.AllowsFileLevelStatements"/>: a script, or any module
 /// when the workspace says so) has them as the code of its <see cref="ProgramEntryPoint.ScriptName"/> procedure, in the order they are written; what it
 /// declares there is the module's. A module that may not have them has them as a syntax error, as MS-VBA does (<c>Invalid outside procedure</c>).
 /// </summary>
 [TestClass]
-public sealed class ModuleStatementsTests
+public sealed class FileLevelStatementsTests
 {
     private static readonly Uri Script = new("file:///c:/ws/Backup.vbs");
     private static readonly Uri Module = new("file:///c:/ws/Module1.bas");
 
     private static ModuleParseResult Parse(Uri uri, bool setting, params string[] lines)
-        => new ModuleParser(workspaceOptions: Options.Create(new SdkWorkspaceOptions { ModuleLevelStatements = setting }))
+        => new ModuleParser(workspaceOptions: Options.Create(new SdkWorkspaceOptions { FileLevelStatements = setting }))
             .Parse(uri, string.Join("\r\n", lines) + "\r\n");
 
     private static MemberDeclarationNode? ScriptOf(ModuleParseResult parse)
