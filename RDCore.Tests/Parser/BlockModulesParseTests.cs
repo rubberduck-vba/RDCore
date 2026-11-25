@@ -95,8 +95,9 @@ public sealed class BlockModulesParseTests
 
         Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
         var nodes = NodesOf(parse.SyntaxTree!).Concat(parse.BlockModules.SelectMany(block => NodesOf(block.SyntaxTree)))
-            .Concat(parse.PrecompilerTrivia.SelectMany(directive => (IEnumerable<SyntaxNode>)[directive, .. directive.Descendants()]))
+            .Concat(parse.PrecompilerTrivia.Concat(parse.Trivia).SelectMany(trivia => (IEnumerable<SyntaxNode>)[trivia, .. trivia.Descendants()]))
             .ToList();
+        Assert.HasCount(2, nodes.OfType<BlockBoundaryTriviaNode>());
         Assert.HasCount(2, nodes.OfType<PrecompilerConstantDeclarationNode>());
         var shared = nodes.GroupBy(node => node.Identity).Where(group => group.Count() > 1).Select(group => group.Key.ToString()).ToList();
         Assert.IsEmpty(shared, string.Join(", ", shared));
@@ -155,6 +156,26 @@ public sealed class BlockModulesParseTests
             comments.Select(comment => comment.SourceLocation.Range.Start).ToArray());
         CollectionAssert.AreEqual(new[] { "Deposit" }, Members(parse.BlockModules.Single().SyntaxTree));
         Assert.IsEmpty(parse.SyntaxTree!.Children, "the comments are no code");
+    }
+
+    [TestMethod]
+    public void TheHeaderAndTheEndLineOfEachBlock_AreTheFilesTrivia_AsTheyAreWritten()
+    {
+        var parse = Parse(Module, "  Class Account ' the ledger", "  End Class", "MODULE Logger", "    Public Sub Log()", "    End Sub", "End   Module ' log");
+
+        Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
+        var boundaries = parse.Trivia.OfType<BlockBoundaryTriviaNode>().ToArray();
+        var account = RDCoreDocument.BlockUri(Module, "Account").AbsolutePath;
+        var logger = RDCoreDocument.BlockUri(Module, "Logger").AbsolutePath;
+        CollectionAssert.AreEqual(new[]
+            {
+                (account, FileBlockKind.Class, false, "  Class Account ", new SourceRange(new(0, 0), new(0, 16))),
+                (account, FileBlockKind.Class, true, "  End Class", new SourceRange(new(1, 0), new(1, 11))),
+                (logger, FileBlockKind.Module, false, "MODULE Logger", new SourceRange(new(2, 0), new(2, 13))),
+                (logger, FileBlockKind.Module, true, "End   Module ", new SourceRange(new(5, 0), new(5, 13))),
+            },
+            boundaries.Select(node => (node.Identity.DocumentUri, node.Kind, node.IsEnd, node.Source, node.SourceLocation.Range)).ToArray());
+        Assert.IsTrue(boundaries.All(node => node.SourceLocation.Uri == Module), "located in the file");
     }
 
     [TestMethod]

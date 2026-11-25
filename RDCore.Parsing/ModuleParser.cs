@@ -111,9 +111,9 @@ public partial class ModuleParser(
     }
 
     // a file of several modules (FileBlocks): its own module is the file with the lines of its blocks blank, so that every position is the file's, and each
-    // block's module is the lines between its header and its end, anchored where they are. The header and the end lines are in no module's tree; a comment
-    // on either is the file's own module's. What the parses found that is no module's tree (trivia, directives, errors) is the file's, in the order it is
-    // written.
+    // block's module is the lines between its header and its end, anchored where they are. The header and the end lines are in no module's tree: each is
+    // the file's trivia (BlockBoundaryTriviaNode), and a comment on either is the file's own module's. What the parses found that is no module's tree
+    // (trivia, directives, errors) is the file's, in the order it is written.
     private ModuleParseResult ParseFile(Uri uri, string content, IReadOnlyList<FileBlock> blocks, SourcePosition anchorOffset, CancellationToken token)
     {
         var starts = BlockLineStarts(content);
@@ -139,6 +139,8 @@ public partial class ModuleParser(
             var tree = parsed.SyntaxTree ?? EmptyModule(uri, module, WholeTextOf(NormalizeSource(text), anchor));
             var kind = block.Kind == FileBlockKind.Class ? ModuleType.ClassModule : ModuleType.StdModule;
             modules.Add(new BlockModule(block.Name, kind, module, range, tree));
+            trivia.Add(Boundary(module, block, block.HeaderLine, isEnd: false));
+            trivia.Add(Boundary(module, block, block.EndLine, isEnd: true));
         }
 
         return own with
@@ -148,6 +150,26 @@ public partial class ModuleParser(
             SyntaxErrors = [.. errors.OrderBy(error => error.Location.Range.Start)],
             BlockModules = modules.MoveToImmutable(),
         };
+
+        // a header or an end line, before its comment. Its identity is the block's module's, with a lineage of its own that no node of the module's tree
+        // has: those count up from 0, and a header alternative's root is -1 and down.
+        BlockBoundaryTriviaNode Boundary(Uri module, FileBlock block, int line, bool isEnd)
+        {
+            var from = starts[line];
+            var source = content[from..BeforeComment(content, starts, line)];
+            var location = new SourceLocation(uri,
+                new SourceRange(new SourcePosition(line, 0).AnchoredAt(anchorOffset), new SourcePosition(line, source.Length).AnchoredAt(anchorOffset)));
+            return new BlockBoundaryTriviaNode(new SyntaxNodeId(module.AbsolutePath, [isEnd ? int.MinValue + 1 : int.MinValue]), location, block.Kind, isEnd,
+                source);
+        }
+    }
+
+    // where the text of a block's header or end line ends before its comment, at its ' (no name of a module has one), or at the end of the line.
+    private static int BeforeComment(string content, List<int> starts, int line)
+    {
+        var to = LineEnd(content, starts, line);
+        var comment = content.IndexOf('\'', starts[line], to - starts[line]);
+        return comment < 0 ? to : comment;
     }
 
     // where each line of the text starts, a line ending at a CR, a LF or a CRLF, as FileBlocks counts them.
@@ -187,10 +209,10 @@ public partial class ModuleParser(
             {
                 for (var line = block.HeaderLine; line <= block.EndLine; line++)
                 {
-                    var from = state.starts[line];
-                    var to = LineEnd(state.content, state.starts, line);
-                    var comment = line == block.HeaderLine || line == block.EndLine ? state.content.IndexOf('\'', from, to - from) : -1;
-                    text[from..(comment < 0 ? to : comment)].Fill(' ');
+                    var to = line == block.HeaderLine || line == block.EndLine
+                        ? BeforeComment(state.content, state.starts, line)
+                        : LineEnd(state.content, state.starts, line);
+                    text[state.starts[line]..to].Fill(' ');
                 }
             }
         });
