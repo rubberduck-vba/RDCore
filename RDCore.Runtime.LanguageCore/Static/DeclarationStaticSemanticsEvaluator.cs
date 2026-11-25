@@ -141,13 +141,13 @@ public static class DeclarationStaticSemanticsEvaluator
         // MS-VBAL §5.2.1: a module states each option directive at most once, whatever its value, so `Option Base 1` after `Option Base 0` is the option
         // stated twice. MS-VBA refuses the second statement: "Duplicate Option statement" (observed in Excel). The branches of a conditional compilation
         // block that each state it are one statement of it, as they are one declaration of a name.
-        var options = new Dictionary<ModuleOptions, List<SourceLocation>>();
+        var optionStatements = new Dictionary<ModuleOptions, List<SourceLocation>>();
         foreach (var directive in module.Children.OfType<ModuleOptionDirectiveNode>())
         {
             var option = DirectiveOf(directive.ModuleOption);
-            if (!options.TryGetValue(option, out var statements))
+            if (!optionStatements.TryGetValue(option, out var statements))
             {
-                options.Add(option, statements = []);
+                optionStatements.Add(option, statements = []);
             }
 
             if (statements.Any(prior => !blocks.AreAlternatives(prior.Range.Start, directive.Location.Range.Start)))
