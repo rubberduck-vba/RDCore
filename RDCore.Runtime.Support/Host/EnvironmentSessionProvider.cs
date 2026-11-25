@@ -49,6 +49,12 @@ public interface IEnvironmentSessionProvider
     Uri? WorkspaceRoot { get; }
 
     /// <summary>
+    /// The current directory the composed session started in: its workspace root, or the environment host's directory when the session does not start
+    /// in its workspace; <see langword="null"/> before <see cref="Compose"/> has run, or when the directory could not be read.
+    /// </summary>
+    string? StartingDirectory { get; }
+
+    /// <summary>
     /// The number of modules the project the session was composed from declares; <c>0</c> before
     /// <see cref="Compose"/> has run.
     /// </summary>
@@ -171,6 +177,9 @@ public sealed class EnvironmentSessionProvider(
 
     /// <inheritdoc/>
     public Uri? WorkspaceRoot { get; private set; }
+
+    /// <inheritdoc/>
+    public string? StartingDirectory { get; private set; }
 
     /// <inheritdoc/>
     public int ModuleCount { get; private set; }
@@ -300,6 +309,8 @@ public sealed class EnvironmentSessionProvider(
         SessionApplication.Of(_session).KeepSystemTheme = project.KeepSystemTheme;
         Outside.Forms.KeepSystemTheme = project.KeepSystemTheme;
         EnterWorkspaceRoot(workspaceRoot);
+        // a reset between runs puts the session back where it starts.
+        StartingDirectory = _session.Files.TryGetCurrentDirectory(null, out var starting) is null ? starting : null;
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
         // makes no such call, and nothing is started for it. A console application's user interface is its console: what makes the call, which hosts its forms
