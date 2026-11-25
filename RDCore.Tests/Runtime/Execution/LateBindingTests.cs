@@ -7,7 +7,12 @@ namespace RDCore.Tests.Runtime.Execution;
 /// The classes and members of late-bound objects, which a program names at run time: as many are kept as the bound allows, and a name past it still
 /// reaches its class or its member, made for the call.
 /// </summary>
+/// <remarks>
+/// These tests fill the process's kept classes and members to the bound, and nothing empties them: every name a later test gives is then made for each
+/// call. They run apart from the tests that run in parallel, so that none of those meets a bound another test reached.
+/// </remarks>
 [TestClass]
+[DoNotParallelize]
 public sealed class LateBindingTests
 {
     // CallByName gives a member's name as data: past the bound, a member is made for each call, and the process grows no further.
