@@ -138,6 +138,15 @@
   <data name="VBCompileError_OutputItemsNotSeparated_Verbose" xml:space="preserve">
     <value>This output item is written right after another, with nothing between them. The VBE would write a ; between them, which prints them the same way.</value>
   </data>
+  <data name="VBCompileError_AttributeInABlock_Verbose" xml:space="preserve">
+    <value>An Attribute line is not written in a block: its header states the module's name and whether other projects see it (Public Creatable Class).</value>
+  </data>
+  <data name="VBCompileError_FileHeaderInABlock_Verbose" xml:space="preserve">
+    <value>A module file's header (VERSION, BEGIN ... END) is not written in a block: the block's header states what kind of module it is.</value>
+  </data>
+  <data name="VBCompileError_OptionPrivateModuleInABlock_Verbose" xml:space="preserve">
+    <value>Option Private Module is not written in a block: its header states it, as Private Module.</value>
+  </data>
   <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
     <value>Expected: Then. An #If or #ElseIf directive is written #If expression Then.</value>
   </data>

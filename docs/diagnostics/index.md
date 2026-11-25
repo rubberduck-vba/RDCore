@@ -53,6 +53,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC00059](vbc00059.md)|You must terminate the #If block with an #EndIf|A `#If` block is not ended|
 |[VBC00060](vbc00060.md)|Expression nested too deeply|An expression is nested in more than 2,500 others|
 |[VBC00061](vbc00061.md)|Output items not separated|Two things to print are written side by side, with nothing between them|
+|[VBC00062](vbc00062.md)|Invalid in a Class or Module block|A line of a module file's header is written inside a block|
 
 ### Semantic compilation errors
 

@@ -42,6 +42,8 @@
   href: vbc00060.md
 - name: "VBC00061: Output items not separated"
   href: vbc00061.md
+- name: "VBC00062: Invalid in a Class or Module block"
+  href: vbc00062.md
 - name: "VBC09301: Ambiguous name detected"
   href: vbc09301.md
 - name: "VBC09302: Variable not defined"

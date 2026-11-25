@@ -1,4 +1,6 @@
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -197,6 +199,98 @@ public sealed class BlockModulesParseTests
         Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
         Assert.IsEmpty(parse.BlockModules);
         CollectionAssert.AreEqual(new[] { "Own" }, Members(parse.SyntaxTree!));
+    }
+
+    [TestMethod]
+    public void EachBlock_IsAsPartialAndCreatable_AndAsVisible_AsItsHeaderWrites()
+    {
+        var parse = Parse(Module,
+            "Class Plain",
+            "End Class",
+            "Public Partial Creatable Class Account",
+            "    Public Balance As Currency",
+            "End Class",
+            "Private Partial Module Helpers",
+            "End Module",
+            "partial module Logger",
+            "End Module",
+            "Public Class Shown",
+            "End Class");
+
+        Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
+        CollectionAssert.AreEqual(new (string, bool, bool, AccessModifier?)[]
+            {
+                ("Plain", false, false, null),
+                ("Account", true, true, AccessModifier.Public),
+                ("Helpers", true, false, AccessModifier.Private),
+                ("Logger", true, false, null),
+                ("Shown", false, false, AccessModifier.Public),
+            },
+            parse.BlockModules.Select(block => (block.Name, block.IsPartial, block.IsCreatable, block.Visibility)).ToArray());
+    }
+
+    // a block's header states what these lines state in a module file: each is an error at its line, the attribute of a member's too.
+    [TestMethod]
+    public void AModuleFilesHeaderLine_InABlock_IsInvalidThere_AtItsLine()
+    {
+        var parse = Parse(Module,
+            "Class Account",
+            "VERSION 1.0 CLASS",
+            "BEGIN",
+            "  MultiUse = -1",
+            "END",
+            "Attribute VB_Name = \"Account\"",
+            "Attribute VB_PredeclaredId = True",
+            "Public Sub Deposit()",
+            "Attribute Deposit.VB_Description = \"Adds to the balance.\"",
+            "End Sub",
+            "End Class",
+            "Module Helpers",
+            "Option Private Module",
+            "Option Explicit",
+            "End Module");
+
+        CollectionAssert.AreEqual(new[] { 1, 2, 5, 6, 8, 12 }, parse.SyntaxErrors.Select(error => error.Location.Range.Start.Line).ToArray(), Errors(parse));
+        Assert.IsTrue(parse.SyntaxErrors.All(error => error.ErrorId == (int)VBCompileErrorId.InvalidInABlock), Errors(parse));
+        Assert.IsTrue(parse.SyntaxErrors.All(error => error.Location.Uri == Module), "located in the file");
+        CollectionAssert.AreEqual(new[] { "Deposit" }, Members(parse.BlockModules[0].SyntaxTree), "the block is read all the same");
+    }
+
+    [TestMethod]
+    public void AModuleFilesHeaderLines_OutsideEveryBlock_AreTheFilesOwnModules()
+    {
+        var parse = Parse(Module,
+            "Attribute VB_Name = \"Module1\"",
+            "Option Private Module",
+            "Module Helpers",
+            "End Module");
+
+        Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
+        Assert.HasCount(1, parse.BlockModules);
+    }
+
+    // a Partial that is not written first, or after a visibility, makes the line no header: it stays in the file's own module, with its end.
+    [TestMethod]
+    [DataRow("Partial Public Class Account", "End Class", DisplayName = "Partial before the visibility")]
+    [DataRow("Class Partial Account", "End Class", DisplayName = "Partial after the kind")]
+    [DataRow("Partial Creatable Module Helpers", "End Module", DisplayName = "Creatable before Module")]
+    public void APartialThatMakesNoHeader_DeclaresNoBlock(string header, string end)
+    {
+        var parse = Parse(Module, header, end);
+
+        Assert.IsEmpty(parse.BlockModules);
+        Assert.AreEqual(0, parse.SyntaxErrors.FirstOrDefault()?.Location.Range.Start.Line, Errors(parse));
+        Assert.IsFalse(parse.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.InvalidInABlock), Errors(parse));
+    }
+
+    [TestMethod]
+    public void APartialHeader_ThatNoEndFollows_DeclaresNoBlock()
+    {
+        var parse = Parse(Module, "Partial Class Account", "    Public Sub Deposit()", "    End Sub");
+
+        Assert.IsEmpty(parse.BlockModules);
+        CollectionAssert.Contains(parse.SyntaxErrors.Select(error => error.Location.Range.Start.Line).ToArray(), 0, Errors(parse));
+        CollectionAssert.AreEqual(new[] { "Deposit" }, Members(parse.SyntaxTree!), "the file's own module");
     }
 
     [TestMethod]

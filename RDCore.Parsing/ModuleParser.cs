@@ -12,6 +12,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
@@ -137,7 +138,14 @@ public partial class ModuleParser(
             var range = new SourceRange(new SourcePosition(block.HeaderLine, 0).AnchoredAt(anchorOffset),
                 new SourcePosition(block.EndLine, LineEnd(content, starts, block.EndLine) - starts[block.EndLine]).AnchoredAt(anchorOffset));
             var tree = parsed.SyntaxTree ?? EmptyModule(uri, module, WholeTextOf(NormalizeSource(text), anchor));
-            modules.Add(new BlockModule(block.Name, ModuleKinds.Of(block.Kind), module, range, tree));
+            errors.AddRange(HeaderLinesIn(tree, parsed.Trivia));
+            // what the header writes before the block's kind; what each makes of the module is the language's.
+            modules.Add(new BlockModule(block.Name, ModuleKinds.Of(block.Kind), module, range, tree)
+            {
+                IsPartial = block.IsPartial,
+                IsCreatable = block.IsCreatable,
+                Visibility = block.Visibility,
+            });
             trivia.Add(Boundary(module, block, block.HeaderLine, isEnd: false));
             trivia.Add(Boundary(module, block, block.EndLine, isEnd: true));
         }
@@ -160,6 +168,26 @@ public partial class ModuleParser(
                 new SourceRange(new SourcePosition(line, 0).AnchoredAt(anchorOffset), new SourcePosition(line, source.Length).AnchoredAt(anchorOffset)));
             return new BlockBoundaryTriviaNode(new SyntaxNodeId(module.AbsolutePath, [isEnd ? int.MinValue + 1 : int.MinValue]), location, block.Kind, isEnd,
                 source);
+        }
+    }
+
+    // a block's header states what a module file's header and attributes state (Public Creatable Class, Private Module), and an annotation states the other
+    // attributes ('@PredeclaredId): an Attribute, VERSION or BEGIN line, or Option Private Module, written in a block is a syntax error where it is written.
+    private static IEnumerable<VBSyntaxErrorInfo> HeaderLinesIn(ModuleNode tree, ImmutableArray<SyntaxNode> trivia)
+    {
+        foreach (var node in tree.Descendants().Concat(trivia))
+        {
+            var verbose = node switch
+            {
+                AttributeDirectiveNode => Exceptions.VBCompileError_AttributeInABlock_Verbose,
+                ModuleOptionDirectiveNode { ModuleOption: ModuleOptions.OptionPrivateModule } => Exceptions.VBCompileError_OptionPrivateModuleInABlock_Verbose,
+                ModuleHeaderTriviaNode => Exceptions.VBCompileError_FileHeaderInABlock_Verbose,
+                _ => null,
+            };
+            if (verbose is not null)
+            {
+                yield return VBSyntaxErrorInfo.For(VBCompileErrorId.InvalidInABlock, node.SourceLocation, verbose);
+            }
         }
     }
 

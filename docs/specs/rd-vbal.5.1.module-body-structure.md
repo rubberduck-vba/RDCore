@@ -28,10 +28,11 @@ End Class
 
 |Header|Declares|Ends at|
 |---|---|---|
-|`Module Name`|A standard module.|The first `End Module` after the header.|
-|`Class Name`|A class module.|The first `End Class` after the header.|
+|`[Public \| Private] [Partial] Module Name`|A standard module.|The first `End Module` after the header.|
+|`[Public \| Private] [Partial] [Creatable] Class Name`|A class module.|The first `End Class` after the header.|
 
 - The header and the end are each on a line of their own, with nothing else on it but a `'` comment.
+- The modifiers come in this order only, each at most once. A line that writes them otherwise is no header.
 - Blocks do not nest: a header inside a block is part of the block's code.
 - A header that no end of its kind follows declares no block. A line that continues the line before it (` _`) is neither a header nor an end.
   Such a line stays in the file's own module, where it is a syntax error.
@@ -40,7 +41,8 @@ End Class
 
 |Aspect|Rule|
 |---|---|
-|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it, and is not the name of the file's own module either.|
+|Name|The header names the module.|
+|Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md), and does not rename the module.|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
 |File-level statements|A block's module has none, in a `.vbs` too: a statement outside its procedures is a syntax error, as in a `.bas`.|
@@ -52,7 +54,7 @@ End Class
 > [!NOTE]
 > **Not implemented.** The language server does not define a block's module yet; only `rdc run`, `rdc build` and `rdc bench` do. VBA and VB6 have
 > no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own. Two blocks of
-> the same name are not reported either.
+> the same name are not reported either. The parse reads a header's modifiers, and nothing applies them to the module.
 
 ### Implementation
 

@@ -56,6 +56,10 @@ public enum VBCompileErrorId
     // MS-VBAL §5.4.5.8.1 lets an output item follow another with nothing between them; RD-VBA requires a space, a ; or a , between two output clauses, and the
     // VBE writes a ; there.
     OutputItemsNotSeparated = 61,
+    // RD-VBAL §5.1 Module Body Structure.
+    // A block's header states what a module file's header and attributes state: an Attribute, VERSION, BEGIN or Option Private Module line in a block is
+    // refused.
+    InvalidInABlock = 62,
 
     #endregion
 
