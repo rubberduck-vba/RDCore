@@ -171,8 +171,8 @@ public partial class ModuleParser(
         }
     }
 
-    // a block's header states what a module file's header and attributes state (Public Creatable Class, Private Module), and an annotation states the other
-    // attributes ('@PredeclaredId): an Attribute, VERSION or BEGIN line, or Option Private Module, written in a block is a syntax error where it is written.
+    // a block's header states what a module file's header and attributes state (Public Creatable Class, Private Module), and a block's module has no other
+    // attributes: an Attribute, VERSION or BEGIN line, or Option Private Module, written in a block is a syntax error where it is written.
     private static IEnumerable<VBSyntaxErrorInfo> HeaderLinesIn(ModuleNode tree, ImmutableArray<SyntaxNode> trivia)
     {
         foreach (var node in tree.Descendants().Concat(trivia))
