@@ -18,7 +18,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// <c>rdc run script.vbs</c> runs a script as <c>cscript.exe</c> runs it: the script sees Windows Script Host's <c>WScript</c> object, whose <c>Echo</c>
 /// writes to the program's output, whose <c>Arguments</c> are what follows the script on the command line, and whose <c>Quit</c> ends the process with the
-/// code it is given.
+/// code it is given. Its code is what it says outside its procedures, run from the top, as <c>cscript.exe</c> runs it.
 /// </summary>
 [TestClass]
 public sealed class ScriptRunTests
@@ -45,7 +45,7 @@ public sealed class ScriptRunTests
     {
         var fileSystem = new MockFileSystem();
         fileSystem.Directory.CreateDirectory(Root);
-        fileSystem.File.WriteAllText(Script, string.Join("\r\n", ["Sub Main()", .. lines, "End Sub"]) + "\r\n");
+        fileSystem.File.WriteAllText(Script, string.Join("\r\n", lines) + "\r\n");
         var output = new StringWriter();
         var error = new StringWriter();
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
@@ -95,7 +95,7 @@ public sealed class ScriptRunTests
     [TestMethod]
     public async Task QuitInAProcedureTheScriptCalls_EndsTheScript()
     {
-        var (exit, output, error) = await RunAsync([], "Done", "WScript.Echo \"after\"", "End Sub", "Sub Done()", "WScript.Quit 4");
+        var (exit, output, error) = await RunAsync([], "Done", "WScript.Echo \"after\"", "Sub Done()", "WScript.Quit 4", "End Sub");
 
         Assert.AreEqual(4, exit, error);
         Assert.AreEqual(string.Empty, output);
@@ -162,5 +162,44 @@ public sealed class ScriptRunTests
 
         Assert.AreEqual(ProgramRunner.Failed, exit);
         StringAssert.Contains(error, "'54':");
+    }
+
+    [TestMethod]
+    public async Task TheScriptsCode_RunsInTheOrderItIsWritten_AroundItsProcedures()
+    {
+        var (exit, output, error) = await RunAsync([], "WScript.Echo 1", "Sub Two()", "WScript.Echo 2", "End Sub", "Two", "WScript.Echo 3");
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines("1", "2", "3"), output);
+    }
+
+    [TestMethod]
+    public async Task ASubMain_IsAProcedureLikeAnother_ThatTheScriptCallsOrNot()
+    {
+        // cscript.exe runs the script's code, and calls no procedure of its own accord.
+        var (exit, output, error) = await RunAsync([], "WScript.Echo \"script\"", "Sub Main()", "WScript.Echo \"main\"", "End Sub");
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines("script"), output);
+    }
+
+    [TestMethod]
+    public async Task WhatTheScriptDeclaresOutsideItsProcedures_IsSeenByThem_TypedOrNot()
+    {
+        var (exit, output, error) = await RunAsync([],
+            "Dim count", "Dim total As Long", "Const Greeting As String = \"hi\"", "count = 2", "total = 40",
+            "Sub Show()", "WScript.Echo Greeting, count + total", "End Sub", "Show");
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines("hi 42"), output);
+    }
+
+    [TestMethod]
+    public async Task AScriptOfProceduresOnly_RunsNothing()
+    {
+        var (exit, output, error) = await RunAsync([], "Sub Main()", "WScript.Echo \"main\"", "End Sub");
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(string.Empty, output);
     }
 }

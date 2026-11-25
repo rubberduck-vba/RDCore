@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
@@ -15,6 +16,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Server.Configuration;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
@@ -179,9 +181,17 @@ internal sealed record class BuiltWorkspace(
 /// Where the descriptions of the libraries a project references are found: the platform's, as the environment host has them, so that a workspace that
 /// references Excel is benched with Excel's types.
 /// </param>
+/// <param name="options">
+/// The workspace's settings: which of its documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.ModuleLevelStatements"/>).
+/// The defaults when none are given, under which a script (a <c>.vbs</c> document) has them.
+/// </param>
 internal sealed class BenchRunner(
-    IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, IErrorDetailsRecorder errorDetails, ILoggerFactory loggers, ILibrarySource libraries)
+    IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, IErrorDetailsRecorder errorDetails, ILoggerFactory loggers, ILibrarySource libraries,
+    IOptions<SdkAppOptions>? options = null)
 {
+    private readonly IOptions<SdkWorkspaceOptions> _workspace
+        = Microsoft.Extensions.Options.Options.Create(options?.Value.Workspace ?? new SdkWorkspaceOptions());
+
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
 
@@ -503,7 +513,7 @@ internal sealed class BenchRunner(
         var modules = new List<ParsedModule>();
         foreach (var module in workspace.Modules)
         {
-            var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
+            var parse = new ModuleParser(workspaceOptions: _workspace).Parse(workspace.DocumentOf(module), module.Source) with
             {
                 Designer = FormDesigner.Read(module.RelativePath, module.Source, module.Companion, out var designerProblem),
             };

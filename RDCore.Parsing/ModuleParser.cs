@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using RDCore.Parsing.AST;
 using RDCore.Parsing.Syntax;
 using RDCore.SDK.Logging;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -17,6 +18,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -51,10 +53,16 @@ public interface IModuleParser
 
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/>; optional, the default suits tests.</param>
 /// <param name="logger">Records the exceptions the resilience guards swallow; optional, no-op by default.</param>
+/// <param name="workspaceOptions">
+/// Says which documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.AllowsModuleLevelStatements"/>); optional, the
+/// default allows them in a document of a language that has them (a script).
+/// </param>
 public partial class ModuleParser(
     IOptions<SdkServerOptions>? serverOptions = null,
-    ILogger<ModuleParser>? logger = null) : IModuleParser
+    ILogger<ModuleParser>? logger = null,
+    IOptions<SdkWorkspaceOptions>? workspaceOptions = null) : IModuleParser
 {
+    private readonly SdkWorkspaceOptions _workspace = workspaceOptions?.Value ?? new();
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
@@ -83,6 +91,7 @@ public partial class ModuleParser(
         var result = LargeStackThread.Run(() =>
         {
             t_directiveLooks = 0;
+            t_moduleStatements = _workspace.AllowsModuleLevelStatements(uri.AbsolutePath);
             var parsed = Parse(uri, content, anchorOffset, [], Statistics, token);
             looks = t_directiveLooks;
             return parsed;
@@ -164,8 +173,13 @@ public partial class ModuleParser(
             // and its alternatives are read the same way after either.
             ModuleNode ast;
             ImmutableArray<SyntaxNode> trivia;
-            if (!ForceSegments && TryParseFast(sanitized, errorListener, errors => declarations = new DeclarationsParseTreeListener(uri, node, errors) { Anchor = anchorOffset },
-                anchorOffset, token) is { } fast)
+            if (t_moduleStatements)
+            {
+                (ast, trivia) = ParseScript(uri, node, sanitized, anchorOffset, errorListener, token);
+            }
+            else if (!ForceSegments
+                && TryParseFast(sanitized, errorListener,
+                    errors => declarations = new DeclarationsParseTreeListener(uri, node, errors) { Anchor = anchorOffset }, anchorOffset, token) is { } fast)
             {
                 (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
                 statistics?.Count(SegmentationStatistics.Path.Whole);
@@ -196,8 +210,8 @@ public partial class ModuleParser(
             }
 
             // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
-            // the source, which a module that has one would have read as one block too many.
-            if (errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
+            // the source, which a module that has one would have read as one block too many. A script's parts have had theirs (ParseScript).
+            if (!t_moduleStatements && errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
             {
                 errorListener.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, sanitized, anchorOffset));
             }
@@ -325,6 +339,64 @@ public partial class ModuleParser(
         statistics?.Count(giveUp ?? SegmentationStatistics.Path.OneSegment);
         return null;
     }
+
+    // a script (SdkWorkspaceOptions.AllowsModuleLevelStatements) read in three parts of its source, each with the others blank (ScriptSource): what it
+    // declares outside its procedures and its procedures, each read as a module is, and its code, read as the body of a procedure whose header is on the
+    // line before the first. The grammar is the one every module is read with, so a module that is no script is read as it always was. The module is what
+    // the first two declare, in the order they are written, and its code is its ProgramEntryPoint.ScriptName procedure, which it has even when it has no
+    // code. What is wrong in a part is reported as a module's is, in MS-VBA's words where its blocks do not match.
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia) ParseScript(Uri uri, ModuleNode node, string sanitized, SourcePosition anchorOffset,
+        ErrorListener errorListener, CancellationToken token)
+    {
+        var parts = ScriptSource.Split(sanitized);
+        var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
+        var next = 0;
+        var children = new List<SyntaxNode>();
+        children.AddRange(Part(parts.Declarations, anchorOffset).Children);
+        children.AddRange(Part(parts.Procedures, anchorOffset).Children);
+        children.Sort((left, right) => left.SourceLocation.Range.Start.CompareTo(right.SourceLocation.Range.Start));
+
+        // each line of the code is the line it is on in the script: the procedure's header is on the line before the first.
+        var body = Part($"Sub {ScriptProcedure}()\n{parts.Code}\nEnd Sub\n", new SourcePosition(anchorOffset.Line - 1, 0));
+        var range = parts.CodeRange is { } code
+            ? new SourceRange(code.Start.AnchoredAt(anchorOffset), code.End.AnchoredAt(anchorOffset))
+            : new SourceRange(anchorOffset, anchorOffset);
+        var location = new SourceLocation(uri, range);
+        var script = body.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.Name == ScriptProcedure);
+        children.Add(script is null
+            ? new MemberDeclarationNode(node.Identity.Add(next++), location, [], ProgramEntryPoint.ScriptName, MemberKind.Procedure, AccessModifier.Public)
+            : script with
+            {
+                SourceLocation = location,
+                Name = ProgramEntryPoint.ScriptName,
+                AccessModifier = AccessModifier.Public,
+                NameRange = null,
+                ParameterListRange = null,
+                EndRange = null,
+            });
+
+        return (node with { Children = [.. children] }, trivia.ToImmutable());
+
+        ModuleNode Part(string text, SourcePosition anchor)
+        {
+            var errors = new ErrorListener(uri, anchor);
+            var first = next;
+            var listener = ParseWithFallback(text, errors,
+                partErrors => new DeclarationsParseTreeListener(uri, node, partErrors) { NextModuleChildId = first, Anchor = anchor }, anchor, token);
+            next = listener.NextModuleChildId;
+            if (errors.HasGrammarErrors)
+            {
+                errors.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, text, anchor));
+            }
+
+            errorListener.AddFrom(errors);
+            trivia.AddRange(listener.Trivia);
+            return listener.BuildModuleNode();
+        }
+    }
+
+    // the name a script's code is read under, as the body of a procedure, before the procedure is named ProgramEntryPoint.ScriptName.
+    private const string ScriptProcedure = "Script";
 
     // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
     // stitched: the tree, the trivia and the errors a parse of the whole module gives. A member's syntax errors bound to its statements are kept with it
@@ -609,6 +681,11 @@ public partial class ModuleParser(
 
     [ThreadStatic]
     private static long t_directiveLooks;
+
+    // whether the module the thread parses may have statements outside its procedures (SdkWorkspaceOptions.AllowsModuleLevelStatements), which are the
+    // code of its (Script) procedure: set as the public Parse starts, and read by every parse of the module and of its parts.
+    [ThreadStatic]
+    private static bool t_moduleStatements;
 
     /// <summary>
     /// The work the directive passes of this thread's last <see cref="Parse(Uri, string, SourcePosition, CancellationToken)"/> did, the module's and its
