@@ -61,7 +61,7 @@ public sealed class DuplicateOptionStatementTests
     [DataRow("Option Private Module", "Option Private Module", DisplayName = "Option Private Module, twice")]
     public void AnOptionStatedTwice_IsADuplicateOptionStatement_AtTheSecondStatement(string first, string second)
     {
-        // line 0 is the attribute; another option between the two is no statement of either.
+        // line 0 is the attribute; another option between the two does not count as either.
         var error = Assert.ContainsSingle(Errors(Program(first, "Option Explicit" == first ? "Option Base 1" : "Option Explicit", second)));
 
         Assert.AreEqual(3, error.Location.Range.Start.Line);
