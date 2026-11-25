@@ -102,8 +102,10 @@ public sealed class ProjectAnalysisSessions(
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(root);
 
-        // nothing it runs prints: its output goes nowhere.
-        var (session, _, _) = EnvironmentSessionProvider.ComposeSession(environment, fileSystem, librarySource, logger, project, root, new RuntimeOutputRouter());
+        // nothing it runs prints: its output goes nowhere. Its file statements act on no disk: the modules are read from the file system, and a user's files
+        // are never the session's.
+        var (session, _, _) = EnvironmentSessionProvider.ComposeSession(
+            environment, fileSystem, librarySource, logger, project, root, new RuntimeOutputRouter(), sessionFileSystem: RuntimeSessionComposer.NoFiles());
         var analysis = new ProjectAnalysisSession(root, project.Name, session, EnvironmentSessionProvider.NewImage(logger), project.Modules.Length);
         lock (_lock)
         {
