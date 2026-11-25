@@ -29,7 +29,7 @@ public sealed class LateBindingTests
         Assert.IsTrue(LateBinding.IsLateBoundMember(second));
     }
 
-    // an object held with no class of its own is known by its class being Object's: that class is the one, however many class names servers give.
+    // an object held with no class of its own is known by its class, Object: that class is always the same symbol, however many class names servers give.
     [TestMethod]
     public void TheObjectClass_IsTheOne_PastTheBound()
     {
