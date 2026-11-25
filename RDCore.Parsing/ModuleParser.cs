@@ -237,7 +237,7 @@ public partial class ModuleParser(
     }
 
     // module: the address the identities of the module's nodes are keyed by (ParseModule). rootLineage: the lineage of the module node, which every node's
-    // identity extends - a part of the module parsed on its own (a header alternative) has one of its own, so that no identity of its nodes is one of the
+    // identity extends; a part of the module parsed on its own (a header alternative) has one of its own, so that no identity of its nodes is one of the
     // module's. statistics: where how the module was read is counted; none for such a part, which is not a module of its own.
     private ModuleParseResult Parse(Uri uri, Uri module, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage,
         SegmentationStatistics? statistics, CancellationToken token)

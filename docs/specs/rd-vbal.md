@@ -73,7 +73,7 @@ This specification follows the technical prose style of its inspirational Open S
 - 4.0 [Program Structure and Organization](rd-vbal.4.0.program-structure.md)
   - 4.1 [VBIDE Synchronization](rd-vbal.4.1.vbide-synchronization.md)
 - 5.0 [Semantics](rd-vbal.5.0.semantics.md)
-  - 5.1 [Module Body Structure](rd-vbal.5.1.module-body-structure.md) (*reserved*)
+  - 5.1 [Module Body Structure](rd-vbal.5.1.module-body-structure.md)
   - 5.2 [Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) (*reserved*)
     - 5.2.1 [Option Directives](rd-vbal.5.2.1.option-directives.md)
     - 5.2.2 [Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md)
