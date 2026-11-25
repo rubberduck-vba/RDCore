@@ -25,7 +25,7 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// </para>
 /// <para>
 /// A built program runs where its workspace's sources are not: the modules its build read of each file are given instead (<c>known</c>), and no source
-/// of a file named there is read. A file of several modules (a script's <c>Class</c> and <c>Module</c> blocks) has a symbol for each.
+/// of a file named there is read. A file of several modules (its <c>Class</c> and <c>Module</c> blocks) has a symbol for each.
 /// </para>
 /// </remarks>
 /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
