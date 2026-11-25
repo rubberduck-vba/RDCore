@@ -21,8 +21,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <strong>MS-VBAL §6.1.2.5.1.1, §6.1.2.5.2.1</strong>: the current directory of a session the environment host composes for a workspace is the workspace root,
-/// where a relative path finds the workspace's files, and <c>ChDir</c> moves it. The session's directory is the process's, so these tests run alone, in a workspace
-/// on disk, and put the test host's directory back.
+/// where a relative path finds the workspace's files, and <c>ChDir</c> moves it. The session's directory is its own; with no workspace root to start in, it
+/// starts as the process's. The tests that set the process's directory run alone, in a workspace on disk, and put the test host's directory back.
 /// </summary>
 [TestCategory(TestCategories.Wide)]
 [TestClass]
@@ -39,8 +39,8 @@ public sealed class WorkspaceCurrentDirectoryTests
     public void Initialize()
     {
         _saved = Directory.GetCurrentDirectory();
-        // under the temporary folder's real path: on macOS /var is a link to /private/var, and CurDir gives the real path of the directory a
-        // session is in.
+        // under the temporary folder's real path: on macOS /var is a link to /private/var, and the process's directory, which a session can start in,
+        // is a real path.
         var temporary = RDCore.SDK.Platform.PlatformRootConfinement.RealPath(Path.GetTempPath());
         _root = WorkspacePaths.Normalized(Path.Combine(temporary, "rdcore-curdir-ws-" + Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Path.Combine(_root, "Sub"));
@@ -72,6 +72,31 @@ public sealed class WorkspaceCurrentDirectoryTests
         var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")", $"Debug.Print Dir(\"{inner}\")");
 
         CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed, string.Join("|", printed));
+    }
+
+    // a folder reached through a link is where the process would be in it, as the system keeps a current directory: on Windows the link's path, and
+    // elsewhere the folder it leads to, as macOS's temporary folder under /var is under /private/var.
+    [TestMethod]
+    public async Task ChDir_ThroughALink_IsWhereTheProcessWouldBe()
+    {
+        var link = Path.Combine(_root, "Linked");
+        try
+        {
+            Directory.CreateSymbolicLink(link, Path.Combine(_root, "Sub"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Assert.Inconclusive($"no symbolic link can be made here: {exception.Message}");
+        }
+
+        Directory.SetCurrentDirectory(link);
+        var processWouldBe = Directory.GetCurrentDirectory();
+        Directory.SetCurrentDirectory(_saved);
+        using var provider = Compose(_root);
+
+        var printed = await RunAsync(provider, _root, "ChDir \"Linked\"", "Debug.Print CurDir", "Debug.Print Dir(\"inner.txt\")");
+
+        CollectionAssert.AreEqual(new[] { processWouldBe, "inner.txt" }, printed, string.Join("|", printed));
     }
 
     // a relative path's \ is a separator on every platform: VBA written with Windows paths finds and makes the workspace's files on Linux too.
@@ -167,24 +192,28 @@ public sealed class WorkspaceCurrentDirectoryTests
         Assert.AreEqual(_root, CurrentDirectoryOf(provider));
     }
 
-    // the directory is the process's: a session that ends gives back the one it found, wherever a program moved it, and its workspace folder can be deleted.
+    // the directory is the session's: ChDir in one session moves neither the process nor another session of it, whose relative paths stay its own.
     [TestMethod]
-    public async Task ASessionThatIsDisposed_GivesTheProcessBackTheDirectoryItFound()
+    public async Task ChDir_InOneSession_MovesNeitherTheProcessNorAnotherSession()
     {
         Directory.SetCurrentDirectory(_root);
-        var workspace = NewWorkspace("Workspace");
-        var provider = Compose(workspace);
-        await RunAsync(provider, workspace, "ChDir \"Sub\"");
+        var first = NewWorkspace("First");
+        var second = NewWorkspace("Second");
+        File.WriteAllText(Path.Combine(second, "data.txt"), "z");
+        using var moved = Compose(first);
+        using var other = Compose(second);
 
-        provider.Dispose();
+        await RunAsync(moved, first, "ChDir \"Sub\"");
+        var printed = await RunAsync(other, second, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")");
 
+        Assert.AreEqual(Path.Combine(first, "Sub"), CurrentDirectoryOf(moved));
+        CollectionAssert.AreEqual(new[] { second, "data.txt" }, printed, string.Join("|", printed));
         Assert.AreEqual(_root, Directory.GetCurrentDirectory());
-        Directory.Delete(workspace, recursive: true);
     }
 
-    // a reload starts where the host did: the session it replaces gives the directory back first, and a root that is not there leaves it there.
+    // a reload starts where the process is when its root is not there, wherever a program moved the session it replaces.
     [TestMethod]
-    public async Task ASessionThatIsReplaced_GivesTheProcessBackTheDirectoryItFound()
+    public async Task AReplacingSession_WhoseRootIsNotThere_StartsWhereTheProcessIs()
     {
         Directory.SetCurrentDirectory(_root);
         var workspace = NewWorkspace("Workspace");
@@ -198,20 +227,13 @@ public sealed class WorkspaceCurrentDirectoryTests
         Directory.Delete(workspace, recursive: true);
     }
 
-    // Linux lets a process's current directory be deleted (Windows refuses), and every later read of it then fails: a session composed after that does not fail.
+    // a workspace folder deleted while a session is in it leaves that session no current directory: a session composed after that does not fail.
     [TestMethod]
     public void AWorkspaceDeletedWhileItIsTheCurrentDirectory_FailsNoLaterCompose()
     {
         var workspace = NewWorkspace("Gone");
         using var gone = Compose(workspace);
-        try
-        {
-            Directory.Delete(workspace, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Windows: the process is in it.
-        }
+        Directory.Delete(workspace, recursive: true);
 
         using var provider = new EnvironmentSessionProvider(Profile(), new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
         // a root as unit tests spell one: no full path on Linux.
