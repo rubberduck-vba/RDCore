@@ -103,7 +103,7 @@ public partial class ModuleParser(
 
     // one module of the file: the file's own (module is the file's URI), or a block's (module is RDCoreDocument.BlockUri), which its nodes' identities are
     // keyed by; their locations are the file's. Whether it may have statements outside its procedures is decided by the module's address: a block's module
-    // is no script, whatever its file is.
+    // is not a script, whatever its file is.
     private ModuleParseResult ParseModule(Uri uri, Uri module, string content, SourcePosition anchorOffset, CancellationToken token)
     {
         t_fileStatements = _workspace.AllowsFileLevelStatements(module.AbsolutePath);
@@ -112,8 +112,8 @@ public partial class ModuleParser(
 
     // a file of several modules (FileBlocks): its own module is the file with the lines of its blocks blank, so that every position is the file's, and each
     // block's module is the lines between its header and its end, anchored where they are. The header and the end lines are in no module's tree: each is
-    // the file's trivia (BlockBoundaryTriviaNode), and a comment on either is the file's own module's. What the parses found that is no module's tree
-    // (trivia, directives, errors) is the file's, in the order it is written.
+    // the file's trivia (BlockBoundaryTriviaNode), and a comment on either is the file's own module's. What the parses found outside every
+    // module's tree (trivia, directives, errors) is the file's, in the order it is written.
     private ModuleParseResult ParseFile(Uri uri, string content, IReadOnlyList<FileBlock> blocks, SourcePosition anchorOffset, CancellationToken token)
     {
         var starts = BlockLineStarts(content);
@@ -238,7 +238,7 @@ public partial class ModuleParser(
 
     // module: the address the identities of the module's nodes are keyed by (ParseModule). rootLineage: the lineage of the module node, which every node's
     // identity extends - a part of the module parsed on its own (a header alternative) has one of its own, so that no identity of its nodes is one of the
-    // module's. statistics: where how the module was read is counted; none for such a part, which is no module of its own.
+    // module's. statistics: where how the module was read is counted; none for such a part, which is not a module of its own.
     private ModuleParseResult Parse(Uri uri, Uri module, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage,
         SegmentationStatistics? statistics, CancellationToken token)
     {
