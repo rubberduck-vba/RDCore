@@ -278,8 +278,10 @@ public sealed class EnvironmentSessionProvider(
     /// </summary>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
-    /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
-    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known)
+    /// <param name="known">
+    /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
+    /// </param>
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known)
     {
         // a reload starts where the host did, as at start-up, and not where the session it replaces left the process.
         LeaveSession();
@@ -334,11 +336,13 @@ public sealed class EnvironmentSessionProvider(
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The root the project's modules are relative to, and addressed under.</param>
     /// <param name="output">The session's output channel.</param>
-    /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+    /// <param name="known">
+    /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
+    /// </param>
     /// <returns>The session, the libraries it references, and how many precompiler constants it has (built-ins included).</returns>
     internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants) ComposeSession(
         IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILibrarySource? librarySource, ILogger logger, RDCoreProject project, Uri workspaceRoot,
-        RuntimeOutputRouter output, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null)
+        RuntimeOutputRouter output, IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known, environment.AnsiCodePage);

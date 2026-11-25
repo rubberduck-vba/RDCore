@@ -302,7 +302,7 @@ internal sealed class BenchRunner(
         var session = provider.Session;
         var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, errorDetails, token, outside: provider.Outside);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
-        foreach (var (module, _) in load.Loaded)
+        foreach (var module in load.Loaded)
         {
             if (!session.Symbols.TryGetModule(module.Name, out var symbol))
             {
@@ -341,7 +341,7 @@ internal sealed class BenchRunner(
         {
             var session = load.Provider.Session;
             var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, errorDetails, token, outside: load.Provider.Outside);
-            foreach (var (module, _) in load.Loaded)
+            foreach (var module in load.Loaded)
             {
                 if (!session.Symbols.TryGetModule(module.Name, out var symbol))
                 {
@@ -363,7 +363,7 @@ internal sealed class BenchRunner(
             throw;
         }
 
-        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Provider, built, load.Libraries);
+        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Name)], load.Provider, built, load.Libraries);
     }
 
     /// <summary>
@@ -381,7 +381,7 @@ internal sealed class BenchRunner(
         // a program reaches the outside world of the machine, as the built program does: its automation servers, its native libraries and its dialogs.
         var outside = dialogs is null ? null : MachineExternal.World with { Interaction = dialogs };
         var load = await LoadAsync(workspace, profile ?? environment, outside, token);
-        return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Problems);
+        return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Name)], load.Problems);
     }
 
     // the language is the one the project file says, as the language server takes it, over the setting's: a project imported from a .vbp is Visual Basic 6.0
@@ -392,7 +392,7 @@ internal sealed class BenchRunner(
             : profile;
 
     private sealed record class LoadedWorkspace(
-        EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
+        EnvironmentSessionProvider Provider, IReadOnlyList<ParsedModule> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems, IReadOnlyList<LibraryDescription> Libraries);
 
     // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching the outside world it is given
@@ -422,8 +422,7 @@ internal sealed class BenchRunner(
     {
         var problems = new List<string>();
         var stopwatch = Stopwatch.StartNew();
-        var benchModules = new Dictionary<ParsedModule, BenchModule>(ReferenceEqualityComparer.Instance);
-        var own = Parsed(workspace, root, problems, string.Empty, benchModules);
+        var own = Parsed(workspace, root, problems, string.Empty);
         var parseTime = stopwatch.Elapsed;
 
         // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
@@ -439,7 +438,7 @@ internal sealed class BenchRunner(
         var projects = workspace.ReferencedProjects.Select(each =>
         {
             var projectRoot = each.Workspace.RootUri;
-            var modules = Parsed(each.Workspace, projectRoot, problems, $"{each.Name}.", parsed: null);
+            var modules = Parsed(each.Workspace, projectRoot, problems, $"{each.Name}.");
             var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project, composed.Language);
             var projectResolver = WorkspaceSymbolResolver.Compose(
                 projectRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit), each.Name,
@@ -461,7 +460,7 @@ internal sealed class BenchRunner(
             provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries), errorDetails,
             loggers.CreateLogger<DefineSymbolsHandler>());
         var symbolsTime = TimeSpan.Zero;
-        var loaded = new List<(BenchModule Module, Uri Uri)>();
+        var loaded = new List<ParsedModule>();
         foreach (var definition in SessionDefinitions.Of(root, own, resolver, scope, replace: true, projects))
         {
             if (definition.ToRequest() is not { } request)
@@ -490,7 +489,7 @@ internal sealed class BenchRunner(
             }
             else if (definition.Referenced is null)
             {
-                loaded.Add((benchModules[definition.Module], definition.Module.Uri));
+                loaded.Add(definition.Module);
             }
         }
 
@@ -506,14 +505,15 @@ internal sealed class BenchRunner(
     // the modules of a workspace that parse, addressed under root; what keeps one from parsing is a problem, named with the prefix (its project's, for a
     // referenced one). A module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a
     // branch of a #If that is excluded, which only the host knows. The parser reads text alone: a form's designer is set on its parse from its text and its
-    // companion file, as the language server sets it.
-    private List<ParsedModule> Parsed(
-        BenchWorkspace workspace, Uri root, List<string> problems, string prefix, Dictionary<ParsedModule, BenchModule>? parsed)
+    // companion file, as the language server sets it. A file of several modules is parsed once, and each of its modules is defined with its own part of the
+    // parse (RDCoreDocument.ParseOf): the file's own module first, then each block's, named as its header writes it.
+    private List<ParsedModule> Parsed(BenchWorkspace workspace, Uri root, List<string> problems, string prefix)
     {
         var modules = new List<ParsedModule>();
         foreach (var module in workspace.Modules)
         {
-            var parse = new ModuleParser(workspaceOptions: _workspace).Parse(workspace.DocumentOf(module), module.Source) with
+            var file = workspace.DocumentOf(module);
+            var parse = new ModuleParser(workspaceOptions: _workspace).Parse(file, module.Source) with
             {
                 Designer = FormDesigner.Read(module.RelativePath, module.Source, module.Companion, out var designerProblem),
             };
@@ -528,9 +528,12 @@ internal sealed class BenchRunner(
                 continue;
             }
 
-            var each = new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Type, parse);
-            modules.Add(each);
-            parsed?.Add(each, module);
+            var document = new RDCoreDocument(file, parse);
+            modules.Add(new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Type, document.ParseOf(file)!));
+            foreach (var block in parse.BlockModules)
+            {
+                modules.Add(new ParsedModule(SymbolUri.Module(root, block.Name), block.Name, block.Kind, document.ParseOf(block.Uri)!));
+            }
         }
 
         return modules;
@@ -557,9 +560,9 @@ internal sealed class BenchRunner(
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);
 
     // every Public Sub of a standard module that is named for a case and takes nothing, in the order the module declares them.
-    private static IEnumerable<(string Name, VBTypeMemberSymbol EntryPoint)> Cases(IRuntimeSession session, IReadOnlyList<(BenchModule Module, Uri Uri)> modules)
+    private static IEnumerable<(string Name, VBTypeMemberSymbol EntryPoint)> Cases(IRuntimeSession session, IReadOnlyList<ParsedModule> modules)
     {
-        foreach (var (module, _) in modules.Where(loaded => loaded.Module.Type is ModuleType.StdModule))
+        foreach (var module in modules.Where(loaded => loaded.Kind is ModuleType.StdModule))
         {
             if (!session.Symbols.TryResolveValue(module.Name, GlobalSymbols.UnresolvedSymbol, out var symbol) || symbol is null)
             {

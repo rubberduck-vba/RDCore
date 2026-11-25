@@ -209,6 +209,37 @@ public sealed class ScriptRunTests
         Assert.AreEqual(Lines(expected), output);
     }
 
+    // a script's Class and Module blocks are modules of its own: its code makes an object of the class, each with its own fields, and calls the module's
+    // procedures by their name alone or by the module's; what it writes after the blocks still runs, in the order it is written.
+    [TestMethod]
+    public async Task TheBlocksOfAScript_AreItsClassesAndModules_ThatItsCodeUses()
+    {
+        var (exit, output, error) = await RunAsync([],
+            "Set first = New Account", "Set other = New Account", "first.Deposit Twice(20)", "other.Deposit 1",
+            "WScript.Echo first.Balance, other.Balance, Helpers.Twice(1)",
+            "Class Account", "Private total", "Public Sub Deposit(amount)", "total = total + amount", "End Sub",
+            "Public Property Get Balance()", "Balance = total", "End Property", "End Class",
+            "Module Helpers", "Public Function Twice(value)", "Twice = value * 2", "End Function", "End Module",
+            "WScript.Echo \"after\"");
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines("40 1 2", "after"), output);
+    }
+
+    // each module of the file is defined with its own part of the file's parse: a syntax error in a block is that block's, whose load refuses the run, and
+    // not the script's own module's.
+    [TestMethod]
+    public async Task ASyntaxErrorInABlock_IsTheBlocks_AndRefusesTheRun()
+    {
+        var (exit, output, error) = await RunAsync([],
+            "WScript.Echo \"script\"", "Class Account", "Public Sub Deposit(amount", "End Sub", "End Class");
+
+        Assert.AreEqual(ProgramRunner.Refused, exit, error);
+        Assert.AreEqual(string.Empty, output);
+        StringAssert.StartsWith(error, "Account: ");
+        Assert.IsFalse(error.Contains("Backup: ", StringComparison.Ordinal), error);
+    }
+
     [TestMethod]
     public async Task AScriptOfProceduresOnly_RunsNothing()
     {

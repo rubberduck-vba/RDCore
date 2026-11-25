@@ -199,4 +199,32 @@ public sealed class RuntimeSessionComposerTests
         Assert.IsTrue(session.Symbols.TryResolveValue("RealName", GlobalScope, out _), "should resolve under the VB_Name");
         Assert.IsFalse(session.Symbols.TryResolveValue("File1", GlobalScope, out _), "should not resolve under the file name");
     }
+
+    // a file of several modules has a symbol for each, in the order it writes them, named and kinded as its header and each block's header say. What the
+    // project says of the file (the document of a host) is said of its own module, and of no block.
+    [TestMethod]
+    public void AFileOfSeveralModules_HasASymbolForEach_AndWhatTheProjectSaysOfTheFileIsItsOwnModules()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-composer-blocks");
+        var project = new RDCoreProject
+        {
+            Modules = [new RDCoreModule { RelativeUri = "Sheet1.doccls", Super = DocClassType.ExcelWorksheet }],
+        };
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(root, "Sheet1.doccls")] = new(string.Join("\r\n",
+                "Attribute VB_Name = \"Sheet1\"", "Class Account", "End Class", "Module Helpers", "End Module") + "\r\n"),
+        });
+
+        var modules = new ProjectSymbolProvider(new Uri(root), project, fs).ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
+
+        CollectionAssert.AreEqual(new[] { "Sheet1", "Account", "Helpers" }, modules.Select(module => module.Name).ToArray());
+        var sheet = (VBClassModuleSymbol)modules[0];
+        Assert.IsTrue(sheet.IsDocument);
+        Assert.AreEqual(new DocumentHostClass("Excel", "Worksheet"), sheet.HostClass);
+        var account = (VBClassModuleSymbol)modules[1];
+        Assert.IsFalse(account.IsDocument);
+        Assert.IsNull(account.HostClass, "what the project says of the file is not said of a block");
+        Assert.IsInstanceOfType<VBStandardModuleSymbol>(modules[2]);
+    }
 }

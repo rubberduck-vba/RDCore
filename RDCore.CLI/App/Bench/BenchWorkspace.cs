@@ -19,7 +19,14 @@ namespace RDCore.CLI.App.Bench;
 /// </param>
 /// <param name="CompanionProblem">Why the companion file could not be read; null when it was, when the module names none, and when the file is not there.</param>
 internal sealed record class BenchModule(string Name, ModuleType Type, string RelativePath, string Source, ReadOnlyMemory<byte> Companion = default,
-    Exception? CompanionProblem = null);
+    Exception? CompanionProblem = null)
+{
+    /// <summary>
+    /// Every module the file declares (<see cref="ModuleKinds.ModulesOf"/>): its own, which <see cref="Name"/> and <see cref="Type"/> are, then each
+    /// block's.
+    /// </summary>
+    public IReadOnlyList<DeclaredModule> Declared { get; init; } = [new DeclaredModule(Name, Type, IsBlock: false)];
+}
 
 /// <summary>
 /// A project of the workspace that the benchmarked project references (<strong>RD-VBAL §2.2.3.2</strong>).
@@ -162,7 +169,8 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             var path = fileSystem.Path.Combine(root, module.RelativeUri);
             var source = ModuleFileText.Decode(fileSystem.File.ReadAllBytes(path), ansiCodePage).Text;
             var companion = FormDesigner.ReadCompanion(fileSystem, path, source, out var problem);
-            return new BenchModule(ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source), module.RelativeUri, source, companion, problem);
+            var declared = ModuleKinds.ModulesOf(module, source);
+            return new BenchModule(declared[0].Name, declared[0].Kind, module.RelativeUri, source, companion, problem) { Declared = declared };
         }).ToArray();
 
         // the standard library is every project's own, and no reference of it.

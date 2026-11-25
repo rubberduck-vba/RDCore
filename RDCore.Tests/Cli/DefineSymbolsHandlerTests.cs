@@ -267,7 +267,8 @@ public sealed class DefineSymbolsHandlerTests
         provider.Compose(
             new RDCoreProject { Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module.File })] },
             WorkspaceRoot,
-            modules.ToDictionary(module => module.File, module => (module.Name, module.Kind)));
+            modules.ToDictionary(module => module.File,
+                IReadOnlyList<DeclaredModule> (module) => [new DeclaredModule(module.Name, module.Kind, IsBlock: false)]));
         var handler = new DefineSymbolsHandler(provider, Substitute.For<IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(),
             NullLogger<DefineSymbolsHandler>.Instance);
         return (provider, handler);
