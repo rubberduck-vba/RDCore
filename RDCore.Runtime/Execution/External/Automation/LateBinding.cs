@@ -39,9 +39,18 @@ internal static class LateBinding
     /// <summary>The name a late-bound object's enumeration member is called by: <c>DISPID_NEWENUM</c>.</summary>
     public const string EnumerationMemberName = "[DISPID=-4]";
 
+    /// <summary>
+    /// How many classes, and how many members, are kept once made: the names a program gives at run time (<c>CallByName</c>, the classes its servers answer
+    /// with) are the program's input, and a process that runs for weeks must not grow with them. Past it, a class or a member is made for each call.
+    /// </summary>
+    internal const int Capacity = 4096;
+
     private static readonly Uri Root = new("rdcore://late-bound/");
     private static readonly ConcurrentDictionary<string, VBClassModuleSymbol> Classes = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<(string Class, string Member, AutomationInvocation Invocation), VBTypeMemberSymbol> Members = new();
+
+    // the class of an object held with no class of its own, which ServerObjects.ClassOf knows it by: always the one, however many others are made.
+    private static readonly VBClassModuleSymbol ObjectClass = MakeClass(Tokens.Object);
 
     /// <summary>
     /// The class of the late-bound objects of a name: the one the server gives the object's class, without its library, or <c>Object</c> when it gives none.
@@ -49,11 +58,18 @@ internal static class LateBinding
     public static VBClassModuleSymbol ClassNamed(string? serverName)
     {
         var name = serverName is { Length: > 0 } ? serverName[(serverName.LastIndexOf('.') + 1)..] : Tokens.Object;
-        return Classes.GetOrAdd(name, named => (VBClassModuleSymbol)new VBClassModuleSymbol(Root, new VBProjectSymbol(Root, LibraryName).Uri, named)
+        return string.Equals(name, Tokens.Object, StringComparison.OrdinalIgnoreCase) ? ObjectClass : Kept(Classes, name, MakeClass);
+    }
+
+    private static VBClassModuleSymbol MakeClass(string name)
+        => (VBClassModuleSymbol)new VBClassModuleSymbol(Root, new VBProjectSymbol(Root, LibraryName).Uri, name)
             .With(SymbolProperties.Library, LibraryName)
             // what the object answers to is what the server says, whatever the class declares.
-            .With(SymbolProperties.Extensible, true));
-    }
+            .With(SymbolProperties.Extensible, true);
+
+    // the one made for a key the first time it is asked for, while fewer than Capacity are kept; past that, one made for this call.
+    private static TValue Kept<TKey, TValue>(ConcurrentDictionary<TKey, TValue> made, TKey key, Func<TKey, TValue> make) where TKey : notnull
+        => made.TryGetValue(key, out var kept) ? kept : made.Count < Capacity ? made.GetOrAdd(key, make) : make(key);
 
     /// <summary>
     /// Whether <paramref name="classModule"/> is the class of late-bound objects, whose members are reached by name.
@@ -74,7 +90,7 @@ internal static class LateBinding
     /// <param name="name">The member's name, or <see cref="DefaultMemberName"/>, <see cref="EnumerationMemberName"/>.</param>
     /// <param name="invocation">How it is reached.</param>
     public static VBTypeMemberSymbol MemberOf(VBClassModuleSymbol classModule, string name, AutomationInvocation invocation)
-        => Members.GetOrAdd((classModule.Name, name.ToUpperInvariant(), invocation), _ => Make(classModule, name, invocation, []));
+        => Kept(Members, (classModule.Name, name.ToUpperInvariant(), invocation), _ => Make(classModule, name, invocation, []));
 
     private static readonly ConcurrentDictionary<(string Class, string Member, AutomationInvocation Invocation, string Names), VBTypeMemberSymbol> Named = new();
 
@@ -102,7 +118,7 @@ internal static class LateBinding
             _ => AutomationInvocation.Get,
         };
 
-        return Named.GetOrAdd((classModule.Name, member.Name.ToUpperInvariant(), invocation, string.Join(",", names).ToUpperInvariant()),
+        return Kept(Named, (classModule.Name, member.Name.ToUpperInvariant(), invocation, string.Join(",", names).ToUpperInvariant()),
             _ => Make(classModule, member.Name, invocation, names));
     }
 

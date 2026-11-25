@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
+using System.Collections.Frozen;
 
 namespace RDCore.Runtime.LanguageCore.StdLib.Abstract;
 
@@ -45,7 +46,8 @@ public interface IStdInformationModule
         public const int LightYellow = 0x00FFFF;
         public const int BrightWhite = 0xFFFFFF;
 
-        internal static Dictionary<StdInformationQBColor, int> QBColorRGBValues = new()
+        // read by every session of the process at once, and written by none.
+        internal static readonly FrozenDictionary<StdInformationQBColor, int> QBColorRGBValues = new Dictionary<StdInformationQBColor, int>
         {
             [StdInformationQBColor.Black] = Black,
             [StdInformationQBColor.Blue] = Blue,
@@ -63,7 +65,7 @@ public interface IStdInformationModule
             [StdInformationQBColor.LightMagenta] = LightMagenta,
             [StdInformationQBColor.LightYellow] = LightYellow,
             [StdInformationQBColor.BrightWhite] = BrightWhite
-        };
+        }.ToFrozenDictionary();
 
         public static bool TryGetQBColorRGBValue(StdInformationQBColor qbColorValue, out int rgbColorValue)
             => QBColorRGBValues.TryGetValue(qbColorValue, out rgbColorValue);
