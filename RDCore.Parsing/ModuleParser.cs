@@ -137,8 +137,7 @@ public partial class ModuleParser(
             var range = new SourceRange(new SourcePosition(block.HeaderLine, 0).AnchoredAt(anchorOffset),
                 new SourcePosition(block.EndLine, LineEnd(content, starts, block.EndLine) - starts[block.EndLine]).AnchoredAt(anchorOffset));
             var tree = parsed.SyntaxTree ?? EmptyModule(uri, module, WholeTextOf(NormalizeSource(text), anchor));
-            var kind = block.Kind == FileBlockKind.Class ? ModuleType.ClassModule : ModuleType.StdModule;
-            modules.Add(new BlockModule(block.Name, kind, module, range, tree));
+            modules.Add(new BlockModule(block.Name, ModuleKinds.Of(block.Kind), module, range, tree));
             trivia.Add(Boundary(module, block, block.HeaderLine, isEnd: false));
             trivia.Add(Boundary(module, block, block.EndLine, isEnd: true));
         }
