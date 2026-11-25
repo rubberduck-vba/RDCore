@@ -193,7 +193,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)
-            .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks))
+            .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks, new StaticSemanticsOptions(deadRanges)))
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckDesigner(syntaxTree, parseResult.Designer))
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));
