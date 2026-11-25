@@ -295,6 +295,12 @@ internal sealed class SymbolSyncService(
             var (workspaceRoot, modules, hosts) = CollectModules(token);
             collected = [.. modules.Select(module => module.Name)];
 
+            // the modules of a name that another module of the project has are none of the program's (MS-VBAL §4.2): a run of it is refused, and says why.
+            foreach (var (name, error) in ProjectModules.NameConflicts(documents, parsing, documents.WorkspaceRoot, token).Values)
+            {
+                failed.TryAdd(name, $"{error.Description}: {error.Verbose}");
+            }
+
             if (workspaceRoot is null)
             {
                 LogIfEnabled(LogLevel.Information, "Symbol sync found no parsed workspace modules.");

@@ -12,6 +12,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.AST;
@@ -928,5 +929,87 @@ public sealed class DocumentDiagnosticsServiceTests
         var result = await Sut().GetAsync(program.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
         Assert.AreEqual(1, result.Diagnostics.Single().Range.Start.Line);
+    }
+
+    private static readonly string NameConflicts = VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary.ToCode().ToString();
+
+    // a standard module of the project, named by its Attribute VB_Name, or by its file when it says none.
+    private static WorkspaceDocument StandardModule(string file, string? name)
+        => new($"src/{file}.bas", Root, (name is null ? string.Empty : $"Attribute VB_Name = \"{name}\"\r\n") + "Public Sub Work()\r\nEnd Sub\r\n");
+
+    // the documents of the project, each parsed as itself.
+    private void ModulesAre(params WorkspaceDocument[] modules)
+    {
+        WorkspaceHas(modules);
+        var parses = modules.ToDictionary(module => module.Id.Uri.ToUri().AbsoluteUri, module => new ModuleParser().Parse(module.Id.Uri.ToUri(), module.Text));
+        _parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var found = parses.TryGetValue(((Uri)call[0]).AbsoluteUri, out var parse);
+                call[1] = parse;
+                return found;
+            });
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(call => Task.FromResult(parses[call.Arg<Uri>().AbsoluteUri]));
+    }
+
+    private static Diagnostic[] ConflictsIn(DocumentDiagnosticsResult result)
+        => [.. result.Diagnostics.Where(diagnostic => diagnostic.Code?.String == NameConflicts)];
+
+    // MS-VBAL §4.2: the modules of a project have distinct names. Of two of one name, neither is the module of that name: each is in conflict, where it
+    // says its name, and what the host has of that name is not asked for. A module of another name is not in conflict.
+    [TestMethod]
+    public async Task TwoModulesOfOneName_AreEachInConflict_WhereEachSaysItsName_AndTheHostIsNotAskedOfEither()
+    {
+        var first = StandardModule("A", "Dup");
+        var second = StandardModule("B", "Dup");
+        var other = StandardModule("C", "Other");
+        ModulesAre(first, second, other);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        foreach (var module in new[] { first, second })
+        {
+            var conflict = Assert.ContainsSingle(ConflictsIn(await Sut().GetAsync(module.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+            Assert.AreEqual(DiagnosticSeverity.Error, conflict.Severity);
+            Assert.AreEqual(0, conflict.Range.Start.Line, "the Attribute VB_Name line");
+        }
+
+        Assert.IsEmpty(ConflictsIn(await Sut().GetAsync(other.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Other"), Arg.Any<CancellationToken>());
+        await host.DidNotReceive().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Dup"), Arg.Any<CancellationToken>());
+    }
+
+    // a module that says no VB_Name is named by its file, by the same rule; case does not tell two names apart.
+    [TestMethod]
+    [DataRow(null, "Helpers", DisplayName = "a file named as another module's VB_Name")]
+    [DataRow("dup", "DUP", DisplayName = "two names that differ in case")]
+    public async Task TwoModulesOfOneName_AreInConflict_HoweverTheyAreNamed(string? firstName, string secondName)
+    {
+        var first = StandardModule(firstName is null ? secondName : "A", firstName);
+        var second = StandardModule("B", secondName);
+        ModulesAre(first, second);
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        Assert.ContainsSingle(ConflictsIn(await Sut().GetAsync(first.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        Assert.ContainsSingle(ConflictsIn(await Sut().GetAsync(second.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+    }
+
+    // the language server says it itself, so it is said without a diagnostics extension too; by the static phase, which is where a compile error is said.
+    [TestMethod]
+    [DataRow(true, AnalysisPhase.Static, 1, DisplayName = "an extension, the static phase")]
+    [DataRow(true, AnalysisPhase.Runtime, 0, DisplayName = "an extension, the runtime phase")]
+    [DataRow(false, AnalysisPhase.Static, 1, DisplayName = "no extension, the static phase")]
+    [DataRow(false, AnalysisPhase.Runtime, 0, DisplayName = "no extension, the runtime phase")]
+    public async Task TwoModulesOfOneName_AreInConflict_InTheStaticPhase(bool extension, AnalysisPhase phase, int told)
+    {
+        var first = StandardModule("A", "Dup");
+        ModulesAre(first, StandardModule("B", "Dup"));
+        ProvidersAre(extension ? Provider("RDCore.Diagnostics", 1) : NonProvider());
+
+        var result = await Sut().GetPhaseAsync(first.Id.Uri.ToUri(), phase, CancellationToken.None);
+
+        Assert.HasCount(told, ConflictsIn(result));
     }
 }
