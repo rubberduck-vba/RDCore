@@ -792,6 +792,12 @@
   <data name="UnreachableCase_Else_Message" xml:space="preserve">
     <value>Ce Case Else n'est jamais atteint : les Case qui le précèdent couvrent toutes les valeurs du type du sélecteur.</value>
   </data>
+  <data name="ParamArrayIgnoresOptionBase_Message" xml:space="preserve">
+    <value>Le tableau de paramètres &apos;{0}&apos; commence à 0 : Option Base 1 fixe la borne inférieure des autres tableaux du module, pas celle d&apos;un paramètre ParamArray.</value>
+  </data>
+  <data name="QualifiedArrayIgnoresOptionBase_Message" xml:space="preserve">
+    <value>Cet appel de la fonction Array de la bibliothèque renvoie un tableau qui commence à 0 : seul Array non qualifié suit Option Base 1.</value>
+  </data>
   <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
     <value>Affecter la condition à &apos;{0}&apos;</value>
   </data>

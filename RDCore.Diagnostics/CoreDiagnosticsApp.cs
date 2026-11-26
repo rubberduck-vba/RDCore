@@ -110,6 +110,8 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, RedundantModuleOptionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BooleanAssignedInIfElseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnreachableCaseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ParamArrayOptionBaseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, QualifiedArrayOptionBaseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, StopStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotAssignedAnalyzer>();

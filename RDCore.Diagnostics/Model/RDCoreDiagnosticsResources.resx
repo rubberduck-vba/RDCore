@@ -792,6 +792,12 @@
   <data name="UnreachableCase_Else_Message" xml:space="preserve">
     <value>This Case Else is never reached: the Cases before it match every value of the selector's type.</value>
   </data>
+  <data name="ParamArrayIgnoresOptionBase_Message" xml:space="preserve">
+    <value>The param array &apos;{0}&apos; starts at 0: Option Base 1 sets the lower bound of the module&apos;s other arrays, not of a ParamArray parameter.</value>
+  </data>
+  <data name="QualifiedArrayIgnoresOptionBase_Message" xml:space="preserve">
+    <value>This call of the library&apos;s Array function returns an array that starts at 0: only the unqualified Array follows Option Base 1.</value>
+  </data>
   <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
     <value>Assign the condition to &apos;{0}&apos;</value>
   </data>

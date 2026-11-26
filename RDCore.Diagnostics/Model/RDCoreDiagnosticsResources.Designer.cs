@@ -2037,6 +2037,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The param array &apos;{0}&apos; starts at 0: Option Base 1 sets the lower bound of the module&apos;s other arrays, not of a ParamArray parameter..
+        /// </summary>
+        public static string ParamArrayIgnoresOptionBase_Message {
+            get {
+                return ResourceManager.GetString("ParamArrayIgnoresOptionBase_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call of the library&apos;s Array function returns an array that starts at 0: only the unqualified Array follows Option Base 1..
+        /// </summary>
+        public static string QualifiedArrayIgnoresOptionBase_Message {
+            get {
+                return ResourceManager.GetString("QualifiedArrayIgnoresOptionBase_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Module &apos;{0}&apos; declares nothing..
         /// </summary>
         public static string EmptyModule_Message {

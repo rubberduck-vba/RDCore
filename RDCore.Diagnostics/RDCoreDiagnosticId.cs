@@ -69,6 +69,8 @@ public enum RDCoreDiagnosticId
     FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
     UnreachableCase = 219, // [RD2:UnreachableCaseInspection] a Case block, or the Case Else, that the Cases before it leave no value of the selector for
+    ParamArrayIgnoresOptionBase = 220, // [RD2:InconsistentParamArrayBaseInspection] a ParamArray parameter in a module with Option Base 1: it is 0-based
+    QualifiedArrayIgnoresOptionBase = 221, // [RD2:InconsistentArrayBaseInspection] a call of VBA.Array in a module with Option Base 1: it is 0-based
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
