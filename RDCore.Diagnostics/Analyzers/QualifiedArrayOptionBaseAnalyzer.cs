@@ -1,10 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
-using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
 
@@ -27,7 +24,7 @@ internal sealed class QualifiedArrayOptionBaseAnalyzer : IModuleAnalyzer
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.ParseResult.SyntaxTree is not { } module || context.Semantics is not { } semantics
-            || !module.Children.OfType<ModuleOptionDirectiveNode>().Any(directive => directive.ModuleOption == ModuleOptions.OptionBase1))
+            || module.GetOptionBase() != 1)
         {
             return [];
         }

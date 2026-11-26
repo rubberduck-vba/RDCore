@@ -1,10 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
-using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -23,11 +20,9 @@ internal sealed class ParamArrayOptionBaseAnalyzer : IModuleAnalyzer
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
-        var parse = context.ParseResult;
-        var document = new RDCoreDocument(context.Document, parse);
-        var modules = parse.BlockModules.Select(block => document.ParseOf(block.Uri)?.SyntaxTree).Prepend(parse.SyntaxTree);
-        return modules.OfType<ModuleNode>()
-            .Where(module => module.Children.OfType<ModuleOptionDirectiveNode>().Any(directive => directive.ModuleOption == ModuleOptions.OptionBase1))
+        var document = new RDCoreDocument(context.Document, context.ParseResult);
+        return document.ModuleUris.Select(document.SyntaxTreeOf).OfType<ModuleNode>()
+            .Where(module => module.GetOptionBase() == 1)
             .SelectMany(module => module.Descendants().OfType<ParameterDeclarationNode>())
             .Where(parameter => parameter.IsParamArray)
             .Select(parameter => new AnalyzerFinding(RDCoreDiagnosticId.ParamArrayIgnoresOptionBase.ToCode(), parameter.Location.Range,
