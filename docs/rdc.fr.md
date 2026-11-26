@@ -111,8 +111,11 @@ Dans une console, une commande commence par l'écran d'accueil de la plateforme.
 
 `rdc run` exécute le point d'entrée du programme :
 
-- la procédure que le `.rdproj` nomme comme point d'entrée dans sa section `build`, `Module.Procedure` ou `Procedure` : `"build": { "entryPoint": "Module1.Main" }`;
+- la procédure que le `.rdproj` nomme comme point d'entrée dans sa section `build`, `Module.Procedure` ou `Procedure` : `"build": { "entryPoint": "Module1.Main" }`. Un nom sans module nomme aussi un script par le nom de son module (`"entryPoint": "Backup"`), et le programme commence à ce script;
+- sinon, le script du seul module standard qui est un script;
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
+
+Pour un fichier de module que liste le `.rdproj` de son dossier, `rdc run` exécute ce projet à partir du module du fichier : à partir de son script, ou sinon de son `Sub Main`. Le point d'entrée que nomme la section `build` ne s'applique pas, et le reste du projet s'applique. Un fichier de module qu'aucun `.rdproj` de son dossier ne liste est un projet à lui seul.
 
 Un projet sans point d'entrée ([RDC30001](diagnostics/rdc30001.md)), ou avec un `Sub Main` dans plus d'un module standard ([RDC30002](diagnostics/rdc30002.md)), ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
 ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Dans une application console (`"build": { "outputType": "ConsoleApplication" }`), un `MsgBox` ou un `InputBox` s'affiche dans la console et on y répond, comme dans le _shell_, sous tous les systèmes d'exploitation. Dans tout autre programme, ce sont des boîtes de dialogue RDForms, affichées par-dessus ses formulaires, sous tous les systèmes d'exploitation. Sous Windows, le paramètre `CLI.NativeDialogs` les affiche plutôt comme des boîtes de dialogue Windows, dans les deux types de programmes; sous tout autre système d'exploitation, il ne change rien. Un formulaire ouvre sa propre fenêtre dans les deux cas.
