@@ -398,9 +398,9 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         var workspace = await OpenedAsync();
 
         Assert.IsTrue(workspace.TryGetFile(_file, out var file));
-        CollectionAssert.AreEqual(new[] { "Prog", "Helpers" }, file.Modules.ToArray());
-        Assert.AreEqual("Prog", file.NameOf(file.Document.ModuleAt(new SourcePosition(1, 0))), "a line of the file's own module");
-        Assert.AreEqual("Helpers", file.NameOf(file.Document.ModuleAt(new SourcePosition(4, 0))), "a line of the block");
+        CollectionAssert.AreEqual(new[] { "Prog", "Helpers" }, file.ModuleUris.Select(module => file.NameOf(module)).ToArray());
+        Assert.AreEqual("Prog", file.NameOf(file.ModuleAt(new SourcePosition(1, 0))), "a line of the file's own module");
+        Assert.AreEqual("Helpers", file.NameOf(file.ModuleAt(new SourcePosition(4, 0))), "a line of the block");
         Assert.IsTrue(workspace.TryGetPath("Helpers", out var path), "the block's module has a file");
         Assert.IsTrue(workspace.TryGetPath("Prog", out var own));
         Assert.AreEqual(own, path, "the file that holds the block");
