@@ -313,11 +313,22 @@ namespace RDCore.Runtime {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to This For Each loop&apos;s collection expression is Nothing. Enumerating it requires invoking its _NewEnum member, which cannot be done on an object reference that isn&apos;t set..
+        ///   Looks up a localized string similar to This For Each loop&apos;s collection is Nothing. A For Each loop enumerates an array or an object,
+        /// and Nothing is neither..
         /// </summary>
-        internal static string VBForEach_ObjectVariableNotSet_Verbose {
+        internal static string VBForEach_ObjectRequired_Verbose {
             get {
-                return ResourceManager.GetString("VBForEach_ObjectVariableNotSet_Verbose", resourceCulture);
+                return ResourceManager.GetString("VBForEach_ObjectRequired_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The enumeration member (_NewEnum) of this For Each loop&apos;s collection returned no object: there is
+        /// no enumerator to give the loop its elements..
+        /// </summary>
+        internal static string VBForEach_PropertyGetDidNotReturnObject_Verbose {
+            get {
+                return ResourceManager.GetString("VBForEach_PropertyGetDidNotReturnObject_Verbose", resourceCulture);
             }
         }
 

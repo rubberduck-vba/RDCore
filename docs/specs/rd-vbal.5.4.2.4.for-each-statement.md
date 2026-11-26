@@ -55,12 +55,12 @@ run-time error.
       [ForEachState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ForEachState.html), and fall through into the body. The
       assignment is a Set-assignment when the array's item type is `Object`, and a Let-assignment otherwise
       (**MS-VBAL §5.4.2.4**'s rule).
-4. When the collection is `Nothing`, raise error 91: enumerating it would invoke `_NewEnum` on an unset reference.
+4. When the collection is `Nothing`, raise error 424 (Object required), as MS-VBA does.
 5. When the collection is a live object whose class exposes a member with `VB_UserMemId = -4` (commonly `_NewEnum`),
    invoke that member and store a `ForEachState` holding the *enumerator* object it returns (see *Object enumeration*
    below), then ask the enumerator for its first member as an array's first element is taken. When it has none, empty
    the control variable and skip the body. The member's declared type may be `IUnknown`, `Object` or the enumerator's
-   own class.
+   own class. When the member returns `Nothing`, raise error 451, as MS-VBA does.
 6. When the collection is a live object with no such member, raise error 438.
 7. When the collection is anything else (a scalar), raise error 13, `TypeMismatch`.
 
@@ -136,15 +136,23 @@ for a `Variant` only when the collection is declared as an array.
 |---|---|
 |The collection is an array that was never initialized (`VBArrayValue.IsInitialized` is false).|92 (For loop not initialized)|
 |`ForEachNext` finds no stored `ForEachState` for its `Matching` offset: a `GoTo` landed in the body or on the closer, or the opener raised an error that was resumed past. A `Variant` control variable is emptied first, unless the collection is declared as an array.|92 (For loop not initialized)|
-|The collection is `Nothing`.|91 (Object variable or With block variable not set)|
+|The collection is `Nothing`.|424 (Object required)|
+|The collection's `VB_UserMemId = -4` member returns `Nothing`.|451 (Property let procedure not defined and property get procedure did not return an object)|
 |The collection is a live object with no `VB_UserMemId = -4` member, or the enumerator it returns has no `MoveNext` and `Current`.|438 (Object doesn't support this property or method)|
 |The collection is anything else (a scalar).|13 (Type mismatch)|
+
+An error in the header that `On Error Resume Next` goes past goes on at the statement after the header, which is
+usually the first of the body or the `Next`. A `Next` that directly follows its header on the header's
+line (`For Each v In w: Next`) is part of the header's statement. The error goes on past it, and the `Next` does not run:
+the control variable keeps its value, and `Err` the header's error. This is what MS-VBA does, observed in Excel
+(64-bit, en-US).
 
 MS-VBAL does not separately call out an array that was never initialized. MS-VBA raises error 92 for it, because
 the collection itself was never set up; a declared array with zero elements is the "no elements" case instead.
 
-MS-VBAL requires the collection to be an array or an enumeration-capable object reference, so errors 91, 438 and 13
-are the specified outcomes. The error identifiers are listed in
+MS-VBAL requires the collection to be an array or an enumeration-capable object reference, and does not say which
+error a collection that is neither raises. RD-VBA raises 424, 438 or 13 for one, as the table gives, and 451 for an
+enumeration member that returns `Nothing`, as MS-VBA does. The error identifiers are listed in
 [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md).
 
 ## 5.4.2.4.1 Array Enumeration Order
