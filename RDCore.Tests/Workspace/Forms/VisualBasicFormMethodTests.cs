@@ -110,7 +110,6 @@ public sealed class VisualBasicFormMethodTests
     }
 
     [TestMethod]
-    [Ignore("RDForms raises no Resize for a form that was never shown")]
     public async Task AHiddenFormsMove_RaisesItsResize_InsideTheStatement()
     {
         var printed = await RunAsync("Load Form2", "Form2.Move 1200, 1200, 6000, 4500", "Debug.Print \"moved\"", "Unload Form2");
