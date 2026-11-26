@@ -150,7 +150,7 @@ public static class DeclarationStaticSemanticsEvaluator
                 optionStatements.Add(option, statements = []);
             }
 
-            if (statements.Any(prior => !blocks.AreAlternatives(prior.Range.Start, directive.Location.Range.Start)))
+            if (statements.Any(prior => !blocks.AreAlternatives(prior, directive.Location)))
             {
                 errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateOptionStatement, directive.Location,
                     string.Format(Exceptions.VBCompileError_DuplicateOptionStatement_Verbose, NameOf(option))));
@@ -206,7 +206,7 @@ public static class DeclarationStaticSemanticsEvaluator
     }
 
     private static bool AreOneDeclaration((MemberKind? Kind, SourceLocation Location) prior, (MemberKind? Kind, SourceLocation Location) next, ConditionalCompilationBlocks blocks)
-        => blocks.AreAlternatives(prior.Location.Range.Start, next.Location.Range.Start)
+        => blocks.AreAlternatives(prior.Location, next.Location)
             || (IsAccessor(prior.Kind) && IsAccessor(next.Kind) && prior.Kind != next.Kind);
 
     private static bool IsAccessor(MemberKind? kind) => kind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
