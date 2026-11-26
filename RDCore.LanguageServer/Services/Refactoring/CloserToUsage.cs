@@ -241,8 +241,8 @@ internal static class CloserToUsage
 
         var (before, list) = BeforeOf(procedure, [.. uses.Select(use => use.Range.Start)]);
         if (ParseOf(into) is not { } intoParse
-            || ConditionalCompilationBlocks.Of(declaringParse.PrecompilerTrivia).IsConditional(declaration.SourceLocation.Range.Start)
-            || ConditionalCompilationBlocks.Of(intoParse.PrecompilerTrivia).IsConditional(before.SourceLocation.Range.Start))
+            || ConditionalCompilationBlocks.Of(declaringParse.PrecompilerTrivia).IsConditional(declaration.SourceLocation)
+            || ConditionalCompilationBlocks.Of(intoParse.PrecompilerTrivia).IsConditional(before.SourceLocation))
         {
             return (null, new(CloserToUsageRefusalKind.Conditional, symbol.Name));
         }

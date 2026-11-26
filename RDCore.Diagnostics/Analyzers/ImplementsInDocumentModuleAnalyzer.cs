@@ -20,9 +20,9 @@ internal sealed class ImplementsInDocumentModuleAnalyzer : IModuleAnalyzer
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => context.Semantics?.Document is not null && context.ParseResult.SyntaxTree is { } module
-            ? module.GetImplementedInterfaceNames().Zip(module.GetImplementedInterfaceRanges()).Select(directive => new AnalyzerFinding(
+            ? module.GetImplementedInterfaceNames().Zip(module.GetImplementedInterfaceLocations()).Select(directive => new AnalyzerFinding(
                 RDCoreDiagnosticId.ImplementsInDocumentModule.ToCode(),
-                directive.Second,
+                directive.Second.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementsInDocumentModule_Message, SymbolUri.ModuleNameOf(context.Semantics.Module), directive.First)))
             : [];

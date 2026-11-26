@@ -60,9 +60,10 @@ public sealed record class ModuleSurface(string Declarations, string References)
 
         // which branch of which #If outside of a procedure each declaration is written in: one #If inside a procedure says which of its statements are compiled,
         // which is its body's.
-        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(IsProcedure).Select(member => member.SourceLocation.Range).ToArray();
+        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(IsProcedure).Select(member => member.SourceLocation).ToArray();
         var branches = new Branches(ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia),
-            block => !procedures.Any(range => range.Start < block.Start && block.Start <= range.End));
+            block => !procedures.Any(procedure
+                => procedure.Uri == block.Uri && procedure.Range.Start < block.Range.Start && block.Range.Start <= procedure.Range.End));
 
         var (declarations, references) = (new StringBuilder(), new StringBuilder());
         Append(declarations, references, tree, inBody: false, branches);
@@ -88,7 +89,7 @@ public sealed record class ModuleSurface(string Declarations, string References)
 
     // a directive, and those nested in it: the directives of the module are held in the code they are written in (PrecompilerTriviaNode), which is the syntax
     // tree's, and is not told. An #If inside a procedure, and what its condition is made of, is that procedure's body's; a #Const is told wherever it is.
-    private static void AppendDirective(StringBuilder surface, SyntaxNode directive, SourceRange[] procedures, bool inProcedure)
+    private static void AppendDirective(StringBuilder surface, SyntaxNode directive, SourceLocation[] procedures, bool inProcedure)
     {
         // a stack of what is left to tell, not a call per node: a module nested past the parser's limit still has a tree, and its surface is made on an
         // ordinary thread. The children are pushed last first, so the nodes are told in the order a recursive walk would tell them.
@@ -99,8 +100,9 @@ public sealed record class ModuleSurface(string Declarations, string References)
             var (node, nodeInProcedure) = next;
             if (node is PrecompilerIfBlockStatementNode or PrecompilerConstantDeclarationNode)
             {
-                var start = node.SourceLocation.Range.Start;
-                nodeInProcedure = node is not PrecompilerConstantDeclarationNode && procedures.Any(range => range.Start < start && start <= range.End);
+                var (document, start) = (node.SourceLocation.Uri, node.SourceLocation.Range.Start);
+                nodeInProcedure = node is not PrecompilerConstantDeclarationNode
+                    && procedures.Any(procedure => procedure.Uri == document && procedure.Range.Start < start && start <= procedure.Range.End);
             }
 
             if (node is not PrecompilerTriviaNode && !nodeInProcedure)
@@ -117,10 +119,10 @@ public sealed record class ModuleSurface(string Declarations, string References)
     }
 
     // the #If blocks of the module that are counted, and the branches of them a declaration is written in: the ordinal of each, and not where it is.
-    private sealed record class Branches(ConditionalCompilationBlocks Blocks, Func<SourceRange, bool> Counted)
+    private sealed record class Branches(ConditionalCompilationBlocks Blocks, Func<SourceLocation, bool> Counted)
     {
         public string At(SyntaxNode node)
-            => Blocks.BranchesAt(node.SourceLocation.Range.Start, Counted) is { Count: > 0 } path
+            => Blocks.BranchesAt(node.SourceLocation, Counted) is { Count: > 0 } path
                 ? " @" + string.Join("/", path.Select(branch => $"{branch.Block}.{branch.Branch}"))
                 : string.Empty;
     }

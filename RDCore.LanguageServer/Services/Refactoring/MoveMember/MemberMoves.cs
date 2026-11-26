@@ -197,8 +197,9 @@ internal static class MemberMoves
     {
         var procedures = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Where(member => IsProcedure(member.MemberKind)).ToArray();
         var blocks = ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia);
-        bool OfTheModule(SourceRange block) => !procedures.Any(procedure => Holds(procedure.SourceLocation.Range, block));
-        return [.. procedures.Select(procedure => (procedure, blocks.BranchesAt(procedure.SourceLocation.Range.Start, OfTheModule)))];
+        bool OfTheModule(SourceLocation block)
+            => !procedures.Any(procedure => procedure.SourceLocation.Uri == block.Uri && Holds(procedure.SourceLocation.Range, block.Range));
+        return [.. procedures.Select(procedure => (procedure, blocks.BranchesAt(procedure.SourceLocation, OfTheModule)))];
     }
 
     private static bool IsProcedure(MemberKind kind)
