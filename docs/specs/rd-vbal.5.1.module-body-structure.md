@@ -41,8 +41,8 @@ End Class
 
 |Aspect|Rule|
 |---|---|
-|Name|The header names the module.|
-|Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md), and does not rename the module.|
+|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it.|
+|Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
 |File-level statements|A block's module has none, in a `.vbs` too: a statement outside its procedures is a syntax error, as in a `.bas`.|
