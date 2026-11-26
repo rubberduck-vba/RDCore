@@ -210,7 +210,9 @@ public sealed class ReplDebuggingTests
         var said = _console.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteMessage)).Select(call => call.GetArguments())
             .Single(arguments => arguments[0] is RDCore.CLI.ConsoleIO.Model.MessageKind.Error);
         var under = $"{Environment.NewLine}  ";
-        Assert.AreEqual($"VBR50001  Nobody can answer{under}Form2 is still loaded{under}{Resources.Repl_RuntimeError_StackTrace}{Environment.NewLine}    Main 30", said[2]);
+        Assert.AreEqual(
+            $"VBR50001  Nobody can answer{under}Form2 is still loaded{under}{Resources.Repl_RuntimeError_StackTrace}{Environment.NewLine}    Main 30",
+            said[2]);
     }
 
     [TestMethod]
