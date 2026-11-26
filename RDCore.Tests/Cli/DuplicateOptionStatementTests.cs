@@ -1,5 +1,7 @@
 using RDCore.Parsing;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -65,6 +67,27 @@ public sealed class DuplicateOptionStatementTests
         var error = Assert.ContainsSingle(Errors(Program(first, "Option Explicit" == first ? "Option Base 1" : "Option Explicit", second)));
 
         Assert.AreEqual(3, error.Location.Range.Start.Line);
+    }
+
+    // RD-VBAL §5.1: the parts of one name are one module, which states every part's options: an option that two parts state is stated twice.
+    [TestMethod]
+    public void AnOptionThatTwoPartsOfAModuleState_IsADuplicateOptionStatement_AtTheSecondPart()
+    {
+        var file = new Uri("file:///C:/Helpers.bas");
+        var other = new Uri("file:///C:/More.bas");
+        var parts = ModulePart.PartsOf(file, "Helpers", ModuleType.StdModule,
+                new ModuleParser().Parse(file, "Attribute VB_Name = \"Helpers\"\r\nOption Explicit\r\nPublic Total As Long\r\n"))
+            .Concat(ModulePart.PartsOf(other, "More", ModuleType.StdModule,
+                new ModuleParser().Parse(other, "Attribute VB_Name = \"More\"\r\nPartial Module Helpers\r\nOption Explicit\r\nEnd Module\r\n")));
+        var (modules, refused) = ModuleAssembly.Of(parts);
+        Assert.IsEmpty(refused);
+        var helpers = modules.Single(module => module.Name == "Helpers");
+
+        var found = Assert.ContainsSingle(DeclarationStaticSemanticsEvaluator.CheckSyntax(helpers.Parse.SyntaxTree!, ConditionalCompilationBlocks.None)
+            .Where(error => error.VBCompileErrorId == VBCompileErrorId.DuplicateOptionStatement));
+
+        Assert.AreEqual(new SourcePosition(2, 0), found.Location.Range.Start);
+        Assert.AreEqual(other, found.Location.Uri, "the second part's file");
     }
 
     [TestMethod]

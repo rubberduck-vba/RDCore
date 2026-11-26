@@ -1253,6 +1253,53 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The file holds another part of module &apos;{0}&apos;: write this code in that block..
+        /// </summary>
+        internal static string VBCompileError_ModulePartTwiceInAFile_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModulePartTwiceInAFile_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Module part of another kind.
+        /// </summary>
+        internal static string VBCompileError_ModulePartOfAnotherKind {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModulePartOfAnotherKind", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This part of module &apos;{0}&apos; is not of the module&apos;s kind: the parts of a class
+        ///   module are Class parts, and the parts of a standard module are Module parts..
+        /// </summary>
+        internal static string VBCompileError_ModulePartOfAnotherKind_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModulePartOfAnotherKind_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Module directive stated differently.
+        /// </summary>
+        internal static string VBCompileError_ModuleDirectiveStatedDifferently {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModuleDirectiveStatedDifferently", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{1}&apos; says otherwise than another part of module &apos;{0}&apos;: state it in one
+        ///   part, or the same way in each..
+        /// </summary>
+        internal static string VBCompileError_ModuleDirectiveStatedDifferently_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModuleDirectiveStatedDifferently_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
         internal static string VBCompileError_NameIsAProject_Verbose {

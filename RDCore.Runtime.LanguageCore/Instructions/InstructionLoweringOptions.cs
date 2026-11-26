@@ -17,7 +17,7 @@ namespace RDCore.Runtime.LanguageCore.Instructions;
 /// </para>
 /// </remarks>
 /// <param name="DeadRanges">
-/// The source ranges of every <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch that is not live. Empty
+/// The location of every <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch that is not live, its file and its range. Empty
 /// when the body has no <c>#If</c> at all. A child lexically inside one is never lowered, at any depth.
 /// </param>
 /// <param name="IsReleaseBuild">
@@ -47,7 +47,7 @@ namespace RDCore.Runtime.LanguageCore.Instructions;
 /// <c>Me</c>. Elsewhere such a statement is undefined, and is not lowered.
 /// </param>
 public readonly record struct InstructionLoweringOptions(
-    ImmutableArray<SourceRange> DeadRanges = default,
+    ImmutableArray<SourceLocation> DeadRanges = default,
     bool IsReleaseBuild = false,
     RDCore.SDK.Workspace.SupportedLanguage? Language = null,
     bool DropsDebugStatements = false,
@@ -61,7 +61,7 @@ public readonly record struct InstructionLoweringOptions(
     /// <summary>
     /// <see cref="DeadRanges"/>, never the default (uninitialized) array.
     /// </summary>
-    public ImmutableArray<SourceRange> Dead => DeadRanges.IsDefault ? [] : DeadRanges;
+    public ImmutableArray<SourceLocation> Dead => DeadRanges.IsDefault ? [] : DeadRanges;
 
     /// <summary>
     /// Whether <c>Debug</c> statements are lowered: every build but a release one that drops them.

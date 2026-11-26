@@ -229,9 +229,28 @@ public sealed class BlockModulesParseTests
             parse.BlockModules.Select(block => (block.Name, block.IsPartial, block.IsCreatable, block.Visibility)).ToArray());
     }
 
-    // where the header writes the module's name, after its modifiers and however it is indented: where a conflict of the name is reported.
+    // where a header writes each of its words, in the file's positions: where a finding about the part is reported, and what a rename of the module edits.
     [TestMethod]
-    public void EachBlock_IsNamedWhereItsHeaderWritesTheName()
+    public void EachWordOfABlocksHeader_IsWhereTheFileWritesIt()
+    {
+        var parse = Parse(Module,
+            "Public Partial Creatable Class Account",
+            "End Class",
+            "partial module Logger",
+            "End Module");
+
+        Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
+        static SourceRange?[] WordsOf(BlockModule block)
+            => [block.VisibilityRange, block.PartialRange, block.CreatableRange, block.KindRange, block.NameRange];
+        CollectionAssert.AreEqual(
+            new SourceRange?[] { new(0, 0, 0, 6), new(0, 7, 0, 14), new(0, 15, 0, 24), new(0, 25, 0, 30), new(0, 31, 0, 38) },
+            WordsOf(parse.BlockModules[0]));
+        CollectionAssert.AreEqual(new SourceRange?[] { null, new(2, 0, 2, 7), null, new(2, 8, 2, 14), new(2, 15, 2, 21) }, WordsOf(parse.BlockModules[1]));
+    }
+
+    // the columns of an indented header, with a comment after it, are the file's: the name starts after the indent and ends before the comment.
+    [TestMethod]
+    public void AnIndentedHeader_WithACommentAfterIt_IsNamedWhereTheFileWritesTheName()
     {
         var parse = Parse(Module,
             "  Class Account ",

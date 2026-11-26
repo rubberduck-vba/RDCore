@@ -139,14 +139,17 @@ public partial class ModuleParser(
                 new SourcePosition(block.EndLine, LineEnd(content, starts, block.EndLine) - starts[block.EndLine]).AnchoredAt(anchorOffset));
             var tree = parsed.SyntaxTree ?? EmptyModule(uri, module, WholeTextOf(NormalizeSource(text), anchor));
             errors.AddRange(HeaderLinesIn(tree, parsed.Trivia));
-            // what the header writes before the block's kind; what each makes of the module is the language's.
+            // what the header writes before the block's kind, and where it writes each word; what each makes of the module is the language's.
             modules.Add(new BlockModule(block.Name, ModuleKinds.Of(block.Kind), module, range, tree)
             {
-                NameRange = new SourceRange(new SourcePosition(block.HeaderLine, block.NameColumn).AnchoredAt(anchorOffset),
-                    new SourcePosition(block.HeaderLine, block.NameColumn + block.Name.Length).AnchoredAt(anchorOffset)),
                 IsPartial = block.IsPartial,
                 IsCreatable = block.IsCreatable,
                 Visibility = block.Visibility,
+                NameRange = HeaderWordAt(content, starts, block.HeaderLine, block.NameColumn, anchorOffset),
+                KindRange = HeaderWordAt(content, starts, block.HeaderLine, block.KindColumn, anchorOffset),
+                VisibilityRange = HeaderWordAt(content, starts, block.HeaderLine, block.VisibilityColumn, anchorOffset),
+                PartialRange = HeaderWordAt(content, starts, block.HeaderLine, block.PartialColumn, anchorOffset),
+                CreatableRange = HeaderWordAt(content, starts, block.HeaderLine, block.CreatableColumn, anchorOffset),
             });
             trivia.Add(Boundary(module, block, block.HeaderLine, isEnd: false));
             trivia.Add(Boundary(module, block, block.EndLine, isEnd: true));
@@ -173,8 +176,9 @@ public partial class ModuleParser(
         }
     }
 
-    // a block's header states what a module file's header and attributes state (Public Creatable Class, Private Module), and a block's module has no other
-    // attributes: an Attribute, VERSION or BEGIN line, or Option Private Module, written in a block is a syntax error where it is written.
+    // a block's header states what a module file's header and attributes state (Public Creatable Class, Private Module), and its annotations state a
+    // default instance and a description ('@PredeclaredId, '@ModuleDescription): an Attribute, VERSION or BEGIN line, or Option Private Module, written
+    // in a block is a syntax error where it is written.
     private static IEnumerable<VBSyntaxErrorInfo> HeaderLinesIn(ModuleNode tree, ImmutableArray<SyntaxNode> trivia)
     {
         foreach (var node in tree.Descendants().Concat(trivia))
@@ -199,6 +203,24 @@ public partial class ModuleParser(
         var to = LineEnd(content, starts, line);
         var comment = content.IndexOf('\'', starts[line], to - starts[line]);
         return comment < 0 ? to : comment;
+    }
+
+    // the word of a block's header that starts at a column of its line (FileBlock.NameColumn and the others), to the end of its name: none when the header
+    // does not write it.
+    private static SourceRange? HeaderWordAt(string content, List<int> starts, int line, int? column, SourcePosition anchorOffset)
+    {
+        if (column is not { } at)
+        {
+            return null;
+        }
+
+        var end = starts[line] + at;
+        while (end < content.Length && (char.IsLetterOrDigit(content[end]) || content[end] == '_'))
+        {
+            end++;
+        }
+
+        return new SourceRange(new SourcePosition(line, at).AnchoredAt(anchorOffset), new SourcePosition(line, end - starts[line]).AnchoredAt(anchorOffset));
     }
 
     // where each line of the text starts, a line ending at a CR, a LF or a CRLF, as FileBlocks counts them.

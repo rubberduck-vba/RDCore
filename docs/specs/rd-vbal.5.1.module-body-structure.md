@@ -41,7 +41,7 @@ End Class
 
 |Aspect|Rule|
 |---|---|
-|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it. A block named as another module of the project is [`VBC09386`](../diagnostics/vbc09386.md), at the name in its header.|
+|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it. A block without `Partial` named as another module of the project is [`VBC09386`](../diagnostics/vbc09386.md), at the name in its header; a `Partial` block of that name is a part of it ([Modules of parts](#modules-of-parts)).|
 |Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
@@ -49,13 +49,14 @@ End Class
 |Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written.|
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
-|Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file on its own: the file's own module first, then each block's, named by its header. A built program carries the modules of each file.|
+|Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. In `rdc run`, `rdc build` and `rdc bench`, the parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
 |Editing|A block that an edit takes out of its file, or renames, takes its module out of the environment host, unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
 
 > [!NOTE]
-> **Not implemented.** The analysis session of a project other than the primary one keeps the module of a block that an edit takes out of its file. VBA and VB6
-> have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
-> The parse reads a header's modifiers, and nothing applies them to the module.
+> **Not implemented.** The language server defines each module of a file on its own and does not assemble parts: two parts of one name are
+> [`VBC09386`](../diagnostics/vbc09386.md) there, and it applies neither a block's header nor its annotations to the module. The analysis session of a
+> project other than the primary one keeps the module of a block that an edit takes out of its file. VBA and VB6 have no blocks. No diagnostic reports a
+> block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
 
 ### Implementation
 
@@ -66,3 +67,68 @@ End Class
 |[`RDCoreDocument`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.RDCoreDocument.html)|Maps a file to its modules and back: `BlockUri`, `FileOf`, `ModuleAt`.|
 |[`BlockBoundaryTriviaNode`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.BlockBoundaryTriviaNode.html)|A block's header or end line, before its comment, as trivia of the file.|
 |`ModuleParser`|Parses the file's own module with the lines of its blocks blank, then each block from the line after its header.|
+
+## Modules of parts
+
+**RD-VBA addition.** A `Partial` block is a part of the module of its name, in whichever file of the project it is written. The parts of one name are
+one module: at most one plain part (a module file, or a block without `Partial`), and any number of `Partial` blocks.
+
+```vb
+' Program.bas
+Private count As Long
+
+Public Sub Main()
+    Add 20
+    Add 22
+    Debug.Print count ' 42
+End Sub
+```
+
+```vb
+' Extra.bas
+Partial Module Program
+Private Sub Add(ByVal n As Long)
+    count = count + n
+End Sub
+End Module
+```
+
+### Static Semantics
+
+|Aspect|Rule|
+|---|---|
+|Kind|The plain part's, or the first part's when every part is `Partial`. A part of another kind is [`VBC09388`](../diagnostics/vbc09388.md).|
+|Order|The plain part first, then the `Partial` parts in the order the project lists their files, each file's in the order it writes them.|
+|Body|Every part's declarations, then every part's procedures: the module declares its names before its procedures, as one file writes them.|
+|Scope|One module scope. A name two parts declare is [`VBC09301`](../diagnostics/vbc09301.md), even where one of them is written at the lines of an `#If` branch of the other part: branches are of one file.|
+|Files|Each node keeps its part's file and position. A symbol, a dead `#If` branch and an error are each of their own part's file.|
+|Options|An `Option` that a part states is the module's, for every part. Stated in two parts, it is stated twice: [`VBC09387`](../diagnostics/vbc09387.md).|
+|Names|Two plain parts are two modules of one name, and so are two parts of one module in one file: [`VBC09386`](../diagnostics/vbc09386.md).|
+|Refused|A module that `VBC09386`, `VBC09388` or `VBC09389` refuses does not load, none of its parts does, and a program that has it does not run.|
+
+The parts state the module's directives. Each part that states one states it the same way; another way is [`VBC09389`](../diagnostics/vbc09389.md).
+
+|Directive|A module file states it with|A block states it with|When no part states it|
+|---|---|---|---|
+|Exposed (`Class`)|`VB_Exposed`|`Public`, or `Private` for not exposed|Not exposed.|
+|Creatable (`Class`)|`VB_Creatable`|`Creatable`|Creatable when a module file is a part, as a file that states nothing is; a class of blocks alone is not creatable.|
+|Private (`Module`)|`Option Private Module`|`Private`, or `Public` for not private|Public.|
+|Default instance|`VB_PredeclaredId`|`'@PredeclaredId`|None.|
+|Extensible|`VB_Extensible`|No block form.|Not extensible.|
+|Description|`VB_Description`, else `'@ModuleDescription("...")`|`'@ModuleDescription("...")`|None.|
+
+A member's `'@Description("...")` describes it in its own part's file. `'@Exposed` in a `Class` block has no effect: the header alone says whether
+other projects see the class.
+
+> [!NOTE]
+> **Not implemented.** No diagnostic reports a part that restates a directive the same way, `Creatable` on a class no other project sees, or
+> `'@Exposed` in a `Class` block.
+
+### Implementation
+
+|Type or member|Role|
+|---|---|
+|[`BlockModule.IsPartial`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.BlockModule.html)|Whether a block's header writes `Partial`, with the visibility and `Creatable` it writes.|
+|[`DocStrings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.DocStrings.html)|Reads the descriptions of a module, its members and its variables, from their attributes or their annotations.|
+|`ModuleAssembly`|Makes one module of the parts of one name, with its directives and what its parts write to no effect, or refuses it with its errors.|
+|`SyntaxTreeSymbolProvider`|Gives each symbol the file of the node that declares it.|

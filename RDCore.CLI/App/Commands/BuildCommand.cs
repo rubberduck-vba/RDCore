@@ -108,6 +108,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
             [.. workspace.Modules.SelectMany(module => module.Declared.Select(declared => new BuiltModule(module.RelativePath, declared.Name, declared.Kind)
             {
                 IsBlock = declared.IsBlock,
+                IsPartial = declared.IsPartial,
             }))],
             NativeDialogs: settings?.Value.NativeDialogs ?? false);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));

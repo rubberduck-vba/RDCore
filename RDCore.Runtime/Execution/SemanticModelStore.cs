@@ -233,7 +233,7 @@ public sealed class SemanticModelStore
             {
                 var calls = procedure.Expressions
                     .Where(entry => entry.Value.Binding is { } binding && declared.ContainsKey(binding))
-                    .Select(entry => (entry.Key, Fact: entry.Value, Call: platforms.At(entry.Value.Location.Range.Start)))
+                    .Select(entry => (entry.Key, Fact: entry.Value, Call: platforms.At(entry.Value.Location)))
                     .Where(call => call.Call is not null)
                     .Select(call => (call.Key, call.Fact, call.Call, Declared: declared[call.Fact.Binding!.Value]))
                     .Select(call => KeyValuePair.Create(call.Key,
