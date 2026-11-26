@@ -17,8 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// RD-VBA reads a module's folder from where its file is, and the annotation changes nothing. What it names is the folder legacy Rubberduck's Code Explorer
 /// shows the module in, once the project is imported into MS-VBA: the fix makes it the file's, or removes it from a file at the root. The project's root is
-/// the host's (<see cref="SymbolUri.ProjectRootOf"/> of the module): an analyzer that is not given the module's semantics has nothing to say, and nor has
-/// one for a file whose folders the annotation cannot write, a folder whose name has a <c>.</c> in it.
+/// the host's (<see cref="SymbolUri.ProjectRootOf"/> of the module). Without the module's semantics the analyzer reports nothing. Nor does it report a file
+/// outside the root, or a file under a folder whose name has a <c>.</c> in it, which the annotation cannot write.
 /// </remarks>
 internal sealed class FolderAnnotationAnalyzer : IModuleAnalyzer
 {
