@@ -222,9 +222,10 @@ fix writes the members the code can name. `rdc export-library` keeps them, as it
 
 ### Suppression
 
-Settings disable a code for the user or the workspace (`Analysis.DisabledDiagnostics`). The `'@Ignore` and `'@IgnoreModule` annotations suppress codes in
-the source. Every provider still analyzes the document, and the language server drops the suppressed findings from what it publishes, whichever provider
-found them.
+Settings configure diagnostics: they disable a code for the user or the workspace (`Analysis.DisabledDiagnostics`), and the analyzer that finds it skips
+that work. The `'@Ignore` and `'@IgnoreModule` annotations of legacy Rubberduck are deprecated, and kept as a suppression in the source of the codes they
+list. Every provider still analyzes the document, and the language server drops the suppressed findings from what it publishes, whichever provider found
+them.
 
 |Written|Suppresses the findings of|
 |---|---|
