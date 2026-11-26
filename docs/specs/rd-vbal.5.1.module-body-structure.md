@@ -45,6 +45,7 @@ End Class
 |Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
+|Annotations|The comment lines directly above a header annotate the block's module, as its declarations section does ([**RD-VBAL §3.0.1.1**](rd-vbal.3.0.1.token-semantics.md#3011-comment-annotations-syntax)). They end, going up, at a blank line, code, a directive, or a line of another block, its end line included. A `'@Description` there describes the module; inside the block, it is a member's. The block's parse holds those lines (`RDCoreDocument.ParseOf`, `Annotations.GetHeaderAnnotations`).|
 |File-level statements|A block's module has none, in a `.vbs` too: a statement outside its procedures is a syntax error, as in a `.bas`.|
 |Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written.|
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
