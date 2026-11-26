@@ -727,7 +727,7 @@ The range is on the declaration of a variable or on a use of it. The declaration
 |A variable of a procedure declared before its first use with nothing but declarations between them|`moveCloserToUsage.alreadyClose`|
 |A declaration that is the only one of a statement sharing its line with another statement|`moveCloserToUsage.sharesItsLine`|
 
-The messages are plain records of `RDCore.SDK.Protocol`, with no OmniSharp type: a client that has only that package writes and reads them.
+The messages are plain records of `RDCore.SDK.Protocols`, with no OmniSharp type: a client that has only that package writes and reads them.
 
 ### `workspace/executeCommand`
 

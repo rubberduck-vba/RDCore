@@ -39,4 +39,4 @@ The binaries are **not code-signed**. On Windows, SmartScreen may warn about the
 
 ### Source and licences
 
-`SOURCE.md` in each archive says where the corresponding source is: {REPOSITORY}/tree/{REF}. RDCore is licensed under the GPLv3 or later (`LICENSE-GPLv3.md`), with `NOTICE.md` saying what it covers; `THIRD-PARTY-NOTICES.txt` lists the packages the archive contains and their licences, the MIT-licensed RDCore.SDK package among them, with the RDCore.SDK.Protocol assembly inside it.
+`SOURCE.md` in each archive says where the corresponding source is: {REPOSITORY}/tree/{REF}. RDCore is licensed under the GPLv3 or later (`LICENSE-GPLv3.md`), with `NOTICE.md` saying what it covers; `THIRD-PARTY-NOTICES.txt` lists the packages the archive contains and their licences, the MIT-licensed RDCore.SDK and RDCore.SDK.Protocols packages among them.
