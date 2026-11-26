@@ -69,8 +69,8 @@ public static class RuntimeSessionComposer
     }
 
     /// <summary>
-    /// An empty file system in memory, rooted where the platform's paths are: what a session that analyzes code and is never run acts on, so that no file
-    /// statement of the code reaches a disk.
+    /// A new, empty file system in memory, whose current directory is the root of the platform's paths (<c>C:\</c> on Windows, <c>/</c> elsewhere): what a
+    /// session that analyzes code and is never run acts on, so that no file statement of the code reaches a disk.
     /// </summary>
     public static IFileSystem NoFiles() => new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/");
 
