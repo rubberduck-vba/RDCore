@@ -46,7 +46,7 @@ End Class
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
 |File-level statements|A block's module has none, in a `.vbs` too: a statement outside its procedures is a syntax error, as in a `.bas`.|
-|Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written.|
+|Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written. The language server's folding, selection ranges, outline and semantic tokens cover each module of the file, a block's included ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#textdocumentfoldingrange)).|
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
 |Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file on its own: the file's own module first, then each block's, named by its header. A built program carries the modules of each file.|
