@@ -358,8 +358,8 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Ends a program that waits for its forms (<see cref="WaitWhileLoaded"/>) with the error a handler of its forms failed with: an error nothing catches ends
-    /// a Visual Basic 6.0 program, wherever it is raised.
+    /// Ends a program that waits for its forms (<see cref="WaitWhileLoaded"/>) with the error a handler of its forms failed with: an error nothing
+    /// catches ends a Visual Basic 6.0 program, wherever it is raised.
     /// </summary>
     /// <param name="failed">What the handler failed with.</param>
     /// <returns>
