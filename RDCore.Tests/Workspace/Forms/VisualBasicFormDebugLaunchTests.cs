@@ -111,7 +111,10 @@ public sealed class VisualBasicFormDebugLaunchTests
         => await DebugAsync(Program(), closedByItsUser: true, async (session, provider) =>
         {
             _ = await session.SendAsync(new ContinueArguments { ThreadId = ProgramDebugAdapter.ThreadId });
-            var hit = await session.NextAsync<StoppedEvent>();
+            // a run that ends with Main ends the session instead: the test fails then, and does not wait for a stop that never comes.
+            var next = await session.NextAsync(raised => raised is StoppedEvent or TerminatedEvent, "stop, or end of the session");
+            Assert.IsInstanceOfType<StoppedEvent>(next, "the session ended with Main: the run did not wait for its form");
+            var hit = (StoppedEvent)next;
             Assert.AreEqual(StoppedEventReason.Breakpoint, hit.Reason, hit.Description);
             var top = (await session.SendAsync(new StackTraceArguments { ThreadId = ProgramDebugAdapter.ThreadId })).StackFrames!.First();
             Assert.AreEqual(("Form_QueryUnload", InQueryUnload), (top.Name, (int)top.Line));
