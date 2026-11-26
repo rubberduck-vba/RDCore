@@ -51,6 +51,7 @@ End Class
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
 |Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. The parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
 |Editing|A block that an edit takes out of its file, or renames, takes its module out of its project's session in the environment host (the runtime session, or the project's analysis session), unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
+|Debugging|The debug adapter gives a breakpoint, or a line to go to, to the module whose lines hold it: a block's from its header to its end line, the file's own otherwise. A block's module runs on its own part of the parse. A block renamed by its header while the program waits is a module the program does not have: the program does not go on until it is run again.|
 
 > [!NOTE]
 > **Not implemented.** Completion and rename read each part of a module as a module of its own. VBA and VB6 have no blocks. No diagnostic
