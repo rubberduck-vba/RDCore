@@ -230,7 +230,7 @@ them.
 |Written|Suppresses the findings of|
 |---|---|
 |`'@Ignore` or `'@IgnoreModule`, in a file of one module|the whole file, wherever the annotation is written|
-|`'@IgnoreModule`, in a file that has blocks|the module it is in: a block's module, or the file's own module outside every block (`RDCoreDocument.ParseOf`)|
+|`'@IgnoreModule`, in a file that has blocks|the module it is in: a block's module, its header's comment lines included, or the file's own module outside every block (`RDCoreDocument.ParseOf`)|
 |`'@Ignore` on the comment lines directly above a block's header|that block's module ([`Annotations.GetHeaderAnnotations`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Annotations.html))|
 |`'@Ignore` anywhere else in a file that has blocks|none|
 

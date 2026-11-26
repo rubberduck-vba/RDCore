@@ -60,7 +60,8 @@ and RDCore reads them as a suppression of the codes they list:
 ```
 
 - In a file of one module, either annotation covers the whole file, wherever it is written.
-- In a file of `Class` and `Module` blocks, `'@IgnoreModule` covers the module it is written in.
+- In a file of `Class` and `Module` blocks, either annotation written on the comment lines directly above a block's header covers that block's
+  module. Elsewhere, `'@IgnoreModule` covers the module it is written in, and `'@Ignore` covers nothing.
 - An annotation with no argument covers every code that can be disabled. A compile error or a run-time error is still reported.
 
 The analyzers still run, and only their findings for those codes are left out. An argument that names nothing is
