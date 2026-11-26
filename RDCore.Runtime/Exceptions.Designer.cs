@@ -295,6 +295,15 @@ namespace RDCore.Runtime {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to {0} is still loaded when the program run unattended (--unattended) returns from its entry point: nobody is there to unload it, and the run fails..
+        /// </summary>
+        internal static string VBRuntimeError_NobodyToUnload_Verbose {
+            get {
+                return ResourceManager.GetString("VBRuntimeError_NobodyToUnload_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This For loop counts in {0}, and its start, end or step is not a value of that type..
         /// </summary>
         internal static string VBForLoopOperandNotOfLoopType_Verbose {

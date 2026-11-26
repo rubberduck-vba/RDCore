@@ -195,6 +195,9 @@
   <data name="VBRuntimeError_NobodyToAnswer_Verbose" xml:space="preserve">
     <value>{0} in a program run unattended (--unattended): nobody is there to answer it, and the run fails.</value>
   </data>
+  <data name="VBRuntimeError_NobodyToUnload_Verbose" xml:space="preserve">
+    <value>{0} is still loaded when the program run unattended (--unattended) returns from its entry point: nobody is there to unload it, and the run fails.</value>
+  </data>
   <data name="VBForLoopOperandNotOfLoopType_Verbose" xml:space="preserve">
     <value>This For loop counts in {0}, and its start, end or step is not a value of that type.</value>
   </data>

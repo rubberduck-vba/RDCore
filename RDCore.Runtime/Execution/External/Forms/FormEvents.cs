@@ -84,14 +84,13 @@ internal static class FormEvents
                 {
                     if (name != RDCore.External.Forms.FormWindowEvents.Close || session.Callables is not { } callables)
                     {
-                        return false;
+                        return null;
                     }
 
                     var mode = visualBasic6 && arguments is [var given, ..] && given is not null
                         ? Convert.ToInt16(given, System.Globalization.CultureInfo.InvariantCulture)
                         : FormHandlers.FormControlMenu;
-                    _ = FormHandlers.Unload(session, callables, identity, mode);
-                    return true;
+                    return FormHandlers.Unload(session, callables, identity, mode);
                 }));
 
             // the form's collection of its controls, whose designer's controls Controls.Remove cannot remove.

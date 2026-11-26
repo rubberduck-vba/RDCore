@@ -364,7 +364,8 @@ public sealed class CompiledEditAndContinueTests
     /// <summary>
     /// The workspace the adapter debugs: standard modules, a file each, run in the host's session the test was given, and the text saved in each file.
     /// </summary>
-    private sealed class InProcessDebugWorkspace(EnvironmentSessionProvider provider, ExecuteResult started, Dictionary<string, string> modules) : IDebugWorkspace
+    internal sealed class InProcessDebugWorkspace(EnvironmentSessionProvider provider, ExecuteResult started, Dictionary<string, string> modules)
+        : IDebugWorkspace
     {
         private readonly TaskCompletionSource<string> _lost = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Dictionary<string, string> _loaded = new(modules, StringComparer.OrdinalIgnoreCase);
@@ -434,7 +435,7 @@ public sealed class CompiledEditAndContinueTests
     /// <summary>
     /// A debugger client, the debug adapter it speaks DAP to, and the language server's debug service the adapter relays to the host through.
     /// </summary>
-    private sealed class Session : IAsyncDisposable
+    internal sealed class Session : IAsyncDisposable
     {
         private readonly Lock _eventsLock = new();
         private readonly List<object> _events = [];
@@ -525,7 +526,15 @@ public sealed class CompiledEditAndContinueTests
         /// The next event of the type, whenever it comes; the events before it of other types are kept.
         /// </summary>
         /// <typeparam name="TEvent">The type of the event waited for.</typeparam>
-        public async Task<TEvent> NextAsync<TEvent>()
+        public async Task<TEvent> NextAsync<TEvent>() => (TEvent)await NextAsync(next => next is TEvent, typeof(TEvent).Name);
+
+        /// <summary>
+        /// The next event <paramref name="which"/> accepts, whenever it comes; the events before it that it does not accept are kept. A test that waits for
+        /// one of several events (a stop, or the end of the session that comes instead) learns which came, and fails at once when the other does.
+        /// </summary>
+        /// <param name="which">Whether an event is one waited for.</param>
+        /// <param name="waitedFor">What the events waited for are, as the failure says when none comes.</param>
+        public async Task<object> NextAsync(Func<object, bool> which, string waitedFor)
         {
             using var hangGuard = new CancellationTokenSource(Patience);
             while (true)
@@ -533,10 +542,10 @@ public sealed class CompiledEditAndContinueTests
                 // the event is taken out where it is, under the lock an event that arrives is added under: the others stay in the order they came.
                 lock (_eventsLock)
                 {
-                    var at = _events.FindIndex(next => next is TEvent);
+                    var at = _events.FindIndex(next => which(next));
                     if (at >= 0)
                     {
-                        var found = (TEvent)_events[at];
+                        var found = _events[at];
                         _events.RemoveAt(at);
                         return found;
                     }
@@ -549,7 +558,7 @@ public sealed class CompiledEditAndContinueTests
                 }
                 catch (OperationCanceledException)
                 {
-                    Assert.Fail($"no {typeof(TEvent).Name} came");
+                    Assert.Fail($"no {waitedFor} came");
                 }
             }
         }
