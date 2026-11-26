@@ -211,7 +211,7 @@ internal sealed class DocumentDiagnosticsService(
         if (providers.Length == 0)
         {
             var named = parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() ?? document.Name : document.Name;
-            IReadOnlyList<Diagnostic> own = [.. tellsEdits ? EditsNotApplied(document, named) : [], .. NameTaken(NameConflictOf(document, token), phase)];
+            IReadOnlyList<Diagnostic> own = [.. tellsEdits ? EditsNotApplied(document, named) : [], .. NameTaken(NameConflictsOf(document, token), phase)];
             return DocumentDiagnosticsResult.Fresh(version, own.Count == 0 ? [] : InTheTextOf(document, own), generation);
         }
 
@@ -226,8 +226,8 @@ internal sealed class DocumentDiagnosticsService(
         // alone, and none of the host's.
         var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
         // a module whose name another module of its project has is none the host has: what it has of that name, if anything, is another module.
-        var conflict = NameConflictOf(document, token);
-        var semantics = conflict is not null ? null
+        var conflicts = NameConflictsOf(document, token);
+        var semantics = conflicts.Any(conflict => !conflict.OfABlock) ? null
             : SemanticsRootOf(document, isHostModule) is { } root ? await SemanticsOfAsync(moduleName, SymbolUri.Module(root, moduleName), phase, token)
             : isHostModule ? await SemanticsOfAsync(moduleName, null, phase, token)
             : null;
@@ -244,21 +244,21 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        IReadOnlyList<Diagnostic> found = [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, moduleName) : [], .. NameTaken(conflict, phase)];
+        IReadOnlyList<Diagnostic> found = [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, moduleName) : [], .. NameTaken(conflicts, phase)];
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 
-    // the error of a module of a project whose name another module of the project has (ProjectModules.NameConflicts), or none.
-    private VBCompileErrorInfo? NameConflictOf(WorkspaceDocument document, CancellationToken token)
+    // the modules of the document whose name another module of its project has (ProjectModules.NameConflicts), its own or its blocks'.
+    private IReadOnlyList<ModuleNameConflict> NameConflictsOf(WorkspaceDocument document, CancellationToken token)
         => document.IsFile && document.WorkspaceRoot.Length > 0
             && ProjectModules.NameConflicts(documents, parsing, document.WorkspaceRoot, token)
-                .TryGetValue(document.Id.Uri.ToUri().AbsoluteUri, out var conflict)
-                    ? conflict.Error
-                    : null;
+                .TryGetValue(document.Id.Uri.ToUri().AbsoluteUri, out var conflicts)
+                    ? conflicts
+                    : [];
 
     // VBC09386, which the language server reports itself: neither module is the host's, so no analysis of either has it. The static phase says it.
-    private static IEnumerable<Diagnostic> NameTaken(VBCompileErrorInfo? conflict, AnalysisPhase phase)
-        => conflict is not null && phase.HasFlag(AnalysisPhase.Static) ? [Findings.FromVBCompileError(conflict)] : [];
+    private static IEnumerable<Diagnostic> NameTaken(IReadOnlyList<ModuleNameConflict> conflicts, AnalysisPhase phase)
+        => phase.HasFlag(AnalysisPhase.Static) ? conflicts.Select(conflict => Findings.FromVBCompileError(conflict.Error)) : [];
 
     // the phases of the analysis that are of the code as it runs: none of what comes of evaluating it while a program waits in break mode - the host holds the
     // redefinitions that would free what the program holds, and applies them when it is run again, so the code the evaluation would be of is neither the code

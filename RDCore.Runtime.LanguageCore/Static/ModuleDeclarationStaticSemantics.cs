@@ -22,7 +22,7 @@ public static class ModuleDeclarationStaticSemantics
 {
     public static ModuleDeclarationFacts Analyze(IEnumerable<SyntaxNode> declarations, StaticEvaluationContext context, StaticSemanticsOptions options = default)
     {
-        var live = declarations.Where(declaration => !IsProcedure(declaration) && !options.IsDead(declaration.SourceLocation.Range)).ToList();
+        var live = declarations.Where(declaration => !IsProcedure(declaration) && !options.IsDead(declaration.SourceLocation)).ToList();
         var facts = new ExpressionFactCollector();
         // an expression with an error is evaluated up to it: the names after it have no fact.
         var hasError = false;
@@ -41,7 +41,7 @@ public static class ModuleDeclarationStaticSemantics
     private static IEnumerable<ExpressionNode> ExpressionsOf(SyntaxNode declaration, StaticSemanticsOptions options) => declaration switch
     {
         MemberDeclarationNode => declaration.Children
-            .Where(child => !options.IsDead(child.SourceLocation.Range))
+            .Where(child => !options.IsDead(child.SourceLocation))
             .SelectMany(child => child is ConstantDeclarationNode or MemberDeclarationNode
                 ? StatementStaticSemanticsEvaluator.DeclarationExpressions(child)
                 : []),

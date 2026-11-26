@@ -48,11 +48,10 @@ public sealed class SyntaxTreeSymbolProvider(
     // on a thread whose stack has room for the deepest expression a parse has (LargeStackThread): the names of an expression are found by recursion, once or
     // more for each level of it, and a module whose expression is nested too deeply to run (VBC00060) still declares what it declares.
     public IEnumerable<Symbol> ProvideSymbols()
-        => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription)
-            .Select(symbol => symbol.InDocument(parseResult.SyntaxTree?.SourceLocation.Uri)).ToList());
+        => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription).ToList());
 
     // what a member's or a module variable's own module says it is (its VB_Description or VB_VarDescription attribute, else its '@Description or
-    // '@VariableDescription annotation): what a hover, a completion list and a signature help show of it.
+    // '@VariableDescription annotation, in its own part's file): what a hover, a completion list and a signature help show of it.
     private Symbol WithDescription(Symbol member)
         => member is VBTypeMemberSymbol typeMember && parseResult.GetMemberDescription(typeMember.Name) is { } description
             ? typeMember.With(SymbolProperties.DocString, description)
@@ -109,9 +108,10 @@ public sealed class SyntaxTreeSymbolProvider(
         }
     }
 
-    // what is written at a position of the file the module is parsed from: a symbol says its range, and the #If blocks are keyed by file and range.
-    private SourceLocation InTheFile(SourcePosition position)
-        => new(parseResult.SyntaxTree?.SourceLocation.Uri ?? moduleUri, new SourceRange(position, position));
+    // where a symbol starts, in the file it is written in: the #If blocks are keyed by file and range, and a module of several files may have a declaration
+    // of each at the same range.
+    private SourceLocation StartOf(WorkspaceSymbol symbol)
+        => new(symbol.DocumentUri ?? parseResult.SyntaxTree?.SourceLocation.Uri ?? moduleUri, new SourceRange(symbol.Range.Start, symbol.Range.Start));
 
     // The sites of one declaration, in source order, in groups of sites that are each alternatives of every other site in the group: a site joins the first group
     // whose every site is in another branch than it, and begins a group of its own when none is - which is what a second declaration in the same branch is.
@@ -123,7 +123,7 @@ public sealed class SyntaxTreeSymbolProvider(
         foreach (var site in sites)
         {
             var group = groups.FirstOrDefault(candidate => candidate.All(other
-                => (IsImplicit(other) && IsImplicit(site)) || blocks.AreAlternatives(InTheFile(other.Range.Start), InTheFile(site.Range.Start))));
+                => (IsImplicit(other) && IsImplicit(site)) || blocks.AreAlternatives(StartOf(other), StartOf(site))));
             if (group is null)
             {
                 groups.Add([site]);
@@ -200,19 +200,21 @@ public sealed class SyntaxTreeSymbolProvider(
         moduleScopeNames.UnionWith(scriptSymbols.Where(symbol => symbol is VBModuleFieldVariableMemberSymbol or VBConstantMemberSymbol)
             .Select(symbol => symbol.Name));
 
+        // a symbol is written in the file of the node that declares it, with what it holds (WorkspaceSymbol.DocumentUri): a module of parts has several.
         foreach (var child in module.Children)
         {
+            var document = child.SourceLocation.Uri;
             switch (child)
             {
                 case MemberDeclarationNode member when ReferenceEquals(member, script):
                     foreach (var symbol in scriptSymbols)
                     {
-                        yield return symbol;
+                        yield return symbol.InDocument(document);
                     }
                     break;
 
                 case ExternalMemberDeclarationNode external:
-                    yield return builder.BuildExternal(external);
+                    yield return builder.BuildExternal(external).InDocument(document);
                     break;
 
                 // a procedure whose header is written once in each branch of a #If block is declared by each of its headers, in its own branch: alternatives,
@@ -226,17 +228,17 @@ public sealed class SyntaxTreeSymbolProvider(
                         var isRepeat = !ReferenceEquals(declared, member) && string.Equals(declared.Name, member.Name, StringComparison.OrdinalIgnoreCase);
                         foreach (var symbol in isRepeat ? symbols.Take(1) : symbols)
                         {
-                            yield return symbol;
+                            yield return symbol.InDocument(document);
                         }
                     }
                     break;
 
                 case VariableDeclarationNode field:
-                    yield return builder.BuildModuleField(field);
+                    yield return builder.BuildModuleField(field).InDocument(document);
                     break;
 
                 case ConstantDeclarationNode constant when constant.ConstKind == ConstKind.ModuleMember:
-                    yield return builder.BuildConstant(constant);
+                    yield return builder.BuildConstant(constant).InDocument(document);
                     break;
             }
         }
@@ -255,13 +257,13 @@ public sealed class SyntaxTreeSymbolProvider(
         {
             if (taken.Add(control.Name))
             {
-                yield return builder.BuildDesignerControl(control, designer.Name);
+                yield return builder.BuildDesignerControl(control, designer.Name).InDocument(module.SourceLocation.Uri);
             }
         }
 
         foreach (var member in builder.BuildFormMembers(designer, taken))
         {
-            yield return member;
+            yield return member.InDocument(module.SourceLocation.Uri);
         }
     }
 

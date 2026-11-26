@@ -139,7 +139,7 @@
     <value>This output item is written right after another, with nothing between them. The VBE would write a ; between them, which prints them the same way.</value>
   </data>
   <data name="VBCompileError_AttributeInABlock_Verbose" xml:space="preserve">
-    <value>An Attribute line is not written in a block: its header states the module's name and whether other projects see it (Public Creatable Class), and a block's module has no other attributes.</value>
+    <value>An Attribute line is not written in a block: its header states the module's name and whether other projects see it (Public Creatable Class), and its annotations state a default instance and a description ('@PredeclaredId, '@ModuleDescription).</value>
   </data>
   <data name="VBCompileError_FileHeaderInABlock_Verbose" xml:space="preserve">
     <value>A module file's header (VERSION, BEGIN ... END) is not written in a block: the block's header states what kind of module it is.</value>

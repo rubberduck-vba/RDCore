@@ -174,6 +174,64 @@ public sealed class OtherProjectSyncTests
         Assert.IsEmpty(CodeLoadedUnder(App));
     }
 
+    // a block an edit took out of a file of another project is taken out of that project's session, as it is of the runtime session: by its address under
+    // the project's root, with that root, which the host routes the discard by. The runtime session is not told of it.
+    [TestMethod]
+    [DataRow(false, DisplayName = "the document's sync")]
+    [DataRow(true, DisplayName = "the workspace's sync, the project as it was")]
+    public async Task ABlockAnEditTookOutOfAFileOfAnotherProject_IsDiscardedFromItsSessionOnly(bool workspace)
+    {
+        var discarded = DiscardsAreTold();
+        Write(Tools, "Helpers.bas", Helpers + "Class Ledger\r\nEnd Class\r\n");
+        var sut = Sut();
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        var helpers = Write(Tools, "Helpers.bas", Helpers);
+        await (workspace ? sut.SyncWorkspaceAsync(CancellationToken.None, replace: true) : sut.SyncDocumentAsync(helpers, CancellationToken.None));
+
+        var discard = Assert.ContainsSingle(discarded);
+        Assert.AreEqual(SymbolUri.Root(Tools).AbsoluteUri, discard.WorkspaceRoot?.AbsoluteUri);
+        Assert.AreEqual(SymbolUri.Module(Tools, "Ledger").AbsoluteUri, discard.ModuleUri.AbsoluteUri);
+    }
+
+    // the twin of the test above: a session composed again holds none of what the one it replaces held, so nothing is discarded from it.
+    [TestMethod]
+    public async Task ABlockOfAProjectThatChanged_IsNotDiscarded_ItsSessionIsComposedAgain()
+    {
+        var discarded = DiscardsAreTold();
+        Write(Tools, "Helpers.bas", Helpers + "Class Ledger\r\nEnd Class\r\n");
+        var sut = Sut();
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Write(Tools, "Helpers.bas", Helpers);
+        ProjectsAre(Project(App, "App"), Project(Tools, "Tools"));
+        await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        Assert.HasCount(2, _analyzed);
+        Assert.IsEmpty(discarded);
+    }
+
+    private const string Helpers = "Attribute VB_Name = \"Helpers\"\r\nPublic Sub HelpersWork()\r\nEnd Sub\r\n";
+
+    // the host takes modules out of its sessions; what it is asked to take out.
+    private List<HostDiscardParams> DiscardsAreTold()
+    {
+        Provide(nameof(DefineSymbols), nameof(ProjectAnalysis), nameof(SessionDiscard));
+        var discarded = new List<HostDiscardParams>();
+        _host.SendRequestAsync<HostDiscardParams, DiscardResult>(Arg.Do<HostDiscardParams>(discarded.Add), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DiscardResult { Discarded = 1 }));
+        return discarded;
+    }
+
+    // a file of the project of a root, written with the source given: what the server has of it, and its parse.
+    private Uri Write(string root, string file, string source)
+    {
+        _modules.RemoveAll(module => module.Document.Name == Path.GetFileNameWithoutExtension(file) && module.Document.WorkspaceRoot == root);
+        var document = new WorkspaceDocument(file, root, source) { Projects = [root] };
+        _modules.Add((document, new ModuleParser().Parse(document.Id.Uri.ToUri(), source)));
+        return document.Id.Uri.ToUri();
+    }
+
     [TestMethod]
     public async Task AnEditedFileTwoProjectsList_IsDefinedAgainInEachSession()
     {
