@@ -534,6 +534,8 @@
   href: rdc00411.md
 - name: "RDC00413: Module variable used in one procedure"
   href: rdc00413.md
+- name: "RDC00417: Folder annotation not the file's folder"
+  href: rdc00417.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
