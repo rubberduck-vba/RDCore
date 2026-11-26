@@ -229,7 +229,7 @@ public sealed class BlockModulesParseTests
             parse.BlockModules.Select(block => (block.Name, block.IsPartial, block.IsCreatable, block.Visibility)).ToArray());
     }
 
-    // where a header writes each of its words, in the file's positions: where a finding about the part is reported, and what a rename of the module edits.
+    // where a header writes each of its words, in the file's positions: where a finding about the part is reported.
     [TestMethod]
     public void EachWordOfABlocksHeader_IsWhereTheFileWritesIt()
     {
