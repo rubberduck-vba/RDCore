@@ -23,7 +23,8 @@ public sealed class FolderAnnotationAnalyzerTests
 
     // the file at Root/<folders>/Module1.bas, and the module the host says it is, under Root.
     private static (Uri Document, ModuleSemanticsDto Semantics) FileIn(params string[] folders)
-        => (new Uri(Path.Combine([Root, .. folders, "Module1.bas"])), new ModuleSemanticsDto(SymbolUri.Module(SymbolUri.Root(Root), "Module1"), true, [], [], []));
+        => (new Uri(Path.Combine([Root, .. folders, "Module1.bas"])),
+            new ModuleSemanticsDto(SymbolUri.Module(SymbolUri.Root(Root), "Module1"), true, [], [], []));
 
     private static AnalyzerFinding[] Run(string source, (Uri Document, ModuleSemanticsDto Semantics) file, bool withSemantics = true)
     {
