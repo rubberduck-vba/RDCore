@@ -40,7 +40,8 @@ public sealed class IgnoreAnnotationsTests
 
     private static string[] Published(ModuleParseResult parse, AnalysisPhase phase = AnalysisPhase.All, IReadOnlySet<RDCoreDiagnosticCode>? disabled = null,
         params Diagnostic[] found)
-        => [.. IgnoreAnnotations.Apply(File, parse, found, phase, disabled ?? NoneDisabled).Select(diagnostic => $"{diagnostic.Code!.Value.String}@{diagnostic.Range.Start.Line}")];
+        => [.. IgnoreAnnotations.Apply(File, parse, found, phase, disabled ?? NoneDisabled)
+            .Select(diagnostic => $"{diagnostic.Code!.Value.String}@{diagnostic.Range.Start.Line}")];
 
     private static Diagnostic[] Told(ModuleParseResult parse)
         => [.. IgnoreAnnotations.Apply(File, parse, [], AnalysisPhase.All, NoneDisabled).Where(diagnostic => diagnostic.Code?.String == NamesNoDiagnostic)];
@@ -68,7 +69,8 @@ public sealed class IgnoreAnnotationsTests
     [TestMethod]
     public void SeveralCodes_AreEachSuppressed()
         => CollectionAssert.AreEqual(new[] { "RDC01003@1" },
-            Published(Parse("'@Ignore RDC01001, RDC01002", "Option Explicit"), found: [Finding("RDC01001", 1), Finding("RDC01002", 1), Finding("RDC01003", 1)]));
+            Published(Parse("'@Ignore RDC01001, RDC01002", "Option Explicit"),
+                found: [Finding("RDC01001", 1), Finding("RDC01002", 1), Finding("RDC01003", 1)]));
 
     // what a module written for legacy Rubberduck suppresses: the inspection's name stands for the codes that took its place, one or several.
     [TestMethod]
@@ -161,7 +163,8 @@ public sealed class IgnoreAnnotationsTests
             "End Module");
         Assert.HasCount(2, parse.BlockModules, "the premise: a file of two blocks");
 
-        CollectionAssert.AreEqual(new[] { "RDC01001@0", "RDC01001@9" }, Published(parse, found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 9)]));
+        CollectionAssert.AreEqual(new[] { "RDC01001@0", "RDC01001@9" },
+            Published(parse, found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 9)]));
     }
 
     [TestMethod]
