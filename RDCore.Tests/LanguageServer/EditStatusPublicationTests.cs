@@ -28,6 +28,8 @@ public sealed class EditStatusPublicationTests
     private readonly List<Uri> _published = [];
     private TaskCompletionSource _allPublished = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _expected;
+    private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
+    private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
 
     private static readonly WorkspaceDocument Module1 = new("Module1.bas", Root, "Attribute VB_Name = \"Module1\"\r\n");
     private static readonly WorkspaceDocument Module2 = new("Module2.bas", Root, "Attribute VB_Name = \"Module2\"\r\n");
@@ -35,8 +37,7 @@ public sealed class EditStatusPublicationTests
 
     public EditStatusPublicationTests()
     {
-        var documents = Substitute.For<IWorkspaceDocumentService>();
-        documents.GetAllDocuments().Returns([Module1, Module2, Modele]);
+        _documents.GetAllDocuments().Returns([Module1, Module2, Modele]);
         _diagnostics.GetAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<IProgress<SDK.Server.Progress.WorkProgressStep>?>())
             .Returns(call => DocumentDiagnosticsResult.Fresh(1, []));
         _publisher.IsEnabled.Returns(true);
@@ -52,7 +53,7 @@ public sealed class EditStatusPublicationTests
             }
         });
 
-        new EditStatusPublication(_monitor, documents, Substitute.For<IParsingClientService>(), _diagnostics, _publisher, NullLogger<EditStatusPublication>.Instance).Attach();
+        new EditStatusPublication(_monitor, _documents, _parsing, _diagnostics, _publisher, NullLogger<EditStatusPublication>.Instance).Attach();
     }
 
     private async Task<Uri[]> PublishedAsync(DebugEditStatusResult previous, DebugEditStatusResult current, int expected)
@@ -112,5 +113,24 @@ public sealed class EditStatusPublicationTests
         var published = await PublishedAsync(new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
 
         CollectionAssert.AreEqual(new[] { Modele.Id.Uri.ToUri() }, published);
+    }
+
+    // a file of blocks is the text of each of its modules: an edit of a block's module is of the file that holds the block.
+    [TestMethod]
+    public async Task AnEditListed_OfABlocksModule_PushesTheFileThatHoldsTheBlockAgain()
+    {
+        var tools = new WorkspaceDocument("Tools.bas", Root, "Attribute VB_Name = \"Tools\"\r\nModule Helpers\r\nEnd Module\r\n");
+        _documents.GetAllDocuments().Returns([Module1, Module2, Modele, tools]);
+        _parsing.TryGetCached(tools.Id.Uri.ToUri(), out Arg.Any<ModuleParseResult>())
+            .Returns(call => { call[1] = new RDCore.Parsing.ModuleParser().Parse(tools.Id.Uri.ToUri(), tools.Text); return true; });
+        var edit = new DebugEdit
+        {
+            Name = "Helpers.Foo", Kind = DebugEditKind.Restart, Reason = "a local was removed", ModuleUri = new Uri("file:///ws#Helpers"),
+        };
+
+        var published = await PublishedAsync(
+            new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
+
+        CollectionAssert.AreEqual(new[] { tools.Id.Uri.ToUri() }, published);
     }
 }

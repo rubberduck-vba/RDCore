@@ -30,12 +30,17 @@ public sealed class SelectionRangeHandlerTests
 
     private const string Program = "10 Dim x As Long\r\n20 x = Len(\"abc\") + 1\r\n";
 
+    // the file's own module (lines 0 to 2), and a class block (3 to 7).
+    private const string Backup = "Attribute VB_Name = \"Backup\"\r\nPublic Sub Run()\r\nEnd Sub\r\n"
+        + "Class Account\r\nPublic Sub Deposit()\r\n    Debug.Print Len(\"abc\")\r\nEnd Sub\r\nEnd Class\r\n";
+
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
 
     public SelectionRangeHandlerTests()
     {
-        WorkspaceDocument[] held = [new("Module1.bas", Root, Module1, version: 1), new("Main.rdc", Root, Program, version: 1)];
+        WorkspaceDocument[] held =
+            [new("Module1.bas", Root, Module1, version: 1), new("Main.rdc", Root, Program, version: 1), new("Backup.bas", Root, Backup, version: 1)];
         _documents.Holds(held);
         foreach (var document in held)
         {
@@ -85,6 +90,29 @@ public sealed class SelectionRangeHandlerTests
         Assert.IsTrue(chain.Any(range => range.Start.Line == 2 && range.End.Line == 4), "the If block, from If to End If");
         Assert.IsTrue(chain.Any(range => range.Start.Line == 1 && range.End.Line == 5), "the procedure, from Sub to End Sub");
         Assert.AreEqual(lines.Length - 1, chain[^1].End.Line, "the outermost step is the whole module");
+    }
+
+    // a position in a block is in the block's module: the selection grows through its nodes to its procedure, and last to the block, header to end.
+    [TestMethod]
+    public async Task ASelectionInABlock_GrowsInTheBlocksModule_ToTheBlock()
+    {
+        // in "Len", in the class block's procedure.
+        var chain = Chain(await SelectAsync("Backup.bas", new Position(5, 18)));
+
+        Assert.AreEqual(5, chain[0].Start.Line, "the innermost step is on the line of the position");
+        Assert.IsTrue(chain.Any(range => range.Start.Line == 4 && range.End.Line == 6), "the procedure, from Sub to End Sub");
+        Assert.AreEqual(new Range(3, 0, 7, 9), chain[^1], "the outermost step is the block");
+        Assert.IsTrue(chain.All(range => range.Start.Line >= 3), "nothing of the file's own module");
+    }
+
+    // the twin of the test above: a position in the file's own module grows in that module, and never to the block.
+    [TestMethod]
+    public async Task ASelectionInTheFilesOwnModule_DoesNotGrowToABlock()
+    {
+        var chain = Chain(await SelectAsync("Backup.bas", new Position(1, 12)));
+
+        Assert.IsTrue(chain.Any(range => range.Start.Line == 1 && range.End.Line == 2), "the procedure Run");
+        Assert.IsTrue(chain.All(range => range.End.Line <= 2), "nothing of the block");
     }
 
     [TestMethod]

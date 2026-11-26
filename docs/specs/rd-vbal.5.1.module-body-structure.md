@@ -46,16 +46,16 @@ End Class
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
 |File-level statements|A block's module has none, in a `.vbs` too: a statement outside its procedures is a syntax error, as in a `.bas`.|
-|Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written.|
-|Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
+|Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written. The language server's folding, selection ranges, outline and semantic tokens cover each module of the file, a block's included ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#textdocumentfoldingrange)).|
+|Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are. The language server analyzes each module of the file on its own, and reports each syntax error once, in the module it is in. An analyzer's finding about a block's module as a whole is on the line after its header, where its code starts; an edit of it that a waiting program does not take ([`RDC20001`](../diagnostics/rdc20001.md)) is on its header.|
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
-|Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. In `rdc run`, `rdc build` and `rdc bench`, the parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
+|Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. The parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
 |Editing|A block that an edit takes out of its file, or renames, takes its module out of its project's session in the environment host (the runtime session, or the project's analysis session), unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
+|Debugging|The debug adapter gives a breakpoint, or a line to go to, to the module whose lines hold it: a block's from its header to its end line, the file's own otherwise. A block's module runs on its own part of the parse. A block renamed by its header while the program waits is a module the program does not have: the program does not go on until it is run again.|
 
 > [!NOTE]
-> **Not implemented.** The language server defines each module of a file on its own and does not assemble parts: two parts of one name are
-> [`VBC09386`](../diagnostics/vbc09386.md) there, and it applies neither a block's header nor its annotations to the module. VBA and VB6 have no
-> blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
+> **Not implemented.** Completion and rename read each part of a module as a module of its own. VBA and VB6 have no blocks. No diagnostic
+> reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
 
 ### Implementation
 
@@ -127,7 +127,8 @@ other projects see the class.
 
 |Type or member|Role|
 |---|---|
-|[`BlockModule.IsPartial`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.BlockModule.html)|Whether a block's header writes `Partial`, with the visibility and `Creatable` it writes.|
+|[`BlockModule.IsPartial`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.BlockModule.html)|Whether a block's header writes `Partial`, with the visibility and `Creatable` it writes, and where it writes each word (`NameRange`, `KindRange` and the others).|
 |[`DocStrings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.DocStrings.html)|Reads the descriptions of a module, its members and its variables, from their attributes or their annotations.|
 |`ModuleAssembly`|Makes one module of the parts of one name, with its directives and what its parts write to no effect, or refuses it with its errors.|
+|`ProjectModules`|Assembles the modules of a project for the language server, and gives the errors of each module it refuses, by the file each is in.|
 |`SyntaxTreeSymbolProvider`|Gives each symbol the file of the node that declares it.|

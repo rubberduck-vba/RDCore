@@ -10,6 +10,7 @@ using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
+using System.Collections.Immutable;
 
 namespace RDCore.Symbols;
 
@@ -17,10 +18,13 @@ namespace RDCore.Symbols;
 // they state (ModuleAssembly); any other has its tree's (Directives is null).
 public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse, ModuleDirectives? Directives = null)
 {
-    // the file the module is written in; none for a module the client supplied itself, or one of parts.
+    // the file the module is written in, its plain part's for a module of parts; none for a module the client supplied itself.
     public Uri? Document { get; init; }
 
-    // where in its file a block's module is, from its header to its end; none for the file's own module, or one of parts.
+    // every file a part of the module is written in, Document first; none for a module the client supplied itself.
+    public ImmutableArray<Uri> Documents { get; init; } = [];
+
+    // where in its file a block's module is, from its header to its end; none for the file's own module, or one of several parts.
     public SourceRange? Range { get; init; }
 
     // the modules the parts of a project make, addressed under its root, and those that its parts make invalid (ModuleAssembly.Of), in the order of each
@@ -28,9 +32,18 @@ public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, M
     public static (IReadOnlyList<ParsedModule> Modules, IReadOnlyList<RefusedModule> Refused) Assemble(Uri root, IEnumerable<ModulePart> parts)
     {
         var (modules, refused) = ModuleAssembly.Of(parts);
-        return (
-            [.. modules.Select(module => new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Kind, module.Parse, module.Directives))],
-            refused);
+        return ([.. modules.Select(module => Of(root, module))], refused);
+    }
+
+    private static ParsedModule Of(Uri root, AssembledModule module)
+    {
+        ImmutableArray<Uri> files = [.. module.Parts.Select(part => part.Parse.SyntaxTree!.SourceLocation.Uri).Distinct()];
+        return new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Kind, module.Parse, module.Directives)
+        {
+            Document = files.FirstOrDefault(),
+            Documents = files,
+            Range = module.Parts is [{ Block: { } block }] ? block.Range : null,
+        };
     }
 
     // the directives of each module of parts, by its name (WorkspaceSymbolResolver.Compose).
