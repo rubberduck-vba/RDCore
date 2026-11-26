@@ -150,8 +150,9 @@ the control variable keeps its value, and `Err` the header's error. This is what
 MS-VBAL does not separately call out an array that was never initialized. MS-VBA raises error 92 for it, because
 the collection itself was never set up; a declared array with zero elements is the "no elements" case instead.
 
-MS-VBAL requires the collection to be an array or an enumeration-capable object reference, so errors 424, 91, 438
-and 13 are the outcomes of a collection that is neither. The error identifiers are listed in
+MS-VBAL requires the collection to be an array or an enumeration-capable object reference, and does not say which
+error a collection that is neither raises. RD-VBA raises 424, 438 or 13 for one, as the table gives. It raises 91 for
+an enumeration member that returns `Nothing`, a case not measured in MS-VBA. The error identifiers are listed in
 [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md).
 
 ## 5.4.2.4.1 Array Enumeration Order
