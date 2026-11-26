@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics;
@@ -257,12 +258,53 @@ public sealed class ModuleAssemblyTests
             root, [(moduleUri, ModuleType.StdModule, module.Parse)], new RDCore.Symbols.IntrinsicSymbolResolver());
 
         var symbols = new RDCore.Symbols.SyntaxTreeSymbolProvider(root, moduleUri, ModuleType.StdModule, module.Parse, resolver).ProvideSymbols()
-            .OfType<RDCore.SDK.Model.Symbols.Abstract.WorkspaceSymbol>().ToArray();
+            .OfType<WorkspaceSymbol>().ToArray();
 
         var counts = symbols.Where(symbol => symbol.Name == "count").ToArray();
         CollectionAssert.AreEqual(new[] { (First, 2), (Second, 4) }, counts.Select(symbol => (symbol.DocumentUri, symbol.Range.Start.Line)).ToArray());
         Assert.IsTrue(counts.All(symbol => symbol.Alternatives.IsDefaultOrEmpty), "a site of each part, neither an alternative of the other");
         Assert.AreEqual(First, symbols.Single(symbol => symbol.Name == "total").DocumentUri);
         Assert.AreEqual(Second, symbols.Single(symbol => symbol.Name == "third").DocumentUri);
+    }
+
+    // the description of a module of parts is the first part's that writes one, with an attribute or an annotation: the module's symbol carries it, and a
+    // later part that writes the same is redundant there. A member's annotation describes the member in its own part's file.
+    [TestMethod]
+    [DataRow("Attribute VB_Name = \"Helpers\"|Attribute VB_Description = \"Sums.\"", DisplayName = "an attribute, then an annotation")]
+    [DataRow("Attribute VB_Name = \"Helpers\"|'@ModuleDescription(\"Sums.\")", DisplayName = "two annotations")]
+    public void TheDescriptionOfAModuleOfParts_IsItsFirstPartsThatWritesOne_AndTheSameLaterIsRedundant(string helpers)
+    {
+        var partial = "Partial Module Helpers|'@ModuleDescription(\"Sums.\")|Private total As Long|'@Description(\"Adds.\")|Public Sub Add()|End Sub"
+            + "|End Module";
+        var (modules, refused) = ModuleAssembly.Of(
+            [.. PartsOf(First, "Helpers", ModuleType.StdModule, helpers), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)]);
+
+        Assert.IsFalse(refused.Any(module => module.Name == "Helpers"));
+        var module = Single(modules, "Helpers");
+        var redundant = module.Redundant.Single();
+        Assert.AreEqual((Second, "@ModuleDescription(\"Sums.\")", RedundantStatementKind.RestatedAnnotation),
+            (redundant.Location.Uri, TextAt(partial, redundant.Location.Range), redundant.Kind));
+
+        var root = new Uri("file:///c:/ws/");
+        var moduleUri = new UriBuilder(root) { Fragment = "Helpers" }.Uri;
+        var symbols = RDCore.Symbols.WorkspaceSymbolResolver.ComposeWithScopes(
+            root, [(moduleUri, ModuleType.StdModule, module.Parse)], new RDCore.Symbols.IntrinsicSymbolResolver()).Symbols!;
+        Assert.AreEqual("Sums.", symbols.OfType<VBModuleSymbol>().Single(symbol => symbol.Name == "Helpers").GetProperty(SymbolProperties.DocString));
+        Assert.AreEqual("Adds.", symbols.OfType<VBTypeMemberSymbol>().Single(symbol => symbol.Name == "Add").GetProperty(SymbolProperties.DocString));
+    }
+
+    // two parts that describe one module differently give it two descriptions: the module is refused, at the later part's annotation.
+    [TestMethod]
+    public void TwoPartsThatDescribeAModuleDifferently_RefuseTheModule_AtTheLaterDescription()
+    {
+        var partial = "Partial Module Helpers|'@ModuleDescription(\"Totals.\")|End Module";
+
+        var (modules, refused) = ModuleAssembly.Of([.. PartsOf(First, "Helpers", ModuleType.StdModule,
+            "Attribute VB_Name = \"Helpers\"|'@ModuleDescription(\"Sums.\")"), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)]);
+
+        Assert.IsFalse(modules.Any(module => module.Name == "Helpers"));
+        var error = refused.Single(module => module.Name == "Helpers").Errors.Single();
+        Assert.AreEqual((int)VBCompileErrorId.ModuleDirectiveStatedDifferently, error.ErrorId);
+        Assert.AreEqual((Second, "@ModuleDescription(\"Totals.\")"), (error.Location.Uri, TextAt(partial, error.Location.Range)));
     }
 }

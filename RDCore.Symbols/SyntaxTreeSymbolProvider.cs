@@ -50,9 +50,10 @@ public sealed class SyntaxTreeSymbolProvider(
     public IEnumerable<Symbol> ProvideSymbols()
         => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription).ToList());
 
-    // what a member's own module says it does (`Attribute Item.VB_Description = "..."`): what a completion list and a signature help show of it.
+    // what a member's own module says it does (`Attribute Item.VB_Description = "..."`, or a '@Description annotation right above it, in its own part's
+    // file): what a completion list and a signature help show of it.
     private Symbol WithDescription(Symbol member)
-        => member is VBTypeMemberSymbol typeMember && parseResult.SyntaxTree?.GetMemberDescription(typeMember.Name) is { } description
+        => member is VBTypeMemberSymbol typeMember && parseResult.GetMemberDescription(typeMember.Name) is { } description
             ? typeMember.With(SymbolProperties.DocString, description)
             : member;
 

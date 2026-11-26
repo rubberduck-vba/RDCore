@@ -145,6 +145,24 @@ public static class ModuleAssembly
                         }
                     }
                 }
+
+                // the description of the module is the first part's that writes one, with its attribute or its annotation (DocStrings): a later part writes
+                // the same text to no effect, and another text is a second description of one module. A later part is a block, which writes annotations.
+                var described = ordered.Select(part => (Node: part.Parse.GetModuleDescriptionNode(), Text: part.Parse.GetModuleDescription()))
+                    .Where(description => description.Node is not null).ToArray();
+                foreach (var (node, text) in described.Skip(1))
+                {
+                    if (string.Equals(text, described[0].Text, StringComparison.Ordinal))
+                    {
+                        redundant.Add(new(node!.SourceLocation, RedundantStatementKind.RestatedAnnotation));
+                    }
+                    else
+                    {
+                        var word = "@" + DocStrings.ModuleDescriptionAnnotation;
+                        errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ModuleDirectiveStatedDifferently, node!.SourceLocation,
+                            string.Format(Exceptions.VBCompileError_ModuleDirectiveStatedDifferently_Verbose, name, word)));
+                    }
+                }
             }
 
             if (errors.Count > 0)
