@@ -1481,7 +1481,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             case VBObjectValue objectValue when objectValue.IsNothing():
                 // a collection that is Nothing, an object variable or a Variant that holds it, is error 424 (MS-VBA, observed in Excel).
                 return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired,
-                    forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
+                    forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectRequired_Verbose));
 
             case VBObjectValue objectValue when RuntimeExpressionEvaluator.HasEnumerationMember(session, objectValue):
                 // an object that has an enumeration member (VB_UserMemId = -4, commonly "_NewEnum") is enumerated by what it returns.

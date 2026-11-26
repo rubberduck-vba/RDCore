@@ -562,6 +562,7 @@ public sealed class ProcedureExecutorTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
         Assert.AreEqual((int)VBRuntimeErrorId.ObjectRequired, outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual(RDCore.Runtime.Exceptions.VBForEach_ObjectRequired_Verbose, outcome.ErrorInfo.Verbose);
     }
 
     [TestMethod]

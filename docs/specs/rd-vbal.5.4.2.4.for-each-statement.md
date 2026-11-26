@@ -60,7 +60,7 @@ run-time error.
    invoke that member and store a `ForEachState` holding the *enumerator* object it returns (see *Object enumeration*
    below), then ask the enumerator for its first member as an array's first element is taken. When it has none, empty
    the control variable and skip the body. The member's declared type may be `IUnknown`, `Object` or the enumerator's
-   own class.
+   own class. When the member returns `Nothing`, raise error 91.
 6. When the collection is a live object with no such member, raise error 438.
 7. When the collection is anything else (a scalar), raise error 13, `TypeMismatch`.
 
@@ -137,6 +137,7 @@ for a `Variant` only when the collection is declared as an array.
 |The collection is an array that was never initialized (`VBArrayValue.IsInitialized` is false).|92 (For loop not initialized)|
 |`ForEachNext` finds no stored `ForEachState` for its `Matching` offset: a `GoTo` landed in the body or on the closer, or the opener raised an error that was resumed past. A `Variant` control variable is emptied first, unless the collection is declared as an array.|92 (For loop not initialized)|
 |The collection is `Nothing`.|424 (Object required)|
+|The collection's `VB_UserMemId = -4` member returns `Nothing`.|91 (Object variable or With block variable not set)|
 |The collection is a live object with no `VB_UserMemId = -4` member, or the enumerator it returns has no `MoveNext` and `Current`.|438 (Object doesn't support this property or method)|
 |The collection is anything else (a scalar).|13 (Type mismatch)|
 
@@ -149,8 +150,8 @@ the control variable keeps its value, and `Err` the header's error. This is what
 MS-VBAL does not separately call out an array that was never initialized. MS-VBA raises error 92 for it, because
 the collection itself was never set up; a declared array with zero elements is the "no elements" case instead.
 
-MS-VBAL requires the collection to be an array or an enumeration-capable object reference, so errors 91, 438 and 13
-are the specified outcomes. The error identifiers are listed in
+MS-VBAL requires the collection to be an array or an enumeration-capable object reference, so errors 424, 91, 438
+and 13 are the outcomes of a collection that is neither. The error identifiers are listed in
 [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md).
 
 ## 5.4.2.4.1 Array Enumeration Order

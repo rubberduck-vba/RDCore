@@ -150,6 +150,18 @@ public sealed class ForEachObjectTests
         => CollectionAssert.AreEqual(new[] { "424" },
             await RunAsync("Dim c As Collection", "Dim v As Variant", "On Error GoTo Failed", "For Each v In c", "Next", "Exit Sub", "Failed:", "Debug.Print Err.Number"));
 
+    [TestMethod]
+    public async Task AnEnumerationMember_ThatReturnsNothing_IsError91()
+    {
+        var hollow = ("Hollow", ModuleWorkspace.ClassModule("Hollow",
+            "Public Property Get NewEnum() As Object", "Attribute NewEnum.VB_UserMemId = -4", "Set NewEnum = Nothing", "End Property"));
+
+        CollectionAssert.AreEqual(new[] { "91" },
+            await ModuleWorkspace.RunAsync([hollow], Program(
+                "Dim h As New Hollow", "Dim v As Variant", "On Error GoTo Failed", "For Each v In h", "Next",
+                "Exit Sub", "Failed:", "Debug.Print Err.Number")));
+    }
+
     // ---- the pieces this rests on ----
 
     [TestMethod]
