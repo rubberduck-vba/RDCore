@@ -229,6 +229,25 @@ public sealed class BlockModulesParseTests
             parse.BlockModules.Select(block => (block.Name, block.IsPartial, block.IsCreatable, block.Visibility)).ToArray());
     }
 
+    // where a header writes each of its words, in the file's positions: where a finding about the part is reported, and what a rename of the module edits.
+    [TestMethod]
+    public void EachWordOfABlocksHeader_IsWhereTheFileWritesIt()
+    {
+        var parse = Parse(Module,
+            "Public Partial Creatable Class Account",
+            "End Class",
+            "partial module Logger",
+            "End Module");
+
+        Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
+        static SourceRange?[] WordsOf(BlockModule block)
+            => [block.VisibilityRange, block.PartialRange, block.CreatableRange, block.KindRange, block.NameRange];
+        CollectionAssert.AreEqual(
+            new SourceRange?[] { new(0, 0, 0, 6), new(0, 7, 0, 14), new(0, 15, 0, 24), new(0, 25, 0, 30), new(0, 31, 0, 38) },
+            WordsOf(parse.BlockModules[0]));
+        CollectionAssert.AreEqual(new SourceRange?[] { null, new(2, 0, 2, 7), null, new(2, 8, 2, 14), new(2, 15, 2, 21) }, WordsOf(parse.BlockModules[1]));
+    }
+
     // a block's header states what these lines state in a module file: each is an error at its line, the attribute of a member's too.
     [TestMethod]
     public void AModuleFilesHeaderLine_InABlock_IsInvalidThere_AtItsLine()
@@ -300,6 +319,7 @@ public sealed class BlockModulesParseTests
 
         var logger = parse.BlockModules.Single();
         Assert.AreEqual(new SourceRange(new(10, 4), new(13, 10)), logger.Range);
+        Assert.AreEqual(new SourceRange(new(10, 11), new(10, 17)), logger.NameRange);
         var log = logger.SyntaxTree.Children.OfType<MemberDeclarationNode>().Single();
         Assert.AreEqual(new SourcePosition(11, 4), log.SourceLocation.Range.Start);
     }

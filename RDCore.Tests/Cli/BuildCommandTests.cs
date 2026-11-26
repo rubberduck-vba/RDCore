@@ -621,6 +621,76 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
     }
 
+    // RD-VBAL §5.1: a Partial block of another file is a part of the module of its name, which rdc run runs as one module: a procedure of one part uses
+    // what is Private to another. Its built program runs it the same.
+    [TestMethod]
+    public async Task AModuleOfParts_RunsAsOneModule_AndItsBuiltProgramTheSame()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Private count As Long", "Public Sub Main()", "    Add 20", "    Add 22", "    Debug.Print count", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
+                "Partial Module Program", "Private Sub Add(ByVal n As Long)", "    count = count + n", "End Sub", "End Module") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output, run.Error);
+        CompiledExecutionTests.RequirePayloads();
+        var built = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+    }
+
+    // a module its parts make invalid refuses the run, named by its name, and none of its parts runs.
+    [TestMethod]
+    public async Task AModuleItsPartsMakeInvalid_RefusesTheRun()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print \"ran\"", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"", "Partial Class Program", "End Class") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit, run.Error);
+        Assert.IsEmpty(run.Output);
+        StringAssert.Contains(run.Error, "Program: ");
+    }
+
+    // a dead #If branch of one part is of its own file: the lines another part writes at the same positions are live, and run.
+    [TestMethod]
+    public async Task ADeadBranchOfOnePart_LeavesWhatAnotherPartWritesAtTheSameLinesLive()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "#If False Then", "Private Const A As Long = 1", "Private Const B As Long = 2", "Private Const C As Long = 3",
+                "Private Const D As Long = 4", "#End If", "Public Sub Main()", "    Greet", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
+                "Partial Module Program", "Private Sub Greet()", "    Debug.Print \"a\"", "    Debug.Print \"b\"", "End Sub", "End Module") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "a", "b" }, run.Output, run.Error);
+    }
+
+    // a name that two parts declare is declared twice in the module, wherever each part writes it: a declaration of one part is never an alternative of a
+    // #If branch of another, even at that branch's lines.
+    [TestMethod]
+    public async Task ANameTwoPartsDeclare_IsAmbiguous_EvenAtTheLinesOfTheOtherPartsBranch()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "#If True Then", "Private total As Long", "#Else", "Private count As Long", "#End If",
+                "Public Sub Main()", "    Debug.Print \"ran\"", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
+                "Partial Module Program", "Private first As Long", "Private second As Long", "Private third As Long", "Private total As Long",
+                "End Module") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit, run.Error);
+        Assert.IsEmpty(run.Output);
+        StringAssert.Contains(run.Error, RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_AmbiguousName);
+    }
+
     // the workspace is not a folder on the disk the program runs on: the libraries its project references are in the program's folder, each with the
     // libraries it depends on, and a library's constant has the same value in the program as in rdc run - no object of the library is created, so no COM
     // library is asked for.
