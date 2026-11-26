@@ -23,6 +23,7 @@ using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -667,6 +668,29 @@ public sealed class DocumentDiagnosticsServiceTests
 
         Assert.IsNull(PayloadSentTo(provider).Semantics);
         await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
+    }
+
+    // the host has a block's module by the block's name, at its address under the root: a block is asked for by its address under its file, and an address
+    // that is no block of the file is no module.
+    [TestMethod]
+    public async Task ABlocksModule_IsAskedOfTheHostByItsName_AndAnAddressThatIsNoBlockOfTheFile_IsNone()
+    {
+        var backup = Backup("Class Logger\r\nEnd Class\r\n");
+        ModulesAre(backup);
+        _documents.WorkspaceRoot.Returns(Root);
+        var logger = SymbolUri.Module(Root, "Logger");
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(logger, true, [], [], [])])));
+        var file = backup.Id.Uri.ToUri();
+
+        var ofTheBlock = await Sut().SemanticsAsync(RDCoreDocument.BlockUri(file, "Logger"), CancellationToken.None);
+        var ofNoBlock = await Sut().SemanticsAsync(RDCoreDocument.BlockUri(file, "Other"), CancellationToken.None);
+
+        Assert.AreEqual(logger, ofTheBlock?.Module);
+        Assert.IsNull(ofNoBlock);
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(Arg.Any<HostSemanticsParams>(), Arg.Any<CancellationToken>());
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Logger" && request.ModuleUri!.AbsoluteUri == logger.AbsoluteUri),
+            Arg.Any<CancellationToken>());
     }
 
     // a monitor of the program the host runs, which says it waits in break mode or not, as the host says when it is asked.
