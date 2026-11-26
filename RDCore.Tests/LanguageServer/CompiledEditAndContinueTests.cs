@@ -388,10 +388,11 @@ public sealed class CompiledEditAndContinueTests
 
         public Task OpenAsync(CancellationToken token) => Task.CompletedTask;
 
-        public bool TryGetModule(string path, out string moduleName)
+        public bool TryGetFile(string path, out DebugFile file)
         {
-            moduleName = _loaded.Keys.FirstOrDefault(module => string.Equals(PathOf(module), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
-            return moduleName.Length > 0;
+            var moduleName = _loaded.Keys.FirstOrDefault(module => string.Equals(PathOf(module), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase));
+            file = DebugFile.Of(moduleName ?? string.Empty);
+            return moduleName is not null;
         }
 
         public bool TryGetPath(string moduleName, out string path)

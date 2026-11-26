@@ -61,12 +61,12 @@ public sealed class ProgramDebugAdapterTests
                 return true;
             });
             Workspace.TryGetPath(Arg.Is<string>(name => name != "Prog"), out Arg.Any<string>()).Returns(false);
-            Workspace.TryGetModule(Path, out Arg.Any<string>()).Returns(call =>
+            Workspace.TryGetFile(Path, out Arg.Any<DebugFile>()).Returns(call =>
             {
-                call[1] = "Prog";
+                call[1] = DebugFile.Of("Prog");
                 return true;
             });
-            Workspace.TryGetModule(Arg.Is<string>(path => path != Path), out Arg.Any<string>()).Returns(false);
+            Workspace.TryGetFile(Arg.Is<string>(path => path != Path), out Arg.Any<DebugFile>()).Returns(false);
             Debugging.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
                 .Returns(call => Task.FromResult(new DebugBreakpointsResult
                 {
@@ -460,6 +460,36 @@ public sealed class ProgramDebugAdapterTests
         await session.Debugging.Received(1).SetBreakpointsAsync("Prog", Arg.Is<IReadOnlyList<SessionBreakpointLine>>(bp => bp.SequenceEqual(new[] { new SessionBreakpointLine { Line = 11 }, new SessionBreakpointLine { Line = 19 } })), Arg.Any<CancellationToken>());
         CollectionAssert.AreEqual(new[] { 12, 20 }, response.Breakpoints.Select(breakpoint => breakpoint.Line!.Value).ToArray());
         Assert.IsTrue(response.Breakpoints.All(breakpoint => breakpoint.Verified));
+    }
+
+    // a file of blocks is several modules: each breakpoint is set in the module whose lines hold it, and a module of the file given none has its breakpoints
+    // cleared. The response answers for each breakpoint in the order the client asked.
+    [TestMethod]
+    public async Task ABreakpoint_InAFileOfBlocks_IsSetInTheModuleWhoseLinesHoldIt()
+    {
+        await using var session = new Session();
+        session.Workspace.TryGetFile(Path, out Arg.Any<DebugFile>()).Returns(call =>
+        {
+            call[1] = new DebugFile("Prog", [("Helpers", 10, 20), ("Account", 30, 40)]);
+            return true;
+        });
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        var response = await session.SendAsync(new SetBreakpointsArguments
+        {
+            Source = new Source { Path = Path },
+            Breakpoints = new Container<SourceBreakpoint>(
+                new SourceBreakpoint { Line = 16 }, new SourceBreakpoint { Line = 3 }, new SourceBreakpoint { Line = 18 }),
+        });
+
+        await session.Debugging.Received(1).SetBreakpointsAsync("Helpers",
+            Arg.Is<IReadOnlyList<SessionBreakpointLine>>(bp => bp.Select(each => each.Line).SequenceEqual(new[] { 15, 17 })), Arg.Any<CancellationToken>());
+        await session.Debugging.Received(1).SetBreakpointsAsync("Prog",
+            Arg.Is<IReadOnlyList<SessionBreakpointLine>>(bp => bp.Select(each => each.Line).SequenceEqual(new[] { 2 })), Arg.Any<CancellationToken>());
+        await session.Debugging.Received(1).SetBreakpointsAsync("Account",
+            Arg.Is<IReadOnlyList<SessionBreakpointLine>>(bp => bp.Count == 0), Arg.Any<CancellationToken>());
+        CollectionAssert.AreEqual(new[] { 16, 3, 18 }, response.Breakpoints.Select(breakpoint => breakpoint.Line!.Value).ToArray());
     }
 
     [TestMethod]
