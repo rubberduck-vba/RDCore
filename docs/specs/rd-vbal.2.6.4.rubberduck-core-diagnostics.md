@@ -222,14 +222,15 @@ fix writes the members the code can name. `rdc export-library` keeps them, as it
 
 ### Suppression
 
-Settings disable a code for the user or the workspace (`Analysis.DisabledDiagnostics`). The `'@Ignore` and `'@IgnoreModule` annotations suppress codes in
-the source. Every provider still analyzes the document, and the language server drops the suppressed findings from what it publishes, whichever provider
-found them.
+Settings configure diagnostics: they disable a code for the user or the workspace (`Analysis.DisabledDiagnostics`), and the analyzer that finds it skips
+that work. The `'@Ignore` and `'@IgnoreModule` annotations of legacy Rubberduck are deprecated, and kept as a suppression in the source of the codes they
+list. Every provider still analyzes the document, and the language server drops the suppressed findings from what it publishes, whichever provider found
+them.
 
 |Written|Suppresses the findings of|
 |---|---|
 |`'@Ignore` or `'@IgnoreModule`, in a file of one module|the whole file, wherever the annotation is written|
-|`'@IgnoreModule`, in a file that has blocks|the module it is in: a block's module, or the file's own module outside every block (`RDCoreDocument.ParseOf`)|
+|`'@IgnoreModule`, in a file that has blocks|the module it is in: a block's module, its header's comment lines included, or the file's own module outside every block (`RDCoreDocument.ParseOf`)|
 |`'@Ignore` on the comment lines directly above a block's header|that block's module ([`Annotations.GetHeaderAnnotations`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Annotations.html))|
 |`'@Ignore` anywhere else in a file that has blocks|none|
 
