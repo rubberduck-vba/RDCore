@@ -516,11 +516,16 @@ public sealed class BuildCommandTests
         => BuildAndRunNamedAsync(fileSystem, libraries, folder, "Hello", args);
 
     // the program built under name: its executable is name in the test's folder.
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
         RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, string name, params string[] args)
+        => BuildAndRunFromAsync(fileSystem, libraries, Root, folder, name, args);
+
+    // the program rdc build makes of from, the workspace's folder or a module file, built under name.
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunFromAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string from, string folder, string name, params string[] args)
     {
         var (command, messages) = Command(fileSystem, libraries: libraries);
-        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", name, .. args], CancellationToken.None),
+        Assert.AreEqual(0, await command.ExecuteAsync([from, "--name", name, .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
         var context = new AssemblyLoadContext("built program", isCollectible: true);
@@ -565,6 +570,28 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "5" }, run.Output);
+    }
+
+    // a script of a project builds into a program of the project that starts at that script: the other script's code does not run, its procedures are
+    // there to call.
+    [TestMethod]
+    [DataRow("Backup.vbs", "backup", "undone", DisplayName = "the first script of the project")]
+    [DataRow("Restore.vbs", "restore", "saved", DisplayName = "the second script of the project")]
+    public async Task TheBuiltProgramOfAScriptOfAProject_StartsAtThatScript(string file, string first, string second)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Backup.vbs", "Debug.Print \"backup\"\r\nUndo\r\nSub Save()\r\nDebug.Print \"saved\"\r\nEnd Sub\r\n"),
+            ("Restore.vbs", "Debug.Print \"restore\"\r\nSave\r\nSub Undo()\r\nDebug.Print \"undone\"\r\nEnd Sub\r\n"));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Tools", "Modules": [ { "RelativeUri": "Backup.vbs" }, { "RelativeUri": "Restore.vbs" } ] } }
+            """);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+
+        var built = await BuildAndRunFromAsync(fileSystem, shipped, Path.Combine(Root, file), Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), "Tools");
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { first, second }, built.Output, built.Error);
     }
 
     // the workspace is no folder of the disk the program runs on: a script's Class and Module blocks are modules of the program its build makes, each read

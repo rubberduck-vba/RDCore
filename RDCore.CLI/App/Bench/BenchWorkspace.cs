@@ -55,6 +55,18 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     public IReadOnlyList<BenchReferencedProject> ReferencedProjects { get; init; } = [];
 
     /// <summary>
+    /// The module of the file the workspace was loaded from, when that file is a module of the project of its folder (<see cref="LoadAsync"/>);
+    /// <see langword="null"/> when the workspace was loaded from a folder, or from a file that is a project of its own.
+    /// </summary>
+    public BenchModule? Given { get; init; }
+
+    /// <summary>
+    /// The <c>build</c> section a run of the workspace starts by: the project's, with the module of the file it was given as the entry point
+    /// (<see cref="Given"/>), as <c>rdc run Backup.vbs</c> runs the script of its own file; the project's as it is otherwise.
+    /// </summary>
+    public ProjectBuild? RunBuild => Given is { } given ? (Project.Build ?? new ProjectBuild()) with { EntryPoint = given.Name } : Project.Build;
+
+    /// <summary>
     /// The root of the workspace as its <c>file</c> URI (<see cref="SymbolUri.Root"/>): what its modules are addressed under.
     /// </summary>
     public Uri RootUri => SymbolUri.Root(Root);
@@ -81,15 +93,28 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// The code page of a module file that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the
     /// environment's.
     /// </param>
+    /// <param name="inItsProject">
+    /// Whether a module file that the <c>.rdproj</c> of its folder lists is loaded as that project, the file's module being <see cref="Given"/>, as
+    /// <c>rdc run</c> and <c>rdc build</c> load it; a module file is a project of its own otherwise.
+    /// </param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
     /// <exception cref="InvalidOperationException">A reference of the project to a project names no project of the workspace, or more than one.</exception>
     public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default,
-        SupportedLanguage? language = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage)
+        SupportedLanguage? language = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage, bool inItsProject = false)
     {
         var full = fileSystem.Path.GetFullPath(path);
         if (fileSystem.File.Exists(full))
         {
             var root = fileSystem.Path.GetDirectoryName(full)!;
+            if (inItsProject && projects.TryLocate(root, out _))
+            {
+                var folder = await LoadAsync(fileSystem, projects, root, token, language, ansiCodePage);
+                if (folder.Modules.FirstOrDefault(module => WorkspacePaths.Same(fileSystem.Path.Combine(root, module.RelativePath), full)) is { } given)
+                {
+                    return folder with { Given = given };
+                }
+            }
+
             var name = fileSystem.Path.GetFileNameWithoutExtension(full);
             var module = new RDCoreModule { RelativeUri = fileSystem.Path.GetFileName(full) };
             return Compose(fileSystem, root, new RDCoreProject { Name = name }, [module], ansiCodePage);

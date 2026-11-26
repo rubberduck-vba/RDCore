@@ -248,4 +248,31 @@ public sealed class ScriptRunTests
         Assert.AreEqual(ProgramRunner.Completed, exit, error);
         Assert.AreEqual(string.Empty, output);
     }
+
+    // a script of a project runs as a module of it: rdc run of its file starts at its own code, the other script's code does not run, and the procedures of
+    // the other script are there for it to call.
+    [TestMethod]
+    [DataRow("Backup.vbs", "backup", "undone", DisplayName = "the first script of the project")]
+    [DataRow("Restore.vbs", "restore", "saved", DisplayName = "the second script of the project")]
+    public async Task EachScriptOfAProject_RunsByItsFile_AndCallsTheOtherScriptsProcedures(string file, string first, string second)
+    {
+        var fileSystem = new MockFileSystem();
+        fileSystem.Directory.CreateDirectory(Root);
+        fileSystem.File.WriteAllText(Path.Combine(Root, "Backup.vbs"), "WScript.Echo \"backup\"\r\nUndo\r\nSub Save()\r\nWScript.Echo \"saved\"\r\nEnd Sub\r\n");
+        fileSystem.File.WriteAllText(Path.Combine(Root, "Restore.vbs"), "WScript.Echo \"restore\"\r\nSave\r\nSub Undo()\r\nWScript.Echo \"undone\"\r\nEnd Sub\r\n");
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Tools", "Modules": [ { "RelativeUri": "Backup.vbs" }, { "RelativeUri": "Restore.vbs" } ] } }
+            """);
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+            new DirectoryLibrarySource(new FileSystem(), Symbols));
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error,
+            new ScriptedKeys(interactive: false), Options.Create(new AppOptions()));
+
+        var exit = await command.ExecuteAsync([Path.Combine(Root, file)], CancellationToken.None);
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error.ToString());
+        Assert.AreEqual(Lines(first, second), output.ToString());
+    }
 }
