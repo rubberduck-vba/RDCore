@@ -23,7 +23,9 @@ namespace RDCore.Runtime.Semantics.Precompiler;
 /// </summary>
 /// <param name="DeadRanges">The source ranges of every branch that is not live, in no particular order.</param>
 /// <param name="Errors">The compile errors of the directives: a <c>#Const</c> declared twice, a condition that is not a number or a <c>Boolean</c>.</param>
-public readonly record struct PrecompilerEvaluation(ImmutableArray<SourceRange> DeadRanges, ImmutableArray<VBCompileErrorInfo> Errors);
+/// <param name="DeadBranches">The source location of every branch that is not live, its document too, in the order of <paramref name="DeadRanges"/>.</param>
+public readonly record struct PrecompilerEvaluation(
+    ImmutableArray<SourceRange> DeadRanges, ImmutableArray<VBCompileErrorInfo> Errors, ImmutableArray<SourceLocation> DeadBranches);
 
 /// <summary>
 /// Evaluates every <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> block a module's
@@ -158,7 +160,7 @@ public static class PrecompilerLiveBranchEvaluator
         var state = new Evaluation(session, evaluator, context, platform);
         if (precompilerTrivia.IsDefaultOrEmpty)
         {
-            return (new([], []), []);
+            return (new([], [], []), []);
         }
 
         foreach (var node in precompilerTrivia)
@@ -171,7 +173,8 @@ public static class PrecompilerLiveBranchEvaluator
             Visit(node, state);
         }
 
-        return (new(state.DeadRanges.ToImmutable(), state.Errors.ToImmutable()), state.Undecided.ToImmutable());
+        var dead = state.DeadBranches.ToImmutable();
+        return (new([.. dead.Select(branch => branch.Range)], state.Errors.ToImmutable(), dead), state.Undecided.ToImmutable());
     }
 
     private static void Visit(SyntaxNode node, Evaluation state)
@@ -229,7 +232,7 @@ public static class PrecompilerLiveBranchEvaluator
             }
             if (branches[i].Body is { } deadBody)
             {
-                state.DeadRanges.Add(deadBody.SourceLocation.Range);
+                state.DeadBranches.Add(deadBody.SourceLocation);
             }
         }
 
@@ -292,7 +295,7 @@ public static class PrecompilerLiveBranchEvaluator
             _context = context with { ConditionalConstant = ConstantOf };
         }
 
-        public ImmutableArray<SourceRange>.Builder DeadRanges { get; } = ImmutableArray.CreateBuilder<SourceRange>();
+        public ImmutableArray<SourceLocation>.Builder DeadBranches { get; } = ImmutableArray.CreateBuilder<SourceLocation>();
 
         // the chains whose conditions could not all be evaluated: which of their branches is live is not known.
         public ImmutableArray<SourceRange>.Builder Undecided { get; } = ImmutableArray.CreateBuilder<SourceRange>();

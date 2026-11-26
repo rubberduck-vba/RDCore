@@ -10,10 +10,16 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -142,11 +148,39 @@ public sealed class ImplementInterfaceServiceTests
         "End Sub\r\n" +
         "#End If\r\n";
 
+    // an interface of two members.
+    private const string IGreeting = ClassHeader +
+        "Attribute VB_Name = \"IGreeting\"\r\n" +
+        "Option Explicit\r\n" +
+        "Public Sub Hello()\r\n" +
+        "End Sub\r\n" +
+        "\r\n" +
+        "Public Sub Bye()\r\n" +
+        "End Sub\r\n";
+
+    // implements IGreeting (line 6), and declares in a branch of an #If block what the interface's Hello is implemented as.
+    private static string Hiding(string name, string condition, string declaration) => ClassHeader +
+        $"Attribute VB_Name = \"{name}\"\r\n" +
+        "Option Explicit\r\n" +
+        "Implements IGreeting\r\n" +
+        $"#If {condition} Then\r\n" +
+        declaration +
+        "#End If\r\n" +
+        "\r\n" +
+        "Public Sub Other()\r\n" +
+        "End Sub\r\n";
+
+    private static readonly string DeadSub = Hiding("DeadSub", "0", "Private Sub IGreeting_Hello()\r\nEnd Sub\r\n");
+    private static readonly string LiveSub = Hiding("LiveSub", "1", "Private Sub IGreeting_Hello()\r\nEnd Sub\r\n");
+    private static readonly string DeadVariable = Hiding("DeadVariable", "0", "Private IGreeting_Hello As Long\r\n");
+
     private const int Version = 4;
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+    private readonly Dictionary<Uri, ModuleParseResult> _parses = [];
+    private readonly ModuleLiveBranches _liveBranches;
     private readonly RenameService _rename;
     private readonly ImplementInterfaceService _service;
 
@@ -157,14 +191,18 @@ public sealed class ImplementInterfaceServiceTests
         [
             new("IShape.cls", Root, IShape, version: 1), new("Square.cls", Root, Square, version: Version), new("Button.cls", Root, Button, version: 1),
             new("Panel.cls", Root, Panel, version: Version), new("IGreet.cls", Root, IGreet, version: 1), new("Greeter.cls", Root, Greeter, version: 1),
-            new("Branchy.cls", Root, Branchy, version: 1),
+            new("Branchy.cls", Root, Branchy, version: 1), new("IGreeting.cls", Root, IGreeting, version: 1), new("DeadSub.cls", Root, DeadSub, version: 1),
+            new("LiveSub.cls", Root, LiveSub, version: 1),
+            new("DeadVariable.cls", Root, DeadVariable, version: 1),
         ];
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
             var uri = document.Id.Uri.ToUri();
+            var parse = _parses[uri] = new ModuleParser().Parse(uri, document.Text);
             _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
-            _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, document.Text)));
+            _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(parse));
+            _parsing.TryGetCached(uri, document.Version, out Arg.Any<ModuleParseResult>()).Returns(call => { call[2] = parse; return true; });
         }
 
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -173,7 +211,10 @@ public sealed class ImplementInterfaceServiceTests
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        _rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
+        _liveBranches = new ModuleLiveBranches(_documents, _parsing);
+        _rename = new RenameService(
+            _documents, _parsing, new IntrinsicSymbolResolver(), libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry(),
+            liveBranches: _liveBranches);
         _service = new ImplementInterfaceService(_rename, _parsing, _options);
     }
 
@@ -232,6 +273,62 @@ public sealed class ImplementInterfaceServiceTests
         StringAssert.Contains(offer.Refusal, "#If");
         Assert.AreEqual(offer.Refusal, answer.Refusal);
         Assert.IsNull(answer.Edits);
+    }
+
+    // ---- a branch of an #If block that is not live, as the environment host evaluated it (MS-VBAL §3.4) ----
+
+    // what the host says of a document's #If block when the module's symbols are defined: its #If branch dead, or no branch.
+    private void HostEvaluated(string fileName, bool ifBranchIsDead)
+    {
+        var parse = _parses[Document(fileName)];
+        var ifBranch = parse.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node)).OfType<PrecompilerIfBlockStatementNode>().First()
+            .Children.OfType<PrecompilerTriviaNode>().First();
+        _liveBranches.Record(parse, ifBranchIsDead ? [ifBranch.SourceLocation] : []);
+        Assert.IsNotNull(_liveBranches.DeadTestFor(parse), "the host's evaluation is known of the document as it reads");
+    }
+
+    private const string HelloStub = "\r\nPrivate Sub IGreeting_Hello()\r\n" + Todo + "End Sub\r\n";
+    private const string ByeStub = "\r\nPrivate Sub IGreeting_Bye()\r\n" + Todo + "End Sub\r\n";
+
+    [TestMethod]
+    [DataRow("DeadSub", DisplayName = "a procedure of the stub's name")]
+    [DataRow("DeadVariable", DisplayName = "a variable of the stub's name")]
+    public async Task WhatADeadBranchDeclares_IsNoMemberOfTheClass_AndTheStubIsWritten(string name)
+    {
+        var text = name == "DeadSub" ? DeadSub : DeadVariable;
+        HostEvaluated(name + ".cls", ifBranchIsDead: true);
+
+        var answer = await _service.ImplementAsync(Document(name + ".cls"), At(6, 0), CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        Assert.AreEqual(text + HelloStub + ByeStub, DeclarationEdits.ApplyTo(text, answer.Edits!));
+    }
+
+    [TestMethod]
+    public async Task WhatALiveBranchDeclares_IsAMemberOfTheClass_AndOnlyTheOtherStubIsWritten()
+    {
+        HostEvaluated("LiveSub.cls", ifBranchIsDead: false);
+
+        var answer = await _service.ImplementAsync(Document("LiveSub.cls"), At(6, 0), CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        Assert.AreEqual(LiveSub + ByeStub, DeclarationEdits.ApplyTo(LiveSub, answer.Edits!));
+    }
+
+    // the stub is written in live code: once the constant makes the branch live, the class declares the procedure twice, as when the stub is written by hand.
+    [TestMethod]
+    public async Task TheDeadBranchMadeLive_DeclaresTheProcedureTheStubDeclares_ASecondTime()
+    {
+        HostEvaluated("DeadSub.cls", ifBranchIsDead: true);
+        var answer = await _service.ImplementAsync(Document("DeadSub.cls"), At(6, 0), CancellationToken.None);
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+
+        var turnedOn = DeclarationEdits.ApplyTo(DeadSub, answer.Edits!).Replace("#If 0 Then", "#If 1 Then");
+        var parse = new ModuleParser().Parse(Document("DeadSub.cls"), turnedOn);
+        var errors = DeclarationStaticSemanticsEvaluator.CheckSyntax(parse.SyntaxTree!, ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia));
+
+        var ambiguous = Assert.ContainsSingle(errors.Where(error => error.ErrorId == (int)VBCompileErrorId.AmbiguousName));
+        Assert.AreEqual(DeadSub.Split("\r\n").Length + 1, ambiguous.Location.Range.Start.Line + 1, "the stub, after the class's last line and the blank one");
     }
 
     // ---- the code action ----

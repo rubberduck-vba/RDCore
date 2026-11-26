@@ -129,7 +129,8 @@ internal sealed class RenameService(
     ILogger<RenameService> logger,
     IWorkspaceProjects workspaceProjects,
     WorkspaceCompositionCache? compositions = null,
-    StagedFiles? stagedFiles = null) : IRenameService
+    StagedFiles? stagedFiles = null,
+    ModuleLiveBranches? liveBranches = null) : IRenameService
 {
     // the workspace as it was composed last, for as long as no document changed: a prepared rename, the rename and the code actions of a line are of one.
     private readonly WorkspaceCompositionCache _compositions = compositions ?? new();
@@ -251,7 +252,10 @@ internal sealed class RenameService(
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
             [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source, module.Parse.Designer))],
-            new StaticEnvironment(options.Value.Environment.Is64Bit));
+            new StaticEnvironment(options.Value.Environment.Is64Bit))
+        {
+            DeadTestOf = parse => liveBranches?.DeadTestFor(parse),
+        };
         return new RenameWorkspace.ProjectPart(context, modules, Recompose);
     }
 }

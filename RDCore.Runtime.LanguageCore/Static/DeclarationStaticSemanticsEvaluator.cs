@@ -88,14 +88,14 @@ public static class DeclarationStaticSemanticsEvaluator
 
     // MS-VBAL §5.2
     // reads the syntax tree, not the symbols: a name declared twice as the same kind is one symbol by then. MS-VBAL §3.4: the branches of a conditional
-    // compilation block that are not live are not part of the module, so what one declares is not a declaration of it; options.DeadRanges names them, and a
-    // caller that has not evaluated the blocks passes none, which reads every branch as an alternative of the others.
+    // compilation block that are not live are not part of the module, so what one declares is not a declaration of it; options.DeadRanges or options.DeadAt
+    // names them, and a caller that has not evaluated the blocks passes neither, which reads every branch as an alternative of the others.
     public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(
         ModuleNode module, ConditionalCompilationBlocks blocks, StaticSemanticsOptions options = default)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
         var seen = new Dictionary<string, List<(MemberKind? Kind, SourceLocation Location)>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var child in module.Children.Where(child => options.DeadRangeAt(child.SourceLocation.Range.Start) is null))
+        foreach (var child in module.Children.Where(child => !options.IsDeadAt(child.SourceLocation)))
         {
             var (name, kind) = child switch
             {
@@ -143,8 +143,7 @@ public static class DeclarationStaticSemanticsEvaluator
         // block that each state it are one statement of it, as they are one declaration of a name. MS-VBAL §3.4: a branch that is not live is not part of the
         // module, and neither is an option it states (options.DeadRanges, as for the declarations above).
         var optionStatements = new Dictionary<ModuleOptions, List<SourceLocation>>();
-        foreach (var directive in module.Children.OfType<ModuleOptionDirectiveNode>()
-            .Where(directive => options.DeadRangeAt(directive.SourceLocation.Range.Start) is null))
+        foreach (var directive in module.Children.OfType<ModuleOptionDirectiveNode>().Where(directive => !options.IsDeadAt(directive.SourceLocation)))
         {
             var option = DirectiveOf(directive.ModuleOption);
             if (!optionStatements.TryGetValue(option, out var statements))
