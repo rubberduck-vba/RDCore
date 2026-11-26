@@ -1697,6 +1697,59 @@ public sealed class CompletionServiceTests
         Assert.AreEqual("ByVal Value As Long", ActiveParameterOf(help));
     }
 
+    // ---- what a description says: the attribute a module writes, else its annotation ----
+
+    // the workspace of these tests, with the modules whose descriptions the hover tests read.
+    private void WorkspaceHasDescribedModules()
+        => WorkspaceHas(new WorkspaceDocument("Widget.cls", Root, Widget), new WorkspaceDocument("Helpers.bas", Root, Helpers),
+            new WorkspaceDocument("Counter.bas", Root, DescriptionHoverTests.Counter), new WorkspaceDocument("Tally.bas", Root, DescriptionHoverTests.Tally));
+
+    private async Task<string?> DocumentationAsync(string module, string label)
+    {
+        var (source, position) = At(module);
+        var list = await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None);
+        return list.Items.Single(item => item.Label == label).Documentation?.String;
+    }
+
+    [TestMethod]
+    public async Task AModulesCompletionItem_ShowsItsDescriptionAttribute_ElseItsModuleDescriptionAnnotation()
+    {
+        WorkspaceHasDescribedModules();
+        const string module = "Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = |\r\nEnd Sub\r\n";
+
+        Assert.AreEqual("Counts things.", await DocumentationAsync(module, "Counter"));
+        Assert.AreEqual("Keeps a tally.", await DocumentationAsync(module, "Tally"));
+    }
+
+    [TestMethod]
+    public async Task AMembersCompletionItem_ShowsItsDescriptionAttribute_ElseItsDescriptionAnnotation()
+    {
+        WorkspaceHasDescribedModules();
+        const string module = "Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Counter.|\r\nEnd Sub\r\n";
+
+        Assert.AreEqual("Adds to the count.", await DocumentationAsync(module, "Increment"));
+        Assert.AreEqual("Sets the count back to zero.", await DocumentationAsync(module, "Reset"));
+        Assert.AreEqual("How many there are.", await DocumentationAsync(module, "Total"));
+        Assert.AreEqual("The most there can be.", await DocumentationAsync(module, "Limit"));
+    }
+
+    [TestMethod]
+    public async Task AProceduresSignature_ShowsTheDescriptionAnnotationAboveIt()
+    {
+        WorkspaceHasDescribedModules();
+
+        var help = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                Counter.Increment |
+            End Sub
+            """);
+
+        var signature = help!.Signatures.Single();
+        Assert.AreEqual("Sub Increment(ByVal By As Long)", signature.Label);
+        Assert.AreEqual("Adds to the count.", signature.Documentation?.String);
+    }
+
     [TestMethod]
     public async Task TheArgumentAtTheCursor_IsTheParameterItIsGivenTo_InTheInnermostCall()
     {
