@@ -25,7 +25,8 @@ public sealed class ModuleAnnotationShortFormAnalyzerTests
 
     private static ModuleParseResult Parse(string source, bool fileLevelStatements = true)
     {
-        var parse = new ModuleParser(workspaceOptions: Options.Create(new SdkWorkspaceOptions { FileLevelStatements = fileLevelStatements })).Parse(File, source);
+        var options = Options.Create(new SdkWorkspaceOptions { FileLevelStatements = fileLevelStatements });
+        var parse = new ModuleParser(workspaceOptions: options).Parse(File, source);
         Assert.IsEmpty(parse.SyntaxErrors, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
         return parse;
     }
@@ -69,7 +70,8 @@ public sealed class ModuleAnnotationShortFormAnalyzerTests
         var after = Fixed(Source("Public Sub Own()", "End Sub", "Class Shape", "    '@ModuleDescription(\"Shapes\")", "    Public Sub Draw()", "    End Sub",
             "End Class"), "Description");
 
-        Assert.AreEqual(Source("Public Sub Own()", "End Sub", "'@Description(\"Shapes\")", "Class Shape", "    Public Sub Draw()", "    End Sub", "End Class"), after);
+        Assert.AreEqual(Source("Public Sub Own()", "End Sub", "'@Description(\"Shapes\")", "Class Shape", "    Public Sub Draw()", "    End Sub",
+            "End Class"), after);
         var parse = Parse(after);
         Assert.AreEqual("Shapes", DocStrings.GetModuleDescription(new RDCoreDocument(File, parse).ParseOf(parse.BlockModules[0].Uri)!));
     }
@@ -77,8 +79,10 @@ public sealed class ModuleAnnotationShortFormAnalyzerTests
     // beside another annotation, only it goes; its arguments go with it.
     [TestMethod]
     public void TheFix_MovesIgnoreModuleWithItsCodes_AndLeavesTheOtherAnnotation()
-        => Assert.AreEqual(Source("'@Ignore RDC01001, RDC01002", "Module Tools", "    ' @Folder(\"Tools\")", "    Public Sub Run()", "    End Sub", "End Module"),
-            Fixed(Source("Module Tools", "    '@IgnoreModule RDC01001, RDC01002 @Folder(\"Tools\")", "    Public Sub Run()", "    End Sub", "End Module"), "Ignore"));
+        => Assert.AreEqual(
+            Source("'@Ignore RDC01001, RDC01002", "Module Tools", "    ' @Folder(\"Tools\")", "    Public Sub Run()", "    End Sub", "End Module"),
+            Fixed(Source("Module Tools", "    '@IgnoreModule RDC01001, RDC01002 @Folder(\"Tools\")", "    Public Sub Run()", "    End Sub",
+                "End Module"), "Ignore"));
 
     [TestMethod]
     public void AboveTheHeader_TheFixRenamesIt()
@@ -90,6 +94,7 @@ public sealed class ModuleAnnotationShortFormAnalyzerTests
     {
         Assert.IsEmpty(Run(Source("Class Shape", "    '@ModuleDescription(\"Shapes\")", "End Class"), fileLevelStatements: false));
         Assert.IsEmpty(Run(Source("'@ModuleDescription(\"Shapes\")", "Public Sub Own()", "End Sub")));
-        Assert.IsEmpty(Run(Source("'@Description(\"Shapes\")", "Class Shape", "    '@Description(\"Draws\")", "    Public Sub Draw()", "    End Sub", "End Class")));
+        Assert.IsEmpty(Run(Source("'@Description(\"Shapes\")", "Class Shape", "    '@Description(\"Draws\")", "    Public Sub Draw()", "    End Sub",
+            "End Class")));
     }
 }

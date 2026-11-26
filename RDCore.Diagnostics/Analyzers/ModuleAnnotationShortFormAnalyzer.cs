@@ -54,8 +54,9 @@ internal sealed class ModuleAnnotationShortFormAnalyzer(IOptions<SdkWorkspaceOpt
                 }
 
                 var fix = header.Contains(annotation) ? Renamed(annotation, written) : Moved(parse, block, annotation, written);
+                var message = AnalyzerMessages.Format(RDCoreDiagnosticsResources.ModuleAnnotationHasAShortForm_Message, annotation.Name, written);
                 yield return new AnalyzerFinding(RDCoreDiagnosticId.ModuleAnnotationHasAShortForm.ToCode(), annotation.SourceLocation.Range,
-                    DiagnosticSeverity.Information, AnalyzerMessages.Format(RDCoreDiagnosticsResources.ModuleAnnotationHasAShortForm_Message, annotation.Name, written))
+                    DiagnosticSeverity.Information, message)
                 {
                     Fixes = fix is null ? null : new DiagnosticFixes { Edits = [fix] },
                 };
@@ -69,7 +70,8 @@ internal sealed class ModuleAnnotationShortFormAnalyzer(IOptions<SdkWorkspaceOpt
     private static EditFix Renamed(AnnotationTriviaNode annotation, string written)
     {
         var start = annotation.SourceLocation.Range.Start;
-        var name = new SourceRange(new SourcePosition(start.Line, start.Character + 1), new SourcePosition(start.Line, start.Character + 1 + annotation.Name.Length));
+        var name = new SourceRange(new SourcePosition(start.Line, start.Character + 1),
+            new SourcePosition(start.Line, start.Character + 1 + annotation.Name.Length));
         return SyntaxEdits.Fix(Title(written), SyntaxEdits.Replace(name, written));
     }
 
