@@ -80,9 +80,9 @@ public static class DebugValueFormatter
             case VBBooleanValue boolean:
                 return new DebugValueView(boolean.Value.StoredValue != 0 ? "True" : "False", Type("Boolean"), null);
 
-            // a string as its literal; one with a line break, which no literal holds, between double quotes all the same, line break and all.
+            // a string between double quotes, line breaks and all.
             case VBStringValue text:
-                return new DebugValueView(ExpressionWriter.LiteralOf(text) ?? $"\"{text.Value.Replace("\"", "\"\"")}\"", Type(text.TypeInfo.Name), null);
+                return new DebugValueView(ExpressionWriter.Quoted(text.Value), Type(text.TypeInfo.Name), null);
 
             // a Date that is no day, which only its bytes can make (ValueConversions.TryMomentOf), is shown as the Double it holds.
             case VBDateValue date:

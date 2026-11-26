@@ -1,6 +1,5 @@
 ﻿using Microsoft.Win32;
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
@@ -812,7 +811,7 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
         {
             null or DBNull => null,
             bool flag => flag ? "True" : "False",
-            string text => ExpressionWriter.LiteralOf(new VBStringValue(text)) ?? "\"" + text.Replace("\"", "\"\"") + "\"",
+            string text => ExpressionWriter.Quoted(text),
             IConvertible number => number.ToString(CultureInfo.InvariantCulture),
             _ => null,
         };
