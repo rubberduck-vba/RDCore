@@ -141,8 +141,8 @@ for a `Variant` only when the collection is declared as an array.
 |The collection is anything else (a scalar).|13 (Type mismatch)|
 
 An error in the header that `On Error Resume Next` goes past goes on at the statement after the header, which is
-usually the first of the body or the `Next`. A `Next` that follows its header on the header's line
-(`For Each v In w: Next`) is part of the header's statement. The error goes on past it, and the `Next` does not run:
+usually the first of the body or the `Next`. A `Next` that directly follows its header on the header's
+line (`For Each v In w: Next`) is part of the header's statement. The error goes on past it, and the `Next` does not run:
 the control variable keeps its value, and `Err` the header's error. This is what MS-VBA does, observed in Excel
 (64-bit, en-US).
 

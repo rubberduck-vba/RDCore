@@ -141,8 +141,8 @@ Run-time error 92 is `VBRuntimeErrorId.ForLoopNotInitialized`
 ### An error in the header, under `On Error Resume Next`
 
 MS-VBAL does not say what a loop is when its start, end or step raises an error that `On Error Resume Next` goes past
-([**RD-VBAL §5.4.4.1**](rd-vbal.5.4.4.1.on-error-statement.md)). RD-VBA does what MS-VBA does, recorded in Excel
-(oracle\s54 F01-F07, X01-X04):
+([**RD-VBAL §5.4.4.1**](rd-vbal.5.4.4.1.on-error-statement.md)). RD-VBA does what MS-VBA does, observed in Excel
+(64-bit, en-US):
 
 - The statement that follows the `For` is the first of its body, and it runs: the counter is not tested against the end.
 - Nothing the header evaluated is kept. The counter is not given the start, and neither the end nor the step is stored,
@@ -151,7 +151,7 @@ MS-VBAL does not say what a loop is when its start, end or step raises an error 
   activation. With none, the end is 0, and so is the step, except that a loop that writes no `Step` clause steps an
   `Integer`, a `Long` or a `LongLong` counter by 1.
 - Its `Next` steps the counter and tests it with that end and that step, as it does any other loop's.
-- A `Variant` counter's loop has no end and no step with no earlier pass: its `Next` raises error 92, as after a jump
+- With no earlier pass, a `Variant` counter's loop has no end and no step: its `Next` raises error 92, as after a jump
   into the loop.
 - An error that a procedure called in the header raises leaves the loop the same way.
 

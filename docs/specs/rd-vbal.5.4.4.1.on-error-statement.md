@@ -48,8 +48,8 @@ not one it handles.
 
 A `Select Case` is one statement, up to its `End Select`: an error in its selector goes on at the statement past
 `End Select`, and no `Case` runs, `Case Else` included (MS-VBA). The same holds for `Resume Next`
-([**RD-VBAL §5.4.4.2**](rd-vbal.5.4.4.2.resume-statement.md)). So is a `For Each` whose `Next` follows its header on
-the header's line (`For Each v In w: Next`): an error in its header goes on past the `Next`
+([**RD-VBAL §5.4.4.2**](rd-vbal.5.4.4.2.resume-statement.md)). A `For Each` whose `Next` directly follows its
+header on the header's line (`For Each v In w: Next`) is one statement too: an error in its header goes on past the `Next`
 ([**RD-VBAL §5.4.2.4**](rd-vbal.5.4.2.4.for-each-statement.md#errors)).
 
 A `For` is not: an error in its start, its end or its step goes on at the first statement of its body, and the loop

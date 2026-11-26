@@ -190,7 +190,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return Run(session, frame, list, context, once: true, held);
         }
 
-        // a For statement whose start, end or step called a procedure that raised the error leaves its loop what one this executor ran leaves it.
+        // a For statement whose start, end or step called a procedure that raised the error leaves its loop as one whose own header raised it does.
         if (list.Items[frame.Pc] is
             {
                 Kind: InstructionKind.ForOpener,
