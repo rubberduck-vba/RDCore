@@ -192,6 +192,28 @@ public sealed class IgnoreAnnotationsTests
     }
 
     [TestMethod]
+    public void InAFileOfBlocks_IgnoreModuleAboveABlocksHeader_SuppressesInThatBlock()
+    {
+        var parse = Parse(
+            "Public Sub Own()",         // 0
+            "End Sub",
+            "'@IgnoreModule RDC01001",  // 2
+            "Class Account",
+            "    Public Sub Deposit()",
+            "    End Sub",
+            "End Class",
+            "Module Logger",            // 7
+            "    Public Sub Log()",
+            "    End Sub",
+            "End Module");
+        var account = new RDCoreDocument(File, parse).ParseOf(parse.BlockModules[0].Uri);
+        Assert.HasCount(1, account!.GetHeaderAnnotations(), "the premise: the annotation is on the lines Account's module is given");
+
+        CollectionAssert.AreEqual(new[] { "RDC01001@0", "RDC01001@8", "RDC01002@4" }, Published(parse,
+            found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 8), Finding("RDC01002", 4)]));
+    }
+
+    [TestMethod]
     public void InAFileOfBlocks_IgnoreModuleOutsideEveryBlock_SuppressesInTheFilesOwnModule()
         => CollectionAssert.AreEqual(new[] { "RDC01001@4" }, Published(
             Parse("'@IgnoreModule RDC01001", "Public Sub Own()", "End Sub", "Class Account", "    Public Sub Deposit()", "    End Sub", "End Class"),
