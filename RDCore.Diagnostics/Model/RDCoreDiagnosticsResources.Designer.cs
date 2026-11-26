@@ -738,6 +738,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Write &apos;@{0}&apos; above the header.
+        /// </summary>
+        public static string ModuleAnnotationHasAShortForm_Fix {
+            get {
+                return ResourceManager.GetString("ModuleAnnotationHasAShortForm_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;@{0}&apos; is written &apos;@{1}&apos; on the lines above the block&apos;s header, where it annotates the block&apos;s module..
+        /// </summary>
+        public static string ModuleAnnotationHasAShortForm_Message {
+            get {
+                return ResourceManager.GetString("ModuleAnnotationHasAShortForm_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Variable &apos;{0}&apos; of the module is used only in &apos;{1}&apos;: it can be declared there..
         /// </summary>
         public static string MoveFieldCloserToUsage_Message {
