@@ -92,9 +92,10 @@ internal sealed class DefineSymbolsHandler(
 
         var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
+        var deadBranches = DeadBranchesOf(target, request);
         if (!request.CodeOnly)
         {
-            var isDead = DeadBranchesOf(target, request);
+            var isDead = DeadTestOf(deadBranches);
             // the three phases (DefineSymbolsParams.DeclareTypesOnly): the module's types are declared - its user-defined types and enumerations - so that
             // every declaration that names one is bound to a type that exists. Everything a request carries is read before anything of it is defined, which
             // is why the types are a request of their own: a request that binds declares its own types first, which the declare phase already did for a
@@ -153,6 +154,7 @@ internal sealed class DefineSymbolsHandler(
             UnresolvedTypeNames = [.. unresolvedTypeNames],
             CodeErrors = loadErrors,
             MergedDefinitions = merged,
+            DeadBranches = deadBranches,
         };
     }
 
@@ -160,14 +162,14 @@ internal sealed class DefineSymbolsHandler(
     private static bool IsTypeDeclaration(SymbolDescriptor descriptor)
         => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum;
 
-    // MS-VBAL §3.4: what the module's directives make dead, evaluated with the session's constants and the module's own - the request's directives, when it
-    // sends them; null when it does not, and every declaration is defined as the first branch writes it.
-    private Func<SourceLocation, bool>? DeadBranchesOf(Target target, DefineSymbolsParams request)
+    // MS-VBAL §3.4: the branches the module's directives make dead, evaluated with the session's constants and the module's own - the request's directives,
+    // when it sends them; none when it does not, and every declaration is defined as the first branch writes it.
+    private ImmutableArray<SourceLocation> DeadBranchesOf(Target target, DefineSymbolsParams request)
     {
         var session = target.Session;
         if (request.PrecompilerTriviaJson.Length == 0)
         {
-            return null;
+            return [];
         }
 
         // a module is defined in phases, each request carrying the same directives: they are read and evaluated once per session and module, for as long as
@@ -180,22 +182,25 @@ internal sealed class DefineSymbolsHandler(
             || !string.Equals(cached.Constants, constants, StringComparison.Ordinal))
         {
             var trivia = PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson);
-            var ranges = trivia.IsDefaultOrEmpty
+            var dead = trivia.IsDefaultOrEmpty
                 ? []
-                : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, target.Image, errorDetails).Expressions,
-                    new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
-            // the module is written in one file, the one its trivia says: a dead range is of that document.
-            cached = (request.PrecompilerTriviaJson, constants, trivia.IsDefaultOrEmpty ? null : trivia[0].SourceLocation.Uri, ranges);
+                : PrecompilerLiveBranchEvaluator.Evaluate(session, RuntimeExecutionPipeline.Create(session, target.Image, errorDetails).Expressions,
+                    new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia).DeadBranches;
+            cached = (request.PrecompilerTriviaJson, constants, dead);
             evaluated[key] = cached;
         }
 
-        var (document, dead) = (cached.Document, cached.Dead);
-        return dead.IsEmpty ? null : location => location.Uri == document
-            && dead.Any(range => location.Range.Start.CompareTo(range.Start) >= 0 && location.Range.Start.CompareTo(range.End) <= 0);
+        return cached.Dead;
     }
 
+    // whether a declaration is in a dead branch; null when no branch is dead. A module of several files may have a dead branch of each at the same range: a
+    // dead branch is of the file it is written in.
+    private static Func<SourceLocation, bool>? DeadTestOf(ImmutableArray<SourceLocation> dead)
+        => dead.IsEmpty ? null : location => dead.Any(branch => branch.Uri == location.Uri
+            && location.Range.Start.CompareTo(branch.Range.Start) >= 0 && location.Range.Start.CompareTo(branch.Range.End) <= 0);
+
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession,
-        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, Uri? Document, ImmutableArray<SourceRange> Dead)>>
+        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, ImmutableArray<SourceLocation> Dead)>>
         DeadRangesBySession = new();
 
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch

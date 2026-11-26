@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
@@ -28,7 +29,8 @@ internal sealed class ExtractionModuleAnalysis
     private readonly ISymbolResolver _resolver;
     private readonly ConcurrentDictionary<string, ExtractionProcedureAnalysis?> _procedures = new(StringComparer.OrdinalIgnoreCase);
 
-    private ExtractionModuleAnalysis(Uri module, string text, ModuleParseResult parse, ISymbolResolver resolver, ScopeTree scopes)
+    private ExtractionModuleAnalysis(
+        Uri module, string text, ModuleParseResult parse, ISymbolResolver resolver, ScopeTree scopes, Func<SourceLocation, bool>? deadTest)
     {
         Module = module;
         Text = text;
@@ -38,7 +40,8 @@ internal sealed class ExtractionModuleAnalysis
         Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text);
         _blocks = ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia);
         DeclarationErrors = parse.SyntaxTree is { } tree
-            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, _blocks), .. ReservedNameStaticSemantics.CheckSyntax(tree)]
+            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, _blocks, new StaticSemanticsOptions(DeadAt: deadTest)),
+                .. ReservedNameStaticSemantics.CheckSyntax(tree)]
             : [];
     }
 
@@ -83,8 +86,13 @@ internal sealed class ExtractionModuleAnalysis
     /// <param name="parse">Its parse.</param>
     /// <param name="resolver">The resolver of the composition.</param>
     /// <param name="scopes">The scopes of the composition.</param>
-    public static ExtractionModuleAnalysis Of(Uri module, string text, ModuleParseResult parse, ISymbolResolver resolver, ScopeTree scopes)
-        => new(module, text, parse, resolver, scopes);
+    /// <param name="deadTest">
+    /// Whether a location of <paramref name="parse"/> is in a branch of an <c>#If</c> block that is not live; <see langword="null"/> when that is not known,
+    /// and every branch is read as an alternative of the others.
+    /// </param>
+    public static ExtractionModuleAnalysis Of(
+        Uri module, string text, ModuleParseResult parse, ISymbolResolver resolver, ScopeTree scopes, Func<SourceLocation, bool>? deadTest = null)
+        => new(module, text, parse, resolver, scopes, deadTest);
 
     /// <summary>
     /// The procedure of the module that is named <paramref name="name"/>, of the kind <paramref name="kind"/>, analyzed; <see langword="null"/> when the module

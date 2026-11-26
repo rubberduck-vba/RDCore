@@ -109,6 +109,8 @@ internal static class LanguageServerServices
                 provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RDCore.SDK.Server.Configuration.SdkAppOptions>>().Value.Environment.Is64Bit))
             .AddSingleton<IReferencedLibraryService, ReferencedLibraryService>()
             .AddSingleton<IReferencedProjectService, ReferencedProjectService>()
+            // the branches of each module the host evaluated as not live when it last defined the module's symbols.
+            .AddSingleton<ModuleLiveBranches>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()

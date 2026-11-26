@@ -152,7 +152,8 @@ internal sealed class SymbolSyncService(
     ILogger<SymbolSyncService> logger,
     IReferencedLibraryService referencedLibraries,
     IWorkspaceProjects projects,
-    IReferencedProjectService? referencedProjects = null) : ISymbolSyncService
+    IReferencedProjectService? referencedProjects = null,
+    ModuleLiveBranches? liveBranches = null) : ISymbolSyncService
 {
     // what the primary project's names are bound among: the libraries it references, and the projects of the workspace it references.
     private IReadOnlyList<Symbol> PrimaryLibraries(Uri workspaceRoot, CancellationToken token)
@@ -502,6 +503,12 @@ internal sealed class SymbolSyncService(
 
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             request with { SessionModule = sessionModule }, token);
+
+        // the branches the host evaluated as not live, of a module whose directives it was sent: what a refactoring checks an edit of the module against.
+        if (request.PrecompilerTriviaJson.Length > 0)
+        {
+            liveBranches?.Record(definition.Module.Parse, result.DeadBranches);
+        }
 
         if (logger.IsEnabled(LogLevel.Information))
         {
