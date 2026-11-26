@@ -190,6 +190,29 @@ public sealed class ReplDebuggingTests
         Assert.AreEqual($"VBR00006  Overflow{Environment.NewLine}  {Resources.Repl_RuntimeError_StackTrace}{Environment.NewLine}    Main 30", said[2]);
     }
 
+    // what the error says beyond its description is said under it, before the stack it was raised on.
+    [TestMethod]
+    public async Task ARunTimeError_ThatSaysMoreThanItsDescription_IsSaidWithItUnderTheDescription()
+    {
+        ExecuteReturns(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.RuntimeError,
+            ErrorLine = 3,
+            ErrorCode = "VBR50001",
+            ErrorTitle = "Run-time error",
+            ErrorMessage = "Nobody can answer",
+            ErrorVerbose = "Form2 is still loaded",
+            StackTrace = [new ExecuteStackFrame("Main", 3, 0, null)],
+        });
+
+        await RunAsync();
+
+        var said = _console.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteMessage)).Select(call => call.GetArguments())
+            .Single(arguments => arguments[0] is RDCore.CLI.ConsoleIO.Model.MessageKind.Error);
+        var under = $"{Environment.NewLine}  ";
+        Assert.AreEqual($"VBR50001  Nobody can answer{under}Form2 is still loaded{under}{Resources.Repl_RuntimeError_StackTrace}{Environment.NewLine}    Main 30", said[2]);
+    }
+
     [TestMethod]
     public async Task ARun_ThatStops_WaitsAndSaysWhere()
     {

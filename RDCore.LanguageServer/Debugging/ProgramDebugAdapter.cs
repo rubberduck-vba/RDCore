@@ -648,7 +648,11 @@ internal sealed class ProgramDebugAdapter(
         await editStatus.CheckAsync(_lifetime.Token);
     }
 
-    private static string Describe(ExecuteResult result) => result.Outcome switch
+    // what the error says beyond its description is said under it: the debug console's line, and the details of the error the program waits at.
+    private static string Describe(ExecuteResult result)
+        => result.ErrorVerbose is { } verbose ? $"{DescribeOutcome(result)}\n{verbose}" : DescribeOutcome(result);
+
+    private static string DescribeOutcome(ExecuteResult result) => result.Outcome switch
     {
         ExecutionOutcome.SyntaxError => string.Join("\n", result.Diagnostics),
         ExecutionOutcome.RuntimeError => string.Format(DebuggerMessages.RuntimeErrorMessage,
