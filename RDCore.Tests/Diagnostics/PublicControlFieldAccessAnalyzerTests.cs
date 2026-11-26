@@ -88,7 +88,8 @@ public sealed class PublicControlFieldAccessAnalyzerTests
         Assert.IsEmpty(parsed.SyntaxErrors, string.Join("; ", parsed.SyntaxErrors.Select(error => error.Verbose)));
 
         var findings = new PublicControlFieldAccessAnalyzer().Analyze(new ModuleAnalysisContext(uri, parsed, model)).ToArray();
-        Assert.IsTrue(findings.All(finding => finding.Id == RDCoreDiagnosticId.PublicControlFieldAccess && finding.Severity == DiagnosticSeverity.Information));
+        Assert.IsTrue(findings.All(finding =>
+            finding.Id == RDCoreDiagnosticId.PublicControlFieldAccess && finding.Severity == DiagnosticSeverity.Information));
         var controlUses = model.Procedures.SelectMany(procedure => procedure.Expressions)
             .Count(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.BoundToDesignerControl));
         return ([.. findings.Select(finding => (finding.Message.Split('\'')[1], finding.Message.Split('\'')[3], finding.Range.Start.Line))], controlUses);
