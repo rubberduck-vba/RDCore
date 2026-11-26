@@ -41,7 +41,7 @@ End Class
 
 |Aspect|Rule|
 |---|---|
-|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it.|
+|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it. A block without `Partial` named as another module of the project is [`VBC09386`](../diagnostics/vbc09386.md), at the name in its header; a `Partial` block of that name is a part of it ([Modules of parts](#modules-of-parts)).|
 |Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
@@ -50,12 +50,11 @@ End Class
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
 |Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. The parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
-|Editing|A block that an edit takes out of its file, or renames, takes its module out of the environment host, unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
+|Editing|A block that an edit takes out of its file, or renames, takes its module out of its project's session in the environment host (the runtime session, or the project's analysis session), unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
 
 > [!NOTE]
-> **Not implemented.** Completion and rename read each part of a module as a module of its own. The analysis session of a project other than the
-> primary one keeps the module of a block that an edit takes out of its file. VBA and VB6 have no blocks. No diagnostic reports a block in a VBA or VB6
-> workspace, and no code action extracts a block into a module file of its own.
+> **Not implemented.** Completion and rename read each part of a module as a module of its own. VBA and VB6 have no blocks. No diagnostic
+> reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
 
 ### Implementation
 

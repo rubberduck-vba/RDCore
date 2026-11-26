@@ -232,10 +232,52 @@ public sealed class ProjectAnalysisSessionTests
         await DefineAsync(Tools);
         Assert.IsTrue(_analyses.TryGet(SymbolUri.Root(Tools), out var tools));
 
-        await new HostDiscardHandler(_runtime, NullLogger<HostDiscardHandler>.Instance).Handle(
-            new HostDiscardParams { ModuleUri = SymbolUri.Module(Tools, "Common"), ModuleName = "Common" }, CancellationToken.None);
+        await DiscardAsync(root: null, Tools, "Common");
 
         CollectionAssert.AreEqual(new[] { "FromApp" }, MembersOf(_runtime.Session, App, "Common"));
         CollectionAssert.AreEqual(new[] { "FromTools" }, MembersOf(tools.Session, Tools, "Common"));
     }
+
+    // a discard that names the root of an analyzed project takes the module out of that project's session, and of no other: the runtime session's module
+    // of that name, and the project's other modules, stay.
+    [TestMethod]
+    public async Task DiscardingWithTheRootOfAnAnalyzedProject_TakesTheModuleOutOfItsSessionOnly()
+    {
+        await ComposeAppAsync();
+        await DefineAsync(App);
+        await AnalyzeAsync(Tools);
+        await DefineAsync(Tools);
+        Assert.IsTrue(_analyses.TryGet(SymbolUri.Root(Tools), out var tools));
+
+        var discarded = await DiscardAsync(root: Tools, Tools, "Common");
+
+        Assert.IsGreaterThan(0, discarded.Discarded);
+        Assert.IsEmpty(MembersOf(tools.Session, Tools, "Common"));
+        CollectionAssert.AreEqual(new[] { "Run" }, MembersOf(tools.Session, Tools, "ToolsOnly"));
+        CollectionAssert.AreEqual(new[] { "FromApp" }, MembersOf(_runtime.Session, App, "Common"));
+    }
+
+    // the root of the project the host runs is no analyzed project's: a discard that names it is the runtime session's, as one that names none.
+    [TestMethod]
+    public async Task DiscardingWithTheRootOfTheProjectTheHostRuns_TakesTheModuleOutOfTheRuntimeSession()
+    {
+        await ComposeAppAsync();
+        await DefineAsync(App);
+        await AnalyzeAsync(Tools);
+        await DefineAsync(Tools);
+        Assert.IsTrue(_analyses.TryGet(SymbolUri.Root(Tools), out var tools));
+
+        await DiscardAsync(root: App, App, "Common");
+
+        Assert.IsEmpty(MembersOf(_runtime.Session, App, "Common"));
+        CollectionAssert.AreEqual(new[] { "FromTools" }, MembersOf(tools.Session, Tools, "Common"));
+    }
+
+    private Task<DiscardResult> DiscardAsync(string? root, string projectOf, string module)
+        => new HostDiscardHandler(_runtime, _analyses, NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
+        {
+            WorkspaceRoot = root is null ? null : SymbolUri.Root(root),
+            ModuleUri = SymbolUri.Module(projectOf, module),
+            ModuleName = module,
+        }, CancellationToken.None);
 }

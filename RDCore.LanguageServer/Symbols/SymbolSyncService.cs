@@ -164,6 +164,10 @@ internal sealed class SymbolSyncService(
     private readonly Dictionary<Uri, ProjectFile> _analyzed = new(SymbolUri.RootComparer);
     private IRDCoreClientApp? _analysisHost;
 
+    // of each of them, by its root, what _definedFrom is of the primary project: the modules this service defined in its analysis session, and the document
+    // each is written in. A session composed again holds none of them.
+    private readonly Dictionary<Uri, Dictionary<string, Uri>> _analyzedFrom = new(SymbolUri.RootComparer);
+
     // where the variable an undeclared name declares lives is the environment's to say, and every extraction pass
     // - the resolver's own two, and the one that defines the symbols - has to agree on it.
     private ImplicitDeclarationScope ImplicitScope => options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope;
@@ -407,6 +411,7 @@ internal sealed class SymbolSyncService(
         if (!ReferenceEquals(host, _analysisHost))
         {
             _analyzed.Clear();
+            _analyzedFrom.Clear();
             _analysisHost = host;
         }
 
@@ -414,6 +419,7 @@ internal sealed class SymbolSyncService(
         foreach (var gone in _analyzed.Keys.Where(root => !others.Any(other => SymbolUri.SameRoot(SymbolUri.Root(other.Root), root))).ToList())
         {
             _analyzed.Remove(gone);
+            _analyzedFrom.Remove(gone);
             await host.SendRequestAsync<HostProjectReleaseParams, HostProjectReleaseResult>(new HostProjectReleaseParams { WorkspaceRoot = gone }, token);
         }
 
@@ -444,6 +450,7 @@ internal sealed class SymbolSyncService(
         if (composed)
         {
             _analyzed.Remove(root);
+            _analyzedFrom.Remove(root);
             var result = await host.SendRequestAsync<HostProjectAnalyzeParams, HostProjectAnalyzeResult>(new HostProjectAnalyzeParams { WorkspaceRoot = root }, token);
             if (!result.Composed)
             {
@@ -454,6 +461,14 @@ internal sealed class SymbolSyncService(
         }
 
         var (_, modules, hosts) = CollectModules(other.Root, root, token);
+        // a module the project no longer has - a block taken out of its file - is taken out of a session that was not composed again, as it is of the
+        // runtime session.
+        if (!composed)
+        {
+            await DiscardGoneAsync(host, modules, document: null, token, root);
+        }
+
+        Defined(modules, root);
         foreach (var definition in SessionDefinitions.Of(root, modules, ResolverOf(root, other, modules, hosts), ImplicitScope, replace: !composed))
         {
             await (definition.Phase is SessionDefinitionPhase.Code ? SendModuleCodeAsync(definition, token) : DefineModuleSymbolsAsync(definition, token));
@@ -597,6 +612,10 @@ internal sealed class SymbolSyncService(
                 continue;
             }
 
+            await DiscardGoneAsync(host, theirs, file, token, root);
+            Defined(theirChanged, root);
+            Moved(theirs, root);
+
             var otherResolver = ResolverOf(root, other, theirs, theirHosts);
             SessionDefinition Theirs(ParsedModule module, SessionDefinitionPhase phase)
                 => new(phase, root, module, otherResolver, ImplicitScope, Replace: true);
@@ -616,33 +635,43 @@ internal sealed class SymbolSyncService(
     // declares any more is what the host holds and the workspace does not.
     private readonly Dictionary<string, Uri> _definedFrom = new(StringComparer.OrdinalIgnoreCase);
 
-    private void Defined(IEnumerable<ParsedModule> modules)
+    // what this service defined in the session of the project of a root, the runtime session's when it names none. Under the hold, as every use of
+    // _analyzedFrom is.
+    private Dictionary<string, Uri> DefinedFrom(Uri? root)
+        => root is null ? _definedFrom
+            : _analyzedFrom.TryGetValue(root, out var defined) ? defined
+            : _analyzedFrom[root] = new Dictionary<string, Uri>(StringComparer.OrdinalIgnoreCase);
+
+    private void Defined(IEnumerable<ParsedModule> modules, Uri? root = null)
     {
-        lock (_definedFrom)
+        var definedFrom = DefinedFrom(root);
+        lock (definedFrom)
         {
             foreach (var module in modules.Where(module => module.Document is not null))
             {
-                _definedFrom[module.Name] = module.Document!;
+                definedFrom[module.Name] = module.Document!;
             }
         }
     }
 
     // a module the host has that another document declares now - a block moved to another file - is that document's: its sync is what takes it out.
-    private void Moved(IEnumerable<ParsedModule> modules)
+    private void Moved(IEnumerable<ParsedModule> modules, Uri? root = null)
     {
-        lock (_definedFrom)
+        var definedFrom = DefinedFrom(root);
+        lock (definedFrom)
         {
-            foreach (var module in modules.Where(module => module.Document is not null && _definedFrom.ContainsKey(module.Name)))
+            foreach (var module in modules.Where(module => module.Document is not null && definedFrom.ContainsKey(module.Name)))
             {
-                _definedFrom[module.Name] = module.Document!;
+                definedFrom[module.Name] = module.Document!;
             }
         }
     }
 
     // takes out of the host each module it was given from a document - from the document, when one is said - whose parse now declares it no more, and that
-    // no module of the workspace is now. A document the server has no parse of at the moment (one being parsed again) says nothing of what it declares, and a
-    // document that left the workspace is taken out by whoever removed it.
-    private async Task DiscardGoneAsync(IRDCoreClientApp host, IReadOnlyList<ParsedModule> modules, Uri? document, CancellationToken token)
+    // no module of the workspace is now: out of the runtime session, or out of the analysis session of the project of the root. A document the server has no
+    // parse of at the moment (one being parsed again) says nothing of what it declares, and a document that left the workspace is taken out by whoever
+    // removed it.
+    private async Task DiscardGoneAsync(IRDCoreClientApp host, IReadOnlyList<ParsedModule> modules, Uri? document, CancellationToken token, Uri? root = null)
     {
         if (host.PlatformInfo?.Provides<SessionDiscard>() != true)
         {
@@ -650,10 +679,11 @@ internal sealed class SymbolSyncService(
         }
 
         var parsed = modules.SelectMany(module => module.Documents).ToHashSet();
+        var definedFrom = DefinedFrom(root);
         string[] gone;
-        lock (_definedFrom)
+        lock (definedFrom)
         {
-            gone = [.. _definedFrom
+            gone = [.. definedFrom
                 .Where(defined => (document is null || defined.Value == document) && parsed.Contains(defined.Value)
                     && !modules.Any(module => string.Equals(module.Name, defined.Key, StringComparison.OrdinalIgnoreCase)))
                 .Select(defined => defined.Key)];
@@ -661,7 +691,7 @@ internal sealed class SymbolSyncService(
 
         foreach (var name in gone)
         {
-            await SendDiscardAsync(host, name, endProgram: false, token);
+            await SendDiscardAsync(host, name, endProgram: false, token, root);
         }
     }
 
@@ -684,15 +714,16 @@ internal sealed class SymbolSyncService(
         return await SendDiscardAsync(host, moduleName, endProgram, token);
     }
 
-    // under the hold: the module is addressed the way it was defined, and is no longer one this service defined.
-    private async Task<DiscardResult> SendDiscardAsync(IRDCoreClientApp host, string moduleName, bool endProgram, CancellationToken token)
+    // under the hold: the module is addressed the way it was defined, in the session it was defined in, and is no longer one this service defined.
+    private async Task<DiscardResult> SendDiscardAsync(IRDCoreClientApp host, string moduleName, bool endProgram, CancellationToken token, Uri? root = null)
     {
-        var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
+        var moduleUri = root is null ? SymbolUri.Module(documents.WorkspaceRoot, moduleName) : SymbolUri.Module(root, moduleName);
         var result = await host.SendRequestAsync<HostDiscardParams, DiscardResult>(
-            new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName, EndProgram = endProgram }, token);
-        lock (_definedFrom)
+            new HostDiscardParams { WorkspaceRoot = root, ModuleUri = moduleUri, ModuleName = moduleName, EndProgram = endProgram }, token);
+        var definedFrom = DefinedFrom(root);
+        lock (definedFrom)
         {
-            _definedFrom.Remove(moduleName);
+            definedFrom.Remove(moduleName);
         }
 
         LogIfEnabled(LogLevel.Information, $"🗑️ {moduleName}: {result.Discarded} symbol(s) discarded.");

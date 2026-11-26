@@ -1029,4 +1029,20 @@ public sealed class SymbolSyncServiceTests
         Assert.AreEqual("Helpers", refused.Key);
         Assert.StartsWith(VBCompileErrorInfo.GetErrorString(VBCompileErrorId.ModulePartOfAnotherKind), refused.Value);
     }
+
+    // a block's module is a module of the project as a file's is: of two blocks of one name, neither is the host's, and a run is refused, though no file's
+    // own module has the name. The file that has the blocks is the host's.
+    [TestMethod]
+    public async Task TwoBlocksOfOneName_AreNeitherSentToTheHost_AndARunOfTheProgramIsRefused()
+    {
+        var (sut, sent) = WorkspaceOf(("Backup", Named("Backup") + "Module Dup\r\nEnd Module\r\nClass Dup\r\nEnd Class\r\n"), ("B", Named("Other")));
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        CollectionAssert.IsSubsetOf(new[] { "Backup", "Other" }, sent);
+        Assert.DoesNotContain("Dup", sent);
+        var refused = Assert.ContainsSingle(sut.Unsynced);
+        Assert.AreEqual("Dup", refused.Key);
+        Assert.StartsWith(VBCompileErrorInfo.GetErrorString(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary), refused.Value);
+    }
 }
