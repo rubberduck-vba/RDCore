@@ -136,7 +136,7 @@ The exit code says how the run went:
 |Exit code|Meaning|
 |---|---|
 |`0`|The program ended: its entry point returned, it ran an `End`, or it ran a `Stop` in `Release`.|
-|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description.|
+|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description, and under them what else the error says, such as the form a run nobody attends left loaded.|
 |`2`|It could not start: no entry point, or a module that does not load.|
 
 ### Building a program
