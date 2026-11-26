@@ -86,8 +86,16 @@ public sealed class ProgramExecutionTests
     // a program's own Err.Raise says its description and nothing more: that the program raised it is what its code says (VBA), not a line under it.
     [TestMethod]
     public async Task AProgramsOwnErrRaise_SaysItsDescription_AndNothingUnderIt()
+        => await AProgramsOwnError_SaysItsDescription_AndNothingUnderIt("    Err.Raise 5");
+
+    // and so does its Error statement, which raises the same error.
+    [TestMethod]
+    public async Task AProgramsOwnErrorStatement_SaysItsDescription_AndNothingUnderIt()
+        => await AProgramsOwnError_SaysItsDescription_AndNothingUnderIt("    Error 5");
+
+    private static async Task AProgramsOwnError_SaysItsDescription_AndNothingUnderIt(string raise)
     {
-        var result = await RanAsync("    Err.Raise 5");
+        var result = await RanAsync(raise);
 
         Assert.AreEqual((ExecutionOutcome.RuntimeError, 5, "VBA00005"), (result.Outcome, result.ErrorNumber, result.ErrorCode), result.ErrorMessage);
         Assert.AreEqual(VBRuntimeErrorInfo.GetErrorString(VBRuntimeErrorId.InvalidProcedureCallOrArgument), result.ErrorMessage, "the usual description");

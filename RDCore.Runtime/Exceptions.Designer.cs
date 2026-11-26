@@ -468,15 +468,6 @@ namespace RDCore.Runtime {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Raised explicitly by an Error statement..
-        /// </summary>
-        internal static string VBErrorStatement_Raised_Verbose {
-            get {
-                return ResourceManager.GetString("VBErrorStatement_Raised_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to This call would push the session&apos;s call stack past its own maximum depth - most likely unbounded recursion..
         /// </summary>
         internal static string VBProcedureCall_OutOfStackSpace_Verbose {

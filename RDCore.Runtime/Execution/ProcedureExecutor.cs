@@ -2020,9 +2020,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var number = ((VBIntegerValue)numberResult.Result!).Value;
 
         // its help context is the error's, as for an error the runtime raises, whatever one Err has: Error 9 is 1000009, and Error 5 after
-        // Err.Raise 13, , , , 77 is 1000005 (observed in Excel).
-        return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(
-            number, errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
+        // Err.Raise 13, , , , 77 is 1000005 (observed in Excel). It says nothing beyond its description, as Err.Raise does not: the program raised it,
+        // which its code says (VBA).
+        return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(number, errorStatement.NumberExpression.Location, string.Empty));
     }
 
     // Structural recognition only - the member's own body is never called (no procedure invocation
