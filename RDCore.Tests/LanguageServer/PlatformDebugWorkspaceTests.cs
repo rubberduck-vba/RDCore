@@ -10,6 +10,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
@@ -380,5 +381,78 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         Assert.IsNull(goneOn);
         Assert.IsNull(again);
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    // ---- a file of blocks ----
+
+    // Prog.bas as a file of blocks: its own module on lines 0 to 2, and the Helpers block from its header on line 3 to its end on line 6.
+    private void WriteBlocks(string block = "Helpers")
+        => _sources[_listed[0].Id.Uri.ToUri()] =
+            $"Attribute VB_Name = \"Prog\"\r\nPublic Sub Main()\r\nEnd Sub\r\nModule {block}\r\nPublic Sub Start()\r\nEnd Sub\r\nEnd Module\r\n";
+
+    [TestMethod]
+    public async Task AFileOfBlocks_IsTheSourceOfEachOfItsModules_ALineBeingInTheModuleWhoseLinesHoldIt()
+    {
+        WriteBlocks();
+        var workspace = await OpenedAsync();
+
+        Assert.IsTrue(workspace.TryGetFile(_file, out var file));
+        CollectionAssert.AreEqual(new[] { "Prog", "Helpers" }, file.Modules.ToArray());
+        Assert.AreEqual("Prog", file.ModuleAt(1), "a line of the file's own module");
+        Assert.AreEqual("Helpers", file.ModuleAt(4), "a line of the block");
+        Assert.IsTrue(workspace.TryGetPath("Helpers", out var path), "the block's module has a file");
+        Assert.IsTrue(workspace.TryGetPath("Prog", out var own));
+        Assert.AreEqual(own, path, "the file that holds the block");
+        Assert.IsTrue(string.Equals(_file, path, StringComparison.OrdinalIgnoreCase), path);
+    }
+
+    [TestMethod]
+    public async Task TheModulesDeclaringTheEntryPoint_AreAskedOf_TheBlocksOfTheProgramsFiles()
+    {
+        WriteBlocks();
+        HostEntryPointsParams? asked = null;
+        _host.SendRequestAsync<HostEntryPointsParams, HostEntryPointsResult>(
+                Arg.Do<HostEntryPointsParams>(request => asked = request), Arg.Any<CancellationToken>())
+            .Returns(new HostEntryPointsResult { Modules = ["Helpers"] });
+
+        _ = await (await OpenedAsync()).ModulesDeclaringAsync("Start", CancellationToken.None);
+
+        Assert.IsNotNull(asked, "the host was not asked");
+        CollectionAssert.AreEquivalent(new[] { "Prog", "Helpers" }, asked.Modules);
+    }
+
+    // a block's module was defined on its own part of its file's parse, under its own address: it is run on the same.
+    [TestMethod]
+    public async Task ABlocksModule_IsRunOnItsOwnPartOfItsFilesParse()
+    {
+        WriteBlocks();
+        HostExecuteParams? sent = null;
+        _host.SendRequestAsync<HostExecuteParams, ExecuteResult>(Arg.Do<HostExecuteParams>(request => sent = request), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteResult { Outcome = ExecutionOutcome.Suspended });
+        var workspace = await OpenedAsync();
+
+        _ = await workspace.StartAsync("Helpers", "Start", CancellationToken.None);
+
+        Assert.IsNotNull(sent, "the host was not asked to run it");
+        var payload = PlatformJson.Deserialize<HostExecutePayload>(sent.Json);
+        Assert.AreEqual(SymbolUri.Module(_root, "Helpers"), payload.DocumentUri);
+        var procedures = payload.ParseResult.SyntaxTree!.Children.OfType<SDK.Model.AST.Declarations.MemberDeclarationNode>().Select(member => member.Name);
+        CollectionAssert.AreEqual(new[] { "Start" }, procedures.ToArray(), "the block's procedures, and none of its file's own module");
+    }
+
+    // a block's header names its module as an attribute names a file's: a block named otherwise is a module the program does not have.
+    [TestMethod]
+    public async Task ABlockRenamedByItsHeader_IsWhyTheProgramCantGoOn()
+    {
+        WriteBlocks();
+        var workspace = await OpenedAsync();
+        WriteBlocks("Tools");
+        _reload.ReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>()).Returns(new WorkspaceReloadResult(0, 0, false, false, Reread: 1));
+
+        var refused = await workspace.ReloadChangedAsync(CancellationToken.None);
+
+        Assert.IsNotNull(refused, "the program was gone on with");
+        StringAssert.Contains(refused, "Helpers");
+        StringAssert.Contains(refused, "Tools");
     }
 }

@@ -18,15 +18,15 @@ internal interface IDebugWorkspace
     Task OpenAsync(CancellationToken token);
 
     /// <summary>
-    /// The module a file is the source of.
+    /// The modules a file is the source of: its own, and the module of each of its blocks (<strong>RD-VBAL §5.1</strong>).
     /// </summary>
     /// <param name="path">The path of the file, as the client says it.</param>
-    /// <param name="moduleName">The programmatic name of the module.</param>
+    /// <param name="file">The modules of the file, and the lines each is written on.</param>
     /// <returns>Whether the file is part of the workspace.</returns>
-    bool TryGetModule(string path, out string moduleName);
+    bool TryGetFile(string path, out DebugFile file);
 
     /// <summary>
-    /// The file a module is the source of.
+    /// The file a module is the source of: a block's module is in the file that holds the block.
     /// </summary>
     /// <param name="moduleName">The programmatic name of the module.</param>
     /// <param name="path">The path of the file.</param>
@@ -83,4 +83,17 @@ internal interface IDebugWorkspace
     /// Completes when a component the debugging cannot go on without is lost for good, with its name.
     /// </summary>
     Task<string> Lost { get; }
+}
+
+// the modules a file of the workspace is the source of: its own, and each block's, written from its header line to its end line (RD-VBAL §5.1). A line is in
+// the block whose lines hold it, and in the file's own module otherwise. A file of one module has no blocks.
+internal sealed record class DebugFile(string Module, IReadOnlyList<(string Name, int FirstLine, int LastLine)> Blocks)
+{
+    public static DebugFile Of(string module) => new(module, []);
+
+    // the file's own module first, then each block's, in the order they are written.
+    public IEnumerable<string> Modules => [Module, .. Blocks.Select(block => block.Name)];
+
+    // the module a zero-based line of the file is in.
+    public string ModuleAt(int line) => Blocks.FirstOrDefault(block => block.FirstLine <= line && line <= block.LastLine).Name ?? Module;
 }
