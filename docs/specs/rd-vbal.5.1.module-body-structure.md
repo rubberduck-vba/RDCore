@@ -41,7 +41,7 @@ End Class
 
 |Aspect|Rule|
 |---|---|
-|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it.|
+|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it. A block without `Partial` named as another module of the project is [`VBC09386`](../diagnostics/vbc09386.md), at the name in its header; a `Partial` block of that name is a part of it ([Modules of parts](#modules-of-parts)).|
 |Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|

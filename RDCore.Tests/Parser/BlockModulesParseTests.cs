@@ -248,6 +248,20 @@ public sealed class BlockModulesParseTests
         CollectionAssert.AreEqual(new SourceRange?[] { null, new(2, 0, 2, 7), null, new(2, 8, 2, 14), new(2, 15, 2, 21) }, WordsOf(parse.BlockModules[1]));
     }
 
+    // the columns of an indented header, with a comment after it, are the file's: the name starts after the indent and ends before the comment.
+    [TestMethod]
+    public void AnIndentedHeader_WithACommentAfterIt_IsNamedWhereTheFileWritesTheName()
+    {
+        var parse = Parse(Module,
+            "  Class Account ",
+            "End Class",
+            "Private Partial Module Helpers ' tools",
+            "End Module");
+
+        CollectionAssert.AreEqual(new SourceRange?[] { new SourceRange(new(0, 8), new(0, 15)), new SourceRange(new(2, 23), new(2, 30)) },
+            parse.BlockModules.Select(block => block.NameRange).ToArray());
+    }
+
     // a block's header states what these lines state in a module file: each is an error at its line, the attribute of a member's too.
     [TestMethod]
     public void AModuleFilesHeaderLine_InABlock_IsInvalidThere_AtItsLine()
