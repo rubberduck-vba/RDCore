@@ -118,8 +118,8 @@ internal sealed class DefineSymbolsHandler(
                 // a class module's symbol is composed from a project without being read; what makes it the class its members declare, and the one that
                 // implements the interfaces its directives name, is this, once its members are bound. A module that is not a class has nothing to compose.
                 _ = request.ModuleUri is { } moduleUri
-                    ? session.Symbols.TryComposeClassModule(moduleUri, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges)
-                    : session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
+                    ? session.Symbols.TryComposeClassModule(moduleUri, request.ImplementedInterfaceNames, request.ImplementedInterfaceLocations)
+                    : session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceLocations);
 
                 // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable named after it, which the code of every
                 // module names - so it is there before any code is loaded, which is after every module's symbols are.
@@ -162,7 +162,7 @@ internal sealed class DefineSymbolsHandler(
 
     // MS-VBAL §3.4: what the module's directives make dead, evaluated with the session's constants and the module's own - the request's directives, when it
     // sends them; null when it does not, and every declaration is defined as the first branch writes it.
-    private Func<SourcePosition, bool>? DeadBranchesOf(Target target, DefineSymbolsParams request)
+    private Func<SourceLocation, bool>? DeadBranchesOf(Target target, DefineSymbolsParams request)
     {
         var session = target.Session;
         if (request.PrecompilerTriviaJson.Length == 0)
@@ -184,16 +184,19 @@ internal sealed class DefineSymbolsHandler(
                 ? []
                 : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, target.Image, errorDetails).Expressions,
                     new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
-            cached = (request.PrecompilerTriviaJson, constants, ranges);
+            // the module is written in one file, the one its trivia says: a dead range is of that document.
+            cached = (request.PrecompilerTriviaJson, constants, trivia.IsDefaultOrEmpty ? null : trivia[0].SourceLocation.Uri, ranges);
             evaluated[key] = cached;
         }
 
-        var dead = cached.Dead;
-        return dead.IsEmpty ? null : position => dead.Any(range => position.CompareTo(range.Start) >= 0 && position.CompareTo(range.End) <= 0);
+        var (document, dead) = (cached.Document, cached.Dead);
+        return dead.IsEmpty ? null : location => location.Uri == document
+            && dead.Any(range => location.Range.Start.CompareTo(range.Start) >= 0 && location.Range.Start.CompareTo(range.End) <= 0);
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession,
-        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, ImmutableArray<SourceRange> Dead)>> DeadRangesBySession = new();
+        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, Uri? Document, ImmutableArray<SourceRange> Dead)>>
+        DeadRangesBySession = new();
 
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch
     // into one symbol, each other branch's arriving beside it with the same identity (uri): of those the one of the live branch is defined, and a declaration
@@ -201,7 +204,7 @@ internal sealed class DefineSymbolsHandler(
     // Property Get/Let/Set, and an Enum, a Type or an Event beside a namesake of the module, have identities of their own (Symbol.UriSuffix), so they stay
     // distinct.
     private static (int Defined, int Replaced, int Merged, List<string> Skipped) DefineSymbols(
-        IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace, Func<SourcePosition, bool>? isDead)
+        IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace, Func<SourceLocation, bool>? isDead)
     {
         var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
 
@@ -357,7 +360,7 @@ internal sealed class DefineSymbolsHandler(
         // the members of an object of it, and of its default instance, are bound from the session's code.
         if (!request.DeclareTypesOnly && module is VBClassModuleSymbol)
         {
-            _ = session.Symbols.TryComposeClassModule(module.Uri, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
+            _ = session.Symbols.TryComposeClassModule(module.Uri, request.ImplementedInterfaceNames, request.ImplementedInterfaceLocations);
         }
 
         // a class that is no longer predeclared has no default instance in the session.
@@ -383,13 +386,13 @@ internal sealed class DefineSymbolsHandler(
     // MS-VBAL §3.4, §5.6.10: the locals of a procedure that the live code declares. A Dim, a Static or a Const of a dead branch is not compiled, and declares
     // nothing; what a name declares that the module or the procedure declares only in #If branches is declared where each of those is dead, and not
     // otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
-    private static Symbol WithLiveLocals(Symbol symbol, Func<SourcePosition, bool>? isDead)
+    private static Symbol WithLiveLocals(Symbol symbol, Func<SourceLocation, bool>? isDead)
     {
         static bool IsConditional(BoundTypedSymbol local) => !local.GetProperty(SymbolProperties.UnlessLive).IsDefaultOrEmpty;
         static bool IsDeclaredByAStatement(BoundTypedSymbol local) => local is VBLocalVariableSymbol { DeclaredBy: LocalDeclarationKind.Dim } or VBLocalConstantSymbol;
         bool IsDeclared(BoundTypedSymbol local) => IsConditional(local)
             ? isDead is not null && local.GetProperty(SymbolProperties.UnlessLive).All(isDead)
-            : isDead is null || !IsDeclaredByAStatement(local) || !isDead(local.Range.Start);
+            : isDead is null || !IsDeclaredByAStatement(local) || local.Location is not { } written || !isDead(written);
 
         // what is declared is then declared whatever the branches are: the scope of the procedure has it. A name declared in more than one branch arrives
         // once for each, and is declared once: by the first of them that is declared.
@@ -409,13 +412,14 @@ internal sealed class DefineSymbolsHandler(
     }
 
     // the declaration of the live branch among the sites of one identity (WorkspaceSymbol.LiveDeclaration) - and of a Type, the fields of the live branches.
-    private static Symbol? LiveDeclarationOf(WorkspaceSymbol primary, List<Symbol> sites, Func<SourcePosition, bool> isDead)
+    private static Symbol? LiveDeclarationOf(WorkspaceSymbol primary, List<Symbol> sites, Func<SourceLocation, bool> isDead)
     {
         var live = (primary with { Alternatives = [.. sites.Where(site => !ReferenceEquals(site, primary)).OfType<WorkspaceSymbol>()] }).LiveDeclaration(isDead);
         return live is VBUserDefinedTypeMemberSymbol type
             ? type with
             {
-                Members = [.. type.Members.GroupBy(field => field.Uri.ToString()).Select(fields => fields.FirstOrDefault(field => !isDead(field.Range.Start))).OfType<VBTypeMemberSymbol>()],
+                Members = [.. type.Members.GroupBy(field => field.Uri.ToString())
+                    .Select(fields => fields.FirstOrDefault(field => field.Location is not { } written || !isDead(written))).OfType<VBTypeMemberSymbol>()],
             }
             : live;
     }

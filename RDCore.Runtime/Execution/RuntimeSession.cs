@@ -1063,30 +1063,31 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     }
 
     public bool TryComposeClassModule(
-        string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
+        string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations = default)
     {
         // a class of the session's own project before a referenced project's of the same name.
         var named = table.All().OfType<VBClassModuleSymbol>()
             .Where(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase)).ToList();
         var module = named.Find(candidate => candidate.GetProperty(SymbolProperties.Library) is null) ?? named.FirstOrDefault();
-        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceLocations);
     }
 
     public bool TryComposeClassModule(
-        Uri moduleUri, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
+        Uri moduleUri, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations = default)
     {
         ArgumentNullException.ThrowIfNull(moduleUri);
 
         var module = table.All().OfType<VBClassModuleSymbol>()
             .FirstOrDefault(candidate => string.Equals(candidate.Uri.AbsoluteUri, moduleUri.AbsoluteUri, StringComparison.Ordinal));
-        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceLocations);
     }
 
-    private bool Compose(VBClassModuleSymbol module, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges)
+    private bool Compose(
+        VBClassModuleSymbol module, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations)
     {
         // what the class declares: every member defined under its identity.
         var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames,
-            ImplementedInterfaceRanges = implementedInterfaceRanges.IsDefault ? [] : implementedInterfaceRanges,
+            ImplementedInterfaceLocations = implementedInterfaceLocations.IsDefault ? [] : implementedInterfaceLocations,
         };
         Replace(module, composed with { DefaultInterfaceMembers = VBClassType.FromClassModule(composed).Members });
 

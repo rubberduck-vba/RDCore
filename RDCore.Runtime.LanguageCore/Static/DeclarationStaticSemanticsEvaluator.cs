@@ -206,7 +206,7 @@ public static class DeclarationStaticSemanticsEvaluator
     }
 
     private static bool AreOneDeclaration((MemberKind? Kind, SourceLocation Location) prior, (MemberKind? Kind, SourceLocation Location) next, ConditionalCompilationBlocks blocks)
-        => blocks.AreAlternatives(prior.Location.Range.Start, next.Location.Range.Start)
+        => blocks.AreAlternatives(prior.Location, next.Location)
             || (IsAccessor(prior.Kind) && IsAccessor(next.Kind) && prior.Kind != next.Kind);
 
     private static bool IsAccessor(MemberKind? kind) => kind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
