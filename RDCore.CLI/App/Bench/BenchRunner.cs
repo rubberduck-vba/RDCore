@@ -213,6 +213,11 @@ internal sealed class BenchRunner(
     public IRuntimeEnvironmentProfile Environment => environment;
 
     /// <summary>
+    /// The workspace's settings, which its modules are parsed and listed by (<see cref="BenchWorkspace.LoadAsync"/>).
+    /// </summary>
+    public SdkWorkspaceOptions Workspace => _workspace.Value;
+
+    /// <summary>
     /// Loads <paramref name="workspace"/>, waits for its analysis sweep, and runs its cases.
     /// </summary>
     /// <param name="workspace">The workspace.</param>
@@ -406,7 +411,7 @@ internal sealed class BenchRunner(
         var root = workspace.RootUri;
         profile = InTheLanguageOf(workspace, profile);
         var provider = new EnvironmentSessionProvider(
-            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, outside);
+            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, outside, options: options);
         try
         {
             provider.Compose(workspace.Project, root);
@@ -460,7 +465,8 @@ internal sealed class BenchRunner(
             workspace.Project.Name, scope, librarySymbols, HostsOf(workspace), ParsedModule.DirectivesOf(own));
 
         var define = new DefineSymbolsHandler(
-            provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries), errorDetails,
+            provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries, options),
+            errorDetails,
             loggers.CreateLogger<DefineSymbolsHandler>());
         var symbolsTime = TimeSpan.Zero;
         var loaded = new List<ParsedModule>();
