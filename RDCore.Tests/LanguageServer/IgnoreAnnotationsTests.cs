@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Diagnostics;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Workspace;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.LanguageServer;
@@ -143,7 +144,7 @@ public sealed class IgnoreAnnotationsTests
         Assert.AreSame(found, IgnoreAnnotations.Apply(File, Parse("'@Folder(\"Parent\")", "Option Explicit"), found, AnalysisPhase.All, NoneDisabled));
     }
 
-    // a file of blocks: '@IgnoreModule suppresses in the module it is in, a block's or the file's own; '@Ignore inside the file suppresses nothing, as its
+    // a file of blocks: '@IgnoreModule suppresses in the module it is in, a block's or the file's own; '@Ignore inside a block suppresses nothing, as its
     // form is the line above a block's header.
     [TestMethod]
     public void InAFileOfBlocks_IgnoreModule_SuppressesInItsOwnModule_AndIgnoreInNone()
@@ -165,6 +166,29 @@ public sealed class IgnoreAnnotationsTests
 
         CollectionAssert.AreEqual(new[] { "RDC01001@0", "RDC01001@9" },
             Published(parse, found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 9)]));
+    }
+
+    // the comment lines directly above a block's header are its module's (the SDK's binding): '@Ignore there suppresses in that block alone.
+    [TestMethod]
+    public void InAFileOfBlocks_IgnoreAboveABlocksHeader_SuppressesInThatBlock()
+    {
+        var parse = Parse(
+            "Public Sub Own()",     // 0
+            "End Sub",
+            "'@Ignore RDC01001",    // 2
+            "Class Account",
+            "    Public Sub Deposit()",
+            "    End Sub",
+            "End Class",
+            "Module Logger",        // 7
+            "    Public Sub Log()",
+            "    End Sub",
+            "End Module");
+        var account = new RDCoreDocument(File, parse).ParseOf(parse.BlockModules[0].Uri);
+        Assert.HasCount(1, account!.GetHeaderAnnotations(), "the premise: the annotation is a header annotation of Account's module");
+
+        CollectionAssert.AreEqual(new[] { "RDC01001@0", "RDC01001@8", "RDC01002@4" }, Published(parse,
+            found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 8), Finding("RDC01002", 4)]));
     }
 
     [TestMethod]

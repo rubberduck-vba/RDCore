@@ -230,16 +230,14 @@ found them.
 |---|---|
 |`'@Ignore` or `'@IgnoreModule`, in a file of one module|the whole file, wherever the annotation is written|
 |`'@IgnoreModule`, in a file that has blocks|the module it is in: a block's module, or the file's own module outside every block (`RDCoreDocument.ParseOf`)|
-|`'@Ignore`, in a file that has blocks|none|
+|`'@Ignore` on the comment lines directly above a block's header|that block's module ([`Annotations.GetHeaderAnnotations`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Annotations.html))|
+|`'@Ignore` anywhere else in a file that has blocks|none|
 
 - **Arguments:** codes and legacy inspection names, separated by commas: `'@Ignore RDC00315, ProcedureNotUsed`. A code of any provider is written as
   the code. A legacy name, written without its `Inspection` suffix, stands for the core codes that took its place (`LegacyInspectionNames`).
 - **No argument:** every code that can be disabled.
 - **Language errors:** a `VBC`, `VBR` or `VBA` finding is never suppressed (`RDCoreDiagnosticCode.CanBeDisabled`).
 - **An argument that suppresses nothing** is reported as [`RDC00418`](../diagnostics/rdc00418.md), at the argument.
-
-> [!NOTE]
-> **Not implemented.** `'@Ignore` on the comment lines directly above a block's header, which suppresses the findings of that block's module.
 
 ## Language Core Conditions and Analyzer Opinions
 

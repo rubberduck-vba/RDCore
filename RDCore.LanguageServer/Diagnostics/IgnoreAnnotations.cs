@@ -14,9 +14,9 @@ namespace RDCore.LanguageServer.Diagnostics;
 
 // '@Ignore and '@IgnoreModule: the findings of a document that its annotations suppress, which the language server drops once it has every provider's, and
 // RDC00418 for each argument that names nothing they can suppress. An annotation suppresses findings in the module it is written in, which in a file of one
-// module is the whole file. In a file that has blocks, '@IgnoreModule suppresses in the module it is in, and '@Ignore in none: its form is the line above a
-// block's header, which binds to that block's module. An annotation with no argument suppresses every code that can be disabled; a language error (VBC, VBR,
-// VBA) is never suppressed.
+// module is the whole file. In a file that has blocks, '@IgnoreModule suppresses in the module it is in, and '@Ignore only on the comment lines directly
+// above a block's header, in that block's module; elsewhere in such a file it suppresses nothing. An annotation with no argument suppresses every code that
+// can be disabled; a language error (VBC, VBR, VBA) is never suppressed.
 internal static class IgnoreAnnotations
 {
     private const string Ignore = "Ignore";
@@ -66,11 +66,17 @@ internal static class IgnoreAnnotations
                 .Select(annotation => new Scope(null, null, CodesOf(annotation)))];
         }
 
+        // a block's module has the comment lines directly above its header, whose annotations are its module's (Annotations.GetHeaderAnnotations).
         var document = new RDCoreDocument(file, parse);
-        return [.. document.ModuleUris.SelectMany(module => (document.ParseOf(module)?.Trivia ?? []).OfType<AnnotationTriviaNode>()
-            .Where(annotation => Is(annotation, IgnoreModule))
+        return [.. document.ModuleUris.SelectMany(module => SuppressionsOf(document.ParseOf(module))
             .Select(annotation => new Scope(document, module, CodesOf(annotation))))];
     }
+
+    // '@IgnoreModule anywhere in the module's parse, and '@Ignore above a block's header.
+    private static IEnumerable<AnnotationTriviaNode> SuppressionsOf(ModuleParseResult? module)
+        => module is null ? []
+            : [.. module.Trivia.OfType<AnnotationTriviaNode>().Where(annotation => Is(annotation, IgnoreModule)),
+                .. module.GetHeaderAnnotations().Where(annotation => Is(annotation, Ignore))];
 
     // every code that can be disabled when the annotation names none; the codes its arguments name otherwise, which are none when no argument names any.
     private static HashSet<RDCoreDiagnosticCode>? CodesOf(AnnotationTriviaNode annotation)
