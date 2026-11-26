@@ -13,8 +13,9 @@ namespace RDCore.LanguageServer.Symbols;
 /// </summary>
 /// <remarks>
 /// MS-VBAL §3.4: the branches that are not live are not part of the module. The host evaluates the directives with the project's constants, which the
-/// language server does not; it says which branches are dead of the parse it was sent, and a branch is known again in another parse by its ordinal, for as long
-/// as the document reads as it did then and the other parse has the blocks of the same shape (<see cref="ConditionalCompilationBlocks.HasShapeOf"/>). Otherwise
+/// language server does not; it says which branches are dead of the parse it was sent, and a branch is known again in another parse by its
+/// ordinal, for as long as the document reads as it did then and the other parse has the blocks of the same shape
+/// (<see cref="ConditionalCompilationBlocks.HasShapeOf"/>). Otherwise
 /// nothing is known, and a check reads every branch as an alternative of the others.
 /// </remarks>
 internal sealed class ModuleLiveBranches(IWorkspaceDocumentService documents, IParsingClientService parsing)
@@ -48,8 +49,8 @@ internal sealed class ModuleLiveBranches(IWorkspaceDocumentService documents, IP
     }
 
     /// <summary>
-    /// Whether a location of a parse of a module is in a branch that is not live; <see langword="null"/> when that is not known: the host evaluated no parse of
-    /// the document as it reads now, or the parse's blocks do not have the shape of the ones it evaluated
+    /// Whether a location of a parse of a module is in a branch that is not live; <see langword="null"/> when that is not known: the host
+    /// evaluated no parse of the document as it reads now, or the parse's blocks do not have the shape of the ones it evaluated
     /// (<see cref="ConditionalCompilationBlocks.HasShapeOf"/>).
     /// </summary>
     /// <param name="checkedParse">The parse that is checked: of the document's text, or of an edit of it.</param>
