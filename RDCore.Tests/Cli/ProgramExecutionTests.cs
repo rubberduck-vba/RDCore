@@ -8,6 +8,8 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Platform.Components;
+using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.SDK.Model.Errors;
 
 namespace RDCore.Tests.Cli;
 
@@ -78,6 +80,17 @@ public sealed class ProgramExecutionTests
 
         Assert.AreEqual((ExecutionOutcome.Interrupted, 0), (result.Outcome, result.ErrorNumber), result.ErrorMessage);
         Assert.AreNotEqual(string.Empty, result.ErrorMessage, "the run says why it ended");
+        Assert.IsNull(result.ErrorVerbose, result.ErrorVerbose);
+    }
+
+    // a program's own Err.Raise says its description and nothing more: that the program raised it is what its code says (VBA), not a line under it.
+    [TestMethod]
+    public async Task AProgramsOwnErrRaise_SaysItsDescription_AndNothingUnderIt()
+    {
+        var result = await RanAsync("    Err.Raise 5");
+
+        Assert.AreEqual((ExecutionOutcome.RuntimeError, 5, "VBA00005"), (result.Outcome, result.ErrorNumber, result.ErrorCode), result.ErrorMessage);
+        Assert.AreEqual(VBRuntimeErrorInfo.GetErrorString(VBRuntimeErrorId.InvalidProcedureCallOrArgument), result.ErrorMessage, "the usual description");
         Assert.IsNull(result.ErrorVerbose, result.ErrorVerbose);
     }
 
