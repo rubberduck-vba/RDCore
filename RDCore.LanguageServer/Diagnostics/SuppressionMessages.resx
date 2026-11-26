@@ -13,7 +13,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="NamesNoDiagnostic" xml:space="preserve">
-    <value>'@{0} suppresses nothing for {1}: it is no diagnostic code, nor the name of a Rubberduck inspection that a code took the place of</value>
+    <value>'@{0} suppresses nothing for {1}: it is not a diagnostic code or the name of a Rubberduck inspection that a code took the place of</value>
     <comment>{0} is the annotation's name (Ignore or IgnoreModule); {1} is the argument as written.</comment>
   </data>
   <data name="NamesALanguageError" xml:space="preserve">

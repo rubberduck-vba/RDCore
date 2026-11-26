@@ -70,7 +70,7 @@ namespace RDCore.LanguageServer.Diagnostics {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;@{0} suppresses nothing for {1}: it is no diagnostic code, nor the name of a Rubberduck inspection that a code took the place of.
+        ///   Looks up a localized string similar to &apos;@{0} suppresses nothing for {1}: it is not a diagnostic code or the name of a Rubberduck inspection that a code took the place of.
         /// </summary>
         internal static string NamesNoDiagnostic {
             get {
