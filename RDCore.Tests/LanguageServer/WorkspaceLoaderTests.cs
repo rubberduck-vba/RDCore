@@ -485,19 +485,37 @@ public sealed class WorkspaceLoaderTests
         var asked = 0;
         var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
         var told = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        // what the shell and its server did, in the order they did it: a wait that never ends says how far they got.
+        var steps = new System.Collections.Concurrent.ConcurrentQueue<string>();
         console.When(each => each.WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>()))
-            .Do(call => told.TrySetResult(call.ArgAt<string>(1)));
+            .Do(call =>
+            {
+                steps.Enqueue("the shell wrote why");
+                told.TrySetResult(call.ArgAt<string>(1));
+            });
         // the message is sent before initialize is answered, and the shell's handler runs whenever its scheduler gets to it: the handshake that follows
         // initialize is answered once the shell has written it, so that the shell does not read to the end of its input and close the connection first.
         using var languageServer = new InProcessLanguageServer(async (server, request, token) =>
         {
+            steps.Enqueue("initialize arrived");
             var ask = RDCore.LanguageServer.CoreLanguageServerApp.RegenerateQuestionOf(server, request);
             try
             {
-                await sut.LoadAsync(Root, [Root], ask is null ? null : (message, choices, askToken) =>
+                await sut.LoadAsync(Root, [Root], ask is null ? null : async (message, choices, askToken) =>
                 {
                     Interlocked.Increment(ref asked);
-                    return ask(message, choices, askToken);
+                    steps.Enqueue("the shell was asked");
+                    try
+                    {
+                        var answer = await ask(message, choices, askToken);
+                        steps.Enqueue($"the shell answered '{answer}'");
+                        return answer;
+                    }
+                    catch (Exception exception)
+                    {
+                        steps.Enqueue($"the shell's answer was an error ({exception.GetType().Name})");
+                        throw;
+                    }
                 }, token);
             }
             catch (InvalidDataException error)
@@ -507,8 +525,11 @@ public sealed class WorkspaceLoaderTests
                     Type = OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error,
                     Message = error.Message,
                 });
+                steps.Enqueue("the server told the shell why");
             }
-        }, answerHandshakeAfter: told.Task);
+
+            steps.Enqueue("initialize is answered");
+        }, answerHandshakeAfter: told.Task, step: steps.Enqueue);
         // the Enter key chooses the last choice, which changes nothing.
         var keys = new Cli.Repl.ScriptedKeys(interactive).Press(Cli.Repl.ScriptedKeys.Key(ConsoleKey.Enter));
         var shell = new RDCore.CLI.RDCoreConsoleClientApp(
@@ -528,14 +549,33 @@ public sealed class WorkspaceLoaderTests
         platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });
         using var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection().AddSingleton(platform).BuildServiceProvider();
 
-        // not a timing: an initialize that is never answered fails the test here instead of hanging the run.
-        await shell.RunAsync(services, []).WaitAsync(SafetyCap);
+        // not a timing: an initialize that is never answered fails the test here instead of hanging the run, with how far the shell and the server got.
+        await Within(shell.RunAsync(services, []), "the shell is not connected", steps);
 
         Assert.AreEqual(interactive ? 1 : 0, asked);
         Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file is as it was: the shell chose to keep it, or was not asked");
         Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
         // not a timing either: a message the shell never writes fails the test here.
-        StringAssert.Contains(await told.Task.WaitAsync(SafetyCap), ProjectFilePath);
+        StringAssert.Contains(await Within(told.Task, "the shell has not written why", steps), ProjectFilePath);
+    }
+
+    // a wait that the safety cap ends fails with what had happened by then, in the order it happened.
+    private static async Task Within(Task task, string what, IEnumerable<string> steps)
+    {
+        try
+        {
+            await task.WaitAsync(SafetyCap);
+        }
+        catch (TimeoutException)
+        {
+            Assert.Fail($"{what} after {SafetyCap}: {string.Join(" > ", steps.DefaultIfEmpty("nothing happened"))}");
+        }
+    }
+
+    private static async Task<T> Within<T>(Task<T> task, string what, IEnumerable<string> steps)
+    {
+        await Within((Task)task, what, steps);
+        return await task;
     }
 
     // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without
@@ -716,9 +756,10 @@ public sealed class WorkspaceLoaderTests
 
     // what the shell starts as its language server, and connects to: an OmniSharp server on the pipe, in this process, which answers initialize as it is given
     // to, and the platform handshake after it - once answerHandshakeAfter has completed, when it is given: the shell goes no further than the handshake until then.
+    // What it does is told to step, when it is given, and so is what stops it serving: nothing awaits it, and a shell it never answers would only wait.
     private sealed class InProcessLanguageServer(
         Func<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer, OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams, CancellationToken, Task> initialize,
-        Task? answerHandshakeAfter = null)
+        Task? answerHandshakeAfter = null, Action<string>? step = null)
         : RDCore.SDK.Client.IRDCoreServerProcess, RDCore.SDK.Client.Connection.IChildConnectionFactory
     {
         private readonly TaskCompletionSource _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -745,22 +786,34 @@ public sealed class WorkspaceLoaderTests
 
         private async Task ServeAsync(System.IO.Pipes.NamedPipeServerStream pipe)
         {
-            await pipe.WaitForConnectionAsync();
-            Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
-                .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
-                .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
-                .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
-                .OnInitialize((server, request, token) => initialize(server, request, token))
-                .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>
-                {
-                    if (answerHandshakeAfter is not null)
+            try
+            {
+                await pipe.WaitForConnectionAsync();
+                step?.Invoke("the shell is connected to the pipe");
+                Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
+                    .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
+                    .WithOutput(new RDCore.SDK.Server.ConnectionOutput(System.IO.Pipelines.PipeWriter.Create(pipe)))
+                    .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
+                    .OnInitialize((server, request, token) => initialize(server, request, token))
+                    .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>
                     {
-                        await answerHandshakeAfter;
-                    }
+                        step?.Invoke("the handshake arrived");
+                        if (answerHandshakeAfter is not null)
+                        {
+                            await answerHandshakeAfter;
+                        }
 
-                    return (Newtonsoft.Json.Linq.JToken)Newtonsoft.Json.Linq.JObject.FromObject(
-                        new { component = (int)RDCore.SDK.Client.CoreServerComponent.LanguageServer, provided = Array.Empty<string>() });
-                })));
+                        step?.Invoke("the handshake is answered");
+                        return (Newtonsoft.Json.Linq.JToken)Newtonsoft.Json.Linq.JObject.FromObject(
+                            new { component = (int)RDCore.SDK.Client.CoreServerComponent.LanguageServer, provided = Array.Empty<string>() });
+                    })));
+                step?.Invoke("the server is initialized");
+            }
+            catch (Exception exception)
+            {
+                step?.Invoke($"the server stopped serving ({exception.GetType().Name}: {exception.Message})");
+                throw;
+            }
         }
 
         private T Hold<T>(T disposable) where T : IDisposable

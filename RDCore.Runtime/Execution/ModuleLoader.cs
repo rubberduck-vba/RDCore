@@ -85,7 +85,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant); the module's own are found in the trivia, and shadow them.
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
-        var deadRanges = precompiled.DeadRanges;
+        var deadRanges = precompiled.DeadBranches;
         // and what they are on every platform, whichever this session runs on: where a Declare and a call of it are compiled.
         var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
@@ -238,8 +238,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // parser reads every branch, and the live statements after the branch are in that block: the tree is not the code MS-VBA compiles, which runs them.
         // RD-VBA refuses the run, and says why (RD-VBAL 2.6.1).
         var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
-            .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location.Range.Start, deadRanges))
-                .Select(error => error.StatementStart is { } statement && IsDead(statement, deadRanges)
+            .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location, deadRanges))
+                .Select(error => error.StatementStart is { } statement && IsDead(error.Location with { Range = new(statement, statement) }, deadRanges)
                     ? (error.Description, Verbose: Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose)
                     : (error.Description, error.Verbose)))
             .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
@@ -328,11 +328,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
     // the first header of a declaration that is in no dead branch and declares a procedure the session defines, with the body; none when there is none.
     private static (MemberDeclarationNode? Declaration, VBTypeMemberSymbol? Procedure) LiveHeaderOf(
-        MemberDeclarationNode written, IReadOnlyList<VBTypeMemberSymbol> members, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+        MemberDeclarationNode written, IReadOnlyList<VBTypeMemberSymbol> members, ImmutableArray<SDK.Model.Source.SourceLocation> deadRanges)
     {
         foreach (var header in written.WithEachHeader())
         {
-            if (IsDead(header.SourceLocation.Range.Start, deadRanges))
+            if (IsDead(header.SourceLocation, deadRanges))
             {
                 continue;
             }
@@ -354,7 +354,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         foreach (var statement in written.Children.OfType<ExternalMemberDeclarationNode>()
             .Where(statement => string.Equals(statement.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
-            if (platforms.At(statement.SourceLocation.Range.Start) is not { } compiled)
+            if (platforms.At(statement.SourceLocation) is not { } compiled)
             {
                 return null;
             }
@@ -366,36 +366,38 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
     }
 
     // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.
-    private static ModuleNode WithLiveHeaders(ModuleNode syntaxTree, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+    private static ModuleNode WithLiveHeaders(ModuleNode syntaxTree, ImmutableArray<SDK.Model.Source.SourceLocation> deadRanges)
         => syntaxTree.Children.Any(node => node is MemberDeclarationNode { HeaderAlternatives.IsDefaultOrEmpty: false })
             ? syntaxTree with
             {
                 Children = [.. syntaxTree.Children.Select(node => node is MemberDeclarationNode written
-                    ? written.WithEachHeader().FirstOrDefault(header => !IsDead(header.SourceLocation.Range.Start, deadRanges)) ?? written
+                    ? written.WithEachHeader().FirstOrDefault(header => !IsDead(header.SourceLocation, deadRanges)) ?? written
                     : node)],
             }
             : syntaxTree;
 
     // MS-VBA: a procedure whose every header is in a dead branch leaves the statements of its body that are live outside any procedure, and its closing
     // statement too when it is live: "Invalid outside procedure", at the first of them (recorded in Excel).
-    private static VBCompileErrorInfo? HeaderlessBodyErrorOf(MemberDeclarationNode written, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+    private static VBCompileErrorInfo? HeaderlessBodyErrorOf(MemberDeclarationNode written, ImmutableArray<SDK.Model.Source.SourceLocation> deadRanges)
     {
-        if (written is ExternalMemberDeclarationNode || written.WithEachHeader().Any(header => !IsDead(header.SourceLocation.Range.Start, deadRanges)))
+        if (written is ExternalMemberDeclarationNode || written.WithEachHeader().Any(header => !IsDead(header.SourceLocation, deadRanges)))
         {
             return null;
         }
 
-        var end = written.SourceLocation.Range.End;
+        var end = written.SourceLocation with { Range = new SDK.Model.Source.SourceRange(written.SourceLocation.Range.End, written.SourceLocation.Range.End) };
         var location = written.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode)
-            .FirstOrDefault(child => !IsDead(child.SourceLocation.Range.Start, deadRanges))?.SourceLocation
-            ?? (IsDead(end, deadRanges) ? null : written.SourceLocation with { Range = new SDK.Model.Source.SourceRange(end, end) });
+            .FirstOrDefault(child => !IsDead(child.SourceLocation, deadRanges))?.SourceLocation
+            ?? (IsDead(end, deadRanges) ? null : end);
         return location is { } at
             ? VBCompileErrorInfo.For(VBCompileErrorId.InvalidOutsideProcedure, at, Exceptions.VBCompileError_HeaderInDeadBranchesOnly_Verbose)
             : null;
     }
 
-    private static bool IsDead(SDK.Model.Source.SourcePosition position, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
-        => deadRanges.Any(dead => position.CompareTo(dead.Start) >= 0 && position.CompareTo(dead.End) <= 0);
+    // what starts at a location is dead when a dead branch of its own file contains it: a module of several files may have a branch of each at one range.
+    private static bool IsDead(SDK.Model.Source.SourceLocation location, ImmutableArray<SDK.Model.Source.SourceLocation> deadRanges)
+        => deadRanges.Any(dead => dead.Uri == location.Uri
+            && location.Range.Start.CompareTo(dead.Range.Start) >= 0 && location.Range.Start.CompareTo(dead.Range.End) <= 0);
 
     // a name is not enough: the accessors of a property share one, and the declaration says which it is.
 

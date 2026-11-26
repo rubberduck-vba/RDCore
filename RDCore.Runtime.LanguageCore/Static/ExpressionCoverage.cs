@@ -20,7 +20,7 @@ internal static class ExpressionCoverage
     {
         foreach (var child in block.Children)
         {
-            if (!options.IsDead(child.SourceLocation.Range))
+            if (!options.IsDead(child.SourceLocation))
             {
                 Visit(child, options, facts, ref covered);
             }
@@ -29,7 +29,7 @@ internal static class ExpressionCoverage
 
     private static void Visit(SyntaxNode node, StaticSemanticsOptions options, IExpressionFactSink facts, ref bool covered)
     {
-        if (!covered || options.IsDead(node.SourceLocation.Range))
+        if (!covered || options.IsDead(node.SourceLocation))
         {
             return;
         }

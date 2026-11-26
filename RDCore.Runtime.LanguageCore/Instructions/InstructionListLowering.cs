@@ -60,7 +60,7 @@ public static class InstructionListLowering
     {
         foreach (var child in block.Children)
         {
-            if (IsDead(child.SourceLocation.Range, state.DeadRanges))
+            if (IsDead(child.SourceLocation, state.DeadRanges))
             {
                 continue;
             }
@@ -80,12 +80,12 @@ public static class InstructionListLowering
 
     // A dead branch's whole range was already reported by PrecompilerLiveBranchEvaluator - a child
     // lexically inside it (at any depth) is simply never lowered, so no instruction, label, or ByNode
-    // entry for it ever exists.
-    private static bool IsDead(SourceRange range, ImmutableArray<SourceRange> deadRanges)
+    // entry for it ever exists. A branch contains what is written in its own file only: a module of several files may have a branch of each at one range.
+    private static bool IsDead(SourceLocation location, ImmutableArray<SourceLocation> deadRanges)
     {
         foreach (var dead in deadRanges)
         {
-            if (dead.Start <= range.Start && range.End <= dead.End)
+            if (dead.Uri == location.Uri && dead.Range.Start <= location.Range.Start && location.Range.End <= dead.Range.End)
             {
                 return true;
             }
@@ -511,8 +511,8 @@ public static class InstructionListLowering
         => LabelOperands.TryGetLabelName(operand, out var name) && labels.TryGetValue(name, out var target) ? target : null;
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
-    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, bool isReleaseBuild, SupportedLanguage? language, MemberKind? procedure,
-        bool drawsOnMe)
+    private sealed class LoweringState(ImmutableArray<SourceLocation> deadRanges, bool includeDebugStatements, bool isReleaseBuild,
+        SupportedLanguage? language, MemberKind? procedure, bool drawsOnMe)
     {
         public bool IsReleaseBuild { get; } = isReleaseBuild;
         public bool DrawsOnMe { get; } = drawsOnMe;
@@ -523,7 +523,7 @@ public static class InstructionListLowering
         public Dictionary<SyntaxNodeId, int> ByNode { get; } = [];
         public List<(int Index, ExpressionNode Operand)> PendingJumps { get; } = [];
         public List<(int Index, ImmutableArray<ExpressionNode> Operands)> PendingJumpTables { get; } = [];
-        public ImmutableArray<SourceRange> DeadRanges { get; } = deadRanges;
+        public ImmutableArray<SourceLocation> DeadRanges { get; } = deadRanges;
         public bool IncludeDebugStatements { get; } = includeDebugStatements;
     }
 

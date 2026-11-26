@@ -3,6 +3,7 @@ using NSubstitute;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Host;
@@ -272,6 +273,46 @@ public sealed class ReferencedClassMemberTests
 
         Assert.IsTrue(errors.Any(error => IsOf(error, "Accounts", "Ledger")), string.Join("; ", errors));
         Assert.IsFalse(errors.Any(error => error.StartsWith($"{LibraryName}.", StringComparison.Ordinal)), string.Join("; ", errors));
+    }
+
+    // RD-VBAL §5.1: a class block of the referenced project that its header makes Public is exposed, and creatable from the project only when the header
+    // writes Creatable too (Public Not Creatable, MultiUse).
+    [TestMethod]
+    [DataRow("Public Class Ledger", false, DisplayName = "Public")]
+    [DataRow("Public Creatable Class Ledger", true, DisplayName = "Public Creatable")]
+    public async Task AClassBlockOfAReferencedProject_IsCreatedAsNewFromTheProject_OnlyWhenItsHeaderWritesPublicCreatable(string header, bool creatable)
+    {
+        var ledgers = new Source("Ledgers", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Ledgers", header, "Public Sub Post()", "End Sub", "End Class"));
+        var accounts = new Source("Accounts", ModuleType.StdModule, ModuleWorkspace.StandardModule("Accounts", "Option Explicit",
+            "Public Sub Start()", $"    Dim l As New {LibraryName}.Ledger", "    l.Post", "End Sub"));
+
+        var (errors, _) = await LoadAsync([accounts], [NavalLib with { Modules = [.. Library, ledgers] }], run: false);
+
+        Assert.AreEqual(creatable, !errors.Any(error => IsOf(error, "Accounts", "Ledger")), string.Join("; ", errors));
+        Assert.IsFalse(errors.Any(error => error.StartsWith($"{LibraryName}.", StringComparison.Ordinal)), string.Join("; ", errors));
+    }
+
+    // RD-VBAL §5.1: every class block is created As New and with New by its own project's code, whatever its header says of other projects.
+    [TestMethod]
+    [DataRow("Class Ledger", DisplayName = "no modifier")]
+    [DataRow("Private Class Ledger", DisplayName = "Private")]
+    [DataRow("Public Class Ledger", DisplayName = "Public")]
+    [DataRow("Creatable Class Ledger", DisplayName = "Creatable")]
+    [DataRow("Public Creatable Class Ledger", DisplayName = "Public Creatable")]
+    public async Task AClassBlock_IsCreatedByItsOwnProjectsCode_WhateverItsHeaderSays(string header)
+    {
+        var ledgers = new Source("Ledgers", ModuleType.StdModule,
+            ModuleWorkspace.StandardModule("Ledgers", header, "Public Sub Post()", "End Sub", "End Class"));
+        var books = new Source("Books", ModuleType.StdModule, ModuleWorkspace.StandardModule("Books", "Option Explicit",
+            "Public Function Opened() As String", "    Dim l As New Ledger", "    Dim m As Ledger", "    Set m = New Ledger", "    m.Post",
+            "    Opened = TypeName(l) & TypeName(m)", "End Function"));
+
+        var (errors, run) = await LoadAsync([], [NavalLib with { Modules = [.. Library, ledgers, books] }], run: true, "Debug.Print Opened()");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+        Assert.AreEqual(ExecutionOutcome.Completed, run!.Outcome, $"{run.ErrorMessage} {string.Join("; ", run.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "LedgerLedger" }, run.Output.Select(line => line.Trim()).ToArray());
     }
 
     // MS-VBAL §4.1: no project references the project that references it, and the referenced project's code sees none of the project's names.
@@ -670,7 +711,8 @@ public sealed class ReferencedClassMemberTests
         var app = Parsed(AppRoot, own);
         var appResolver = WorkspaceSymbolResolver.Compose(
             AppRoot, app.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), "App",
-            libraries: [.. referenced.SelectMany(each => each.NamesFor(AppRoot, ImplicitDeclarationScope.Procedure))]);
+            libraries: [.. referenced.SelectMany(each => each.NamesFor(AppRoot, ImplicitDeclarationScope.Procedure))],
+            directives: ParsedModule.DirectivesOf(app));
 
         // the session reads the project's modules from its folder, as the host does.
         var files = own.ToDictionary(module => Path.Combine(AppFolder, module.FileName), module => new MockFileData(module.Text));
@@ -721,16 +763,26 @@ public sealed class ReferencedClassMemberTests
     {
         var modules = Parsed(reference.Root, reference.Modules);
         var resolver = WorkspaceSymbolResolver.Compose(
-            reference.Root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), reference.Name);
+            reference.Root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(), reference.Name,
+            directives: ParsedModule.DirectivesOf(modules));
         return new ReferencedProjectModules(reference.Name, reference.Priority, reference.Root, modules, resolver);
     }
 
-    private static ParsedModule[] Parsed(Uri root, IEnumerable<Source> modules) => [.. modules.Select(module =>
+    // the modules of the files, as rdc run makes them: each file's own, and its blocks', the parts of one name assembled (ParsedModule.Assemble).
+    private static ParsedModule[] Parsed(Uri root, IEnumerable<Source> modules)
     {
-        var parse = new ModuleParser().Parse(new Uri(root, module.FileName), module.Text);
-        Assert.AreEqual(!module.HasSyntaxErrors, parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
-        return new ParsedModule(new UriBuilder(root) { Fragment = module.Name }.Uri, module.Name, module.Type, parse);
-    })];
+        ModulePart[] parts = [.. modules.SelectMany(module =>
+        {
+            var file = new Uri(root, module.FileName);
+            var parse = new ModuleParser().Parse(file, module.Text);
+            Assert.AreEqual(
+                !module.HasSyntaxErrors, parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+            return ModulePart.PartsOf(file, module.Name, module.Type, parse);
+        })];
+        var (assembled, refused) = ParsedModule.Assemble(root, parts);
+        Assert.IsEmpty(refused, string.Join("; ", refused.SelectMany(module => module.Errors)));
+        return [.. assembled];
+    }
 
     private static Task<DefineSymbolsResult> DefineAsync(EnvironmentSessionProvider provider, DefineSymbolsParams request)
         => new DefineSymbolsHandler(

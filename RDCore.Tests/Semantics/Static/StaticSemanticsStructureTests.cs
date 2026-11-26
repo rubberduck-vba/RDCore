@@ -66,7 +66,7 @@ public sealed class StaticSemanticsStructureTests
     public void AStatementInAnExcludedBranch_IsNotAnalyzed_AndDefinesNoLabel()
     {
         var (body, _) = Body("GoTo Elsewhere", "Exit Do", "Elsewhere:");
-        var everything = new SourceRange(SourcePosition.Zero, new SourcePosition(int.MaxValue, int.MaxValue));
+        var everything = body.Children[0].SourceLocation with { Range = new SourceRange(SourcePosition.Zero, new SourcePosition(int.MaxValue, int.MaxValue)) };
 
         Assert.IsEmpty(StatementStaticSemanticsEvaluator.CheckStructure(body, new StaticSemanticsOptions([everything])));
     }

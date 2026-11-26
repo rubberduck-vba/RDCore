@@ -111,7 +111,8 @@ namespace RDCore.Parsing {
 
         /// <summary>
         /// Looks up a localized string similar to An Attribute line is not written in a block: its header states the module&apos;s name and whether other
-        /// projects see it (Public Creatable Class), and a block&apos;s module has no other attributes.
+        /// projects see it (Public Creatable Class), and its annotations state a default instance and a description
+        /// (&apos;@PredeclaredId, &apos;@ModuleDescription).
         /// </summary>
         internal static string VBCompileError_AttributeInABlock_Verbose {
             get {

@@ -10,9 +10,9 @@ namespace RDCore.Runtime.Semantics.Precompiler;
 /// </summary>
 public sealed class ModulePlatforms
 {
-    private readonly ImmutableArray<(CompiledPlatforms Platform, ImmutableArray<SourceRange> Dead, ImmutableArray<SourceRange> Undecided)> _each;
+    private readonly ImmutableArray<(CompiledPlatforms Platform, ImmutableArray<SourceLocation> Dead, ImmutableArray<SourceLocation> Undecided)> _each;
 
-    internal ModulePlatforms(ImmutableArray<(CompiledPlatforms Platform, ImmutableArray<SourceRange> Dead, ImmutableArray<SourceRange> Undecided)> each)
+    internal ModulePlatforms(ImmutableArray<(CompiledPlatforms Platform, ImmutableArray<SourceLocation> Dead, ImmutableArray<SourceLocation> Undecided)> each)
         => _each = each;
 
     /// <summary>
@@ -21,14 +21,14 @@ public sealed class ModulePlatforms
     public static ModulePlatforms Everywhere { get; } = new([]);
 
     /// <summary>
-    /// The platforms the code at <paramref name="position"/> is compiled on.
+    /// The platforms the code at <paramref name="location"/> is compiled on.
     /// </summary>
-    /// <param name="position">A position in the module.</param>
+    /// <param name="location">Where the code is written in the module: its file, and a range that starts at the code.</param>
     /// <returns>
     /// <see cref="CompiledPlatforms.All"/> outside any <c>#If</c> block; <see langword="null"/> in a chain whose conditions cannot all be evaluated on some
     /// platform.
     /// </returns>
-    public CompiledPlatforms? At(SourcePosition position)
+    public CompiledPlatforms? At(SourceLocation location)
     {
         if (_each.IsEmpty)
         {
@@ -38,12 +38,12 @@ public sealed class ModulePlatforms
         var platforms = CompiledPlatforms.None;
         foreach (var (platform, dead, undecided) in _each)
         {
-            if (undecided.Any(range => Contains(range, position)))
+            if (undecided.Any(branch => Contains(branch, location)))
             {
                 return null;
             }
 
-            if (!dead.Any(range => Contains(range, position)))
+            if (!dead.Any(branch => Contains(branch, location)))
             {
                 platforms |= platform;
             }
@@ -52,5 +52,8 @@ public sealed class ModulePlatforms
         return platforms;
     }
 
-    private static bool Contains(SourceRange range, SourcePosition position) => position.CompareTo(range.Start) >= 0 && position.CompareTo(range.End) <= 0;
+    // a module of several files may have a branch of each at the same range: a branch contains what is written in its own file only.
+    private static bool Contains(SourceLocation branch, SourceLocation location)
+        => branch.Uri == location.Uri
+            && location.Range.Start.CompareTo(branch.Range.Start) >= 0 && location.Range.Start.CompareTo(branch.Range.End) <= 0;
 }
