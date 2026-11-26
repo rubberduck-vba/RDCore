@@ -102,7 +102,7 @@ public sealed class RuntimeExecutionPipeline
             var forms = External.Forms.SessionForms.Of(_session);
             if (_session.RunsUnattended && forms.LoadedVisualBasic6(_session) is { } loaded)
             {
-                return RuntimeSemanticsEvaluationResult.Error(Unattended.NobodyToAnswer(_session, loaded));
+                return RuntimeSemanticsEvaluationResult.Error(Unattended.NobodyToUnload(_session, loaded));
             }
 
             forms.WaitWhileLoaded(_session, end);

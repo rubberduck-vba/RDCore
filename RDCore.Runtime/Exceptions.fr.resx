@@ -195,6 +195,9 @@
   <data name="VBRuntimeError_NobodyToAnswer_Verbose" xml:space="preserve">
     <value>{0} dans un programme exécuté sans surveillance (--unattended) : personne n'est là pour y répondre, et l'exécution échoue.</value>
   </data>
+  <data name="VBRuntimeError_NobodyToUnload_Verbose" xml:space="preserve">
+    <value>{0} est encore chargé quand le programme exécuté sans surveillance (--unattended) revient de son point d'entrée : personne n'est là pour le décharger, et l'exécution échoue.</value>
+  </data>
   <data name="VBForLoopOperandNotOfLoopType_Verbose" xml:space="preserve">
     <value>Cette boucle For compte en {0}, et son début, sa fin ou son pas n'est pas une valeur de ce type.</value>
   </data>
