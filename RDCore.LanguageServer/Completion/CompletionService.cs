@@ -342,13 +342,13 @@ internal sealed class CompletionService(
             return Empty;
         }
 
-        var (composition, module, workspaceRoot, moduleUri) = composed;
+        var (composition, module, workspaceRoot, moduleUri, completedKind) = composed;
         var tree = composition.ScopeTree;
         var origin = CompletionCandidates.OriginAt(tree, moduleUri, new SourcePosition(line, character));
         var candidates = context.Kind switch
         {
             CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
-                new CompletionLanguage(kind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint), snippets),
+                new CompletionLanguage(completedKind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint), snippets),
             CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
@@ -444,7 +444,7 @@ internal sealed class CompletionService(
             return null;
         }
 
-        var (composition, module, workspaceRoot, moduleUri) = composed;
+        var (composition, module, workspaceRoot, moduleUri, _) = composed;
         var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character));
         if (SignatureDescription.OfCall(ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver) is not { } signature)
         {
@@ -471,8 +471,9 @@ internal sealed class CompletionService(
 
     // the module with the logical line taken out - and, for a member access, put back as an assignment of what the member is accessed on, in the physical line
     // of the position - parsed and composed with the workspace; nothing when the module cannot be parsed even so. The lines keep their count, so a position
-    // in the module is where it was.
-    private async Task<(WorkspaceComposition Composition, ModuleNode Module, Uri WorkspaceRoot, Uri ModuleUri)?> ComposeAsync(
+    // in the module is where it was. A document of blocks is several modules: the one completed is the module the line is in, a block's or the document's
+    // own, and the others are composed with it.
+    private async Task<(WorkspaceComposition Composition, ModuleNode Module, Uri WorkspaceRoot, Uri ModuleUri, ModuleType Kind)?> ComposeAsync(
         Uri address, string moduleName, ModuleType kind, string[] lines, LogicalLine logical, int line, string qualifier, CancellationToken token)
     {
         for (var index = logical.FirstLine; index <= logical.LastLine; index++)
@@ -482,7 +483,7 @@ internal sealed class CompletionService(
         }
 
         var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', lines), token);
-        if (parse.SyntaxTree is not { } syntaxTree)
+        if (parse.SyntaxTree is null)
         {
             return null;
         }
@@ -501,17 +502,24 @@ internal sealed class CompletionService(
         var root = !isOwnProject && documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
         var primary = isOwnProject || WorkspacePaths.Same(root, documents.WorkspaceRoot);
         var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : SymbolUri.Root(root);
-        var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
+        var its = ParsedModules.Of(workspaceRoot, address, parse, moduleName, kind);
+        var completed = its.FirstOrDefault(module => module.Range is { } range && line >= range.Start.Line && line <= range.End.Line) ?? its[0];
+        if (completed.Parse.SyntaxTree is not { } syntaxTree)
+        {
+            return null;
+        }
 
         // a project's names are bound among what it references, libraries and projects of the workspace, as the host's analysis of it binds them.
         var composition = _compositions.GetOrCompose(
-            workspaceRoot, [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
+            workspaceRoot,
+            [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, address, its),
+                .. its.Select(module => (module.Uri, module.Kind, module.Parse))], resolver,
             projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedProjects?.LibrariesOf(workspaceRoot, root, token) ?? (primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null),
             documentHosts: isOwnProject ? null : DocumentHostsOf(root));
 
-        return (composition, syntaxTree, workspaceRoot, moduleUri);
+        return (composition, syntaxTree, workspaceRoot, completed.Uri, completed.Kind);
     }
 
     // the names of the conditional-compilation constants the .rdproj of the document's project defines, and the command line's for the primary project;
@@ -565,20 +573,24 @@ internal sealed class CompletionService(
         }
     }
 
-    // the workspace's modules but the one being completed, as the symbol sync composes them.
-    private IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> OtherModules(string root, Uri workspaceRoot, string moduleName)
+    // the workspace's modules but the completed document's, each block of a document one of them, as the symbol sync composes them.
+    private IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> OtherModules(
+        string root, Uri workspaceRoot, Uri completed, IReadOnlyList<ParsedModule> its)
     {
         foreach (var document in documents.GetProjectDocuments(root))
         {
-            if (!parsing.TryGetCached(document.Id.Uri.ToUri(), out var parse) || parse.SyntaxTree is null)
+            var uri = document.Id.Uri.ToUri();
+            if (uri == completed || !parsing.TryGetCached(uri, out var parse) || parse.SyntaxTree is null)
             {
                 continue;
             }
 
-            var name = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
-            if (!string.Equals(name, moduleName, StringComparison.OrdinalIgnoreCase))
+            foreach (var module in ParsedModules.Of(workspaceRoot, uri, parse, document.Name, ParsingClientService.ModuleTypeOf(document)))
             {
-                yield return (SymbolUri.Module(workspaceRoot, name), ParsingClientService.ModuleTypeOf(document), parse);
+                if (!its.Any(mine => string.Equals(mine.Name, module.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    yield return (module.Uri, module.Kind, module.Parse);
+                }
             }
         }
     }
