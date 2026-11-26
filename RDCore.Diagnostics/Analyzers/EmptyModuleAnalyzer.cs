@@ -30,10 +30,11 @@ internal sealed partial class EmptyModuleAnalyzer : IModuleAnalyzer
             && !HasDesigner(context.ParseResult)
             && !module.Descendants().Any(node => node is VariableDeclarationNode or ConstantDeclarationNode or MemberDeclarationNode or ImplementsDirectiveNode or StatementNode))
         {
-            // the module as a whole is what is reported: its first line.
+            // the module as a whole is what is reported: its first line. A block's module is named by its header, which its address ends with.
+            var line = ModuleStart.LineOf(context);
             yield return new AnalyzerFinding(
                 RDCoreDiagnosticId.EmptyModule.ToCode(),
-                new SourceRange(new SourcePosition(0, 0), new SourcePosition(1, 0)),
+                new SourceRange(new SourcePosition(line, 0), new SourcePosition(line + 1, 0)),
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.EmptyModule_Message, module.GetDeclaredName() ?? Path.GetFileNameWithoutExtension(context.Document.LocalPath)));
         }

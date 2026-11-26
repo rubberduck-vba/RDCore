@@ -127,7 +127,7 @@ internal sealed class DocumentDiagnosticsService(
         var phase = PhaseNow(AnalysisPhase.All);
         var semantics = await AnalyzeInHostAsync(SymbolUri.ModuleNameOf(documentUri), parseResult, phase, token);
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
-        var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
+        var reports = await ProvidersAsync(providers, documentUri, [payloadJson], token, progress);
 
         return (Aggregate(reports), providers.Length);
     }
@@ -136,20 +136,21 @@ internal sealed class DocumentDiagnosticsService(
     private const int ParsedShare = 20;
     private const int ModelShare = 50;
 
-    // every provider asked at once, and each that answers reported: how many of them have.
+    // every provider asked at once of each module of the document, and each that answers for all of them reported: how many of them have.
     private async Task<IReadOnlyList<Diagnostic>[]> ProvidersAsync(
-        IRDCoreClientApp[] providers, Uri documentUri, string payloadJson, CancellationToken token, IProgress<WorkProgressStep>? progress)
+        IRDCoreClientApp[] providers, Uri documentUri, IReadOnlyList<string> payloads, CancellationToken token, IProgress<WorkProgressStep>? progress)
     {
         progress?.Report(new WorkProgressStep(string.Format(ProgressMessages.Providers, 0, providers.Length), ModelShare));
 
         var answered = 0;
-        return await Task.WhenAll(providers.Select(async provider =>
+        var reports = await Task.WhenAll(providers.Select(async provider =>
         {
-            var report = await AnalyzeAsync(provider, documentUri, payloadJson, token);
+            var ofEachModule = await Task.WhenAll(payloads.Select(payloadJson => AnalyzeAsync(provider, documentUri, payloadJson, token)));
             var count = Interlocked.Increment(ref answered);
             progress?.Report(new WorkProgressStep(string.Format(ProgressMessages.Providers, count, providers.Length), ModelShare + (100 - ModelShare) * count / providers.Length));
-            return report;
+            return ofEachModule;
         }));
+        return [.. reports.SelectMany(ofEachModule => ofEachModule)];
     }
 
     public async Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
@@ -210,8 +211,8 @@ internal sealed class DocumentDiagnosticsService(
         var providers = DiagnosticsProviders();
         if (providers.Length == 0)
         {
-            var named = parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() ?? document.Name : document.Name;
-            IReadOnlyList<Diagnostic> own = [.. tellsEdits ? EditsNotApplied(document, named) : [], .. NameTaken(NameConflictOf(document, token), phase)];
+            var cached = parsing.TryGetCached(documentUri, out var parsed) ? parsed : null;
+            IReadOnlyList<Diagnostic> own = [.. tellsEdits ? EditsNotApplied(document, cached) : [], .. NameTaken(NameConflictOf(document, token), phase)];
             return DocumentDiagnosticsResult.Fresh(version, own.Count == 0 ? [] : InTheTextOf(document, own), generation);
         }
 
@@ -224,16 +225,28 @@ internal sealed class DocumentDiagnosticsService(
         // the host runs the primary project, and analyzes every other project in a session of its own: a module is asked for by its address, under the root of
         // the project that loaded it first, which is the primary project for a file the primary project lists. A document that is not a file is the client's
         // alone, and none of the host's.
-        var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+        // A file of blocks is the text of several modules (RD-VBAL §5.1): each is analyzed on its own, from its own part of the parse and what the host found
+        // out about it, addressed by its own URI. A syntax error is in the part of the module it is in, so each is told once.
+        var file = new RDCoreDocument(documentUri, parseResult);
+        IReadOnlyList<(Uri Uri, string Name)> modules =
+        [
+            (documentUri, parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name),
+            .. parseResult.BlockModules.Select(block => (block.Uri, block.Name)).DistinctBy(block => block.Uri),
+        ];
         // a module whose name another module of its project has is none the host has: what it has of that name, if anything, is another module.
         var conflict = NameConflictOf(document, token);
-        var semantics = conflict is not null ? null
-            : SemanticsRootOf(document, isHostModule) is { } root ? await SemanticsOfAsync(moduleName, SymbolUri.Module(root, moduleName), phase, token)
-            : isHostModule ? await SemanticsOfAsync(moduleName, null, phase, token)
-            : null;
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
+        var root = SemanticsRootOf(document, isHostModule);
+        var payloads = await Task.WhenAll(modules.Select(async module =>
+        {
+            var semantics = module.Uri == documentUri && conflict is not null ? null
+                : root is not null ? await SemanticsOfAsync(module.Name, SymbolUri.Module(root, module.Name), phase, token)
+                : isHostModule ? await SemanticsOfAsync(module.Name, null, phase, token)
+                : null;
+            return PlatformJson.Serialize(
+                new DiagnoseDocumentPayload(module.Uri, version, file.ParseOf(module.Uri)!, semantics, phase) { DisabledCodes = [.. Disabled] });
+        }));
 
-        var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
+        var reports = await ProvidersAsync(providers, documentUri, payloads, token, progress);
 
         // the document moved under us while providers were running — the report would be stale, so drop it.
         var currentVersion = Resolve(documentUri)?.Version ?? 0;
@@ -244,7 +257,7 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        IReadOnlyList<Diagnostic> found = [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, moduleName) : [], .. NameTaken(conflict, phase)];
+        IReadOnlyList<Diagnostic> found = [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. NameTaken(conflict, phase)];
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 
@@ -270,19 +283,28 @@ internal sealed class DocumentDiagnosticsService(
 
     private AnalysisPhase PhaseNow(AnalysisPhase phase) => editStatus?.Current.Suspended == true ? phase & ~AnalysisPhase.Runtime : phase;
 
-    // RDC20001: each edit of the module the program that waits does not have, where the edited declaration is now - an edit of the module as a whole, or of a
-    // declaration that is gone, on its first line. None when the code is disabled.
-    private IEnumerable<Diagnostic> EditsNotApplied(WorkspaceDocument document, string moduleName)
+    // RDC20001: each edit of a module of the document the program that waits does not have, where the edited declaration is now - an edit of the module as a
+    // whole, or of a declaration that is gone, on the module's first line, which is a block's header. None when the code is disabled.
+    private IEnumerable<Diagnostic> EditsNotApplied(WorkspaceDocument document, ModuleParseResult? parse)
     {
         if (editStatus is null || Disabled.Contains(EditNotApplied))
         {
             yield break;
         }
 
-        foreach (var edit in editStatus.Current.Edits.Where(edit => edit.ModuleUri is { } module && string.Equals(SymbolUri.ModuleNameOf(module), moduleName, StringComparison.OrdinalIgnoreCase)))
+        IReadOnlyList<(string Name, int Line)> modules =
+            [(parse?.SyntaxTree?.GetDeclaredName() ?? document.Name, 0), .. parse?.BlockModules.Select(block => (block.Name, block.Range.Start.Line)) ?? []];
+        var lines = document.Text.Split('\n');
+        foreach (var edit in editStatus.Current.Edits)
         {
-            var firstLine = document.Text.Split('\n', 2)[0].TrimEnd('\r').Length;
-            var range = edit.Range ?? new SourceRange(new SourcePosition(0, 0), new SourcePosition(0, firstLine));
+            var named = edit.ModuleUri is { } uri ? SymbolUri.ModuleNameOf(uri) : null;
+            if (modules.FirstOrDefault(module => string.Equals(module.Name, named, StringComparison.OrdinalIgnoreCase)) is not { Name: not null } module)
+            {
+                continue;
+            }
+
+            var firstLine = module.Line < lines.Length ? lines[module.Line].TrimEnd('\r').Length : 0;
+            var range = edit.Range ?? new SourceRange(new SourcePosition(module.Line, 0), new SourcePosition(module.Line, firstLine));
             // the reason is the host's, in the language of the user interface.
             yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(EditNotApplied, range, DiagnosticSeverity.Information,
                 string.Format(DebuggerMessages.EditNamed, edit.Name, edit.Reason)));

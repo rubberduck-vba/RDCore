@@ -38,23 +38,27 @@ internal sealed class OptionExplicitAnalyzer : IModuleAnalyzer
     {
         if (context.Semantics is { OptionExplicit: false } semantics)
         {
-            // the module as a whole is what is wrong with it: the first line is where a reader looks for the option.
+            // the module as a whole is what is wrong with it: the first line is where a reader looks for the option, a block's being the one after its header.
+            var start = ModuleStart.LineOf(context);
             yield return new AnalyzerFinding(
                 RDCoreDiagnosticId.ImplicitDeclarationsEnabled.ToCode(),
-                new SourceRange(new SourcePosition(0, 0), new SourcePosition(1, 0)),
+                new SourceRange(new SourcePosition(start, 0), new SourcePosition(start + 1, 0)),
                 DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.ImplicitDeclarationsEnabled_Message)
             {
-                Fixes = context.ParseResult.SyntaxTree is { } module ? FixOf(module, semantics.Declarations, context.ParseResult.PrecompilerTrivia) : null,
+                Fixes = context.ParseResult.SyntaxTree is { } module
+                    ? FixOf(module, start, semantics.Declarations, context.ParseResult.PrecompilerTrivia)
+                    : null,
             };
         }
     }
 
-    private static DiagnosticFixes? FixOf(ModuleNode module, IEnumerable<SDK.Platform.Protocol.DeclarationFactDto> declarations, IEnumerable<SyntaxNode> trivia)
+    private static DiagnosticFixes? FixOf(
+        ModuleNode module, int start, IEnumerable<SDK.Platform.Protocol.DeclarationFactDto> declarations, IEnumerable<SyntaxNode> trivia)
     {
         // the precompiler trivia is one node over the module: its directives, and what their branches hold, are the nodes under it.
         var directives = trivia.SelectMany(node => node.Descendants()).ToArray();
-        var edits = new List<TextEdit> { SyntaxEdits.Insert(new SourcePosition(OptionLine(module), 0), $"Option Explicit{NewLine}") };
+        var edits = new List<TextEdit> { SyntaxEdits.Insert(new SourcePosition(OptionLine(module, start), 0), $"Option Explicit{NewLine}") };
         var procedures = module.Children.OfType<MemberDeclarationNode>().ToArray();
         foreach (var group in declarations.Where(declaration => declaration.DeclaredBy is LocalDeclarationKind.Implicit)
             .GroupBy(declaration => procedures.FirstOrDefault(procedure => Contains(procedure.SourceLocation.Range, declaration.Location.Range.Start))))
@@ -114,11 +118,12 @@ internal sealed class OptionExplicitAnalyzer : IModuleAnalyzer
         return $"{name} As {type.Name}";
     }
 
-    // the line the option goes on: the first of the module's declarations and procedures, after its attributes; the line after them in a module that has none.
-    private static int OptionLine(ModuleNode module)
+    // the line the option goes on: the first of the module's declarations and procedures, after its attributes; the line after them in a module that has none,
+    // and the module's first line in one that has neither.
+    private static int OptionLine(ModuleNode module, int start)
         => module.Children.FirstOrDefault(child => child is not AttributeDirectiveNode) is { } first
             ? first.SourceLocation.Range.Start.Line
-            : module.Children.OfType<AttributeDirectiveNode>().Select(attribute => attribute.SourceLocation.Range.End.Line + 1).DefaultIfEmpty(0).Max();
+            : module.Children.OfType<AttributeDirectiveNode>().Select(attribute => attribute.SourceLocation.Range.End.Line + 1).DefaultIfEmpty(start).Max();
 
     // the first node of a procedure's body, past its parameters and return type.
     private static SyntaxNode? FirstStatementOf(MemberDeclarationNode procedure)
