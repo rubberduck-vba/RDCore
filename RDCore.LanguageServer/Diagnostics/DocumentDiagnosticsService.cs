@@ -212,7 +212,8 @@ internal sealed class DocumentDiagnosticsService(
         if (providers.Length == 0)
         {
             var cached = parsing.TryGetCached(documentUri, out var parsed) ? parsed : null;
-            IReadOnlyList<Diagnostic> own = [.. tellsEdits ? EditsNotApplied(document, cached) : [], .. NameTaken(NameConflictsOf(document, token), phase)];
+            IReadOnlyList<Diagnostic> own =
+                [.. tellsEdits ? EditsNotApplied(document, cached) : [], .. RefusalsOf(RefusedOf(document, token), document, phase)];
             return DocumentDiagnosticsResult.Fresh(version, own.Count == 0 ? [] : InTheTextOf(document, own), generation);
         }
 
@@ -233,13 +234,14 @@ internal sealed class DocumentDiagnosticsService(
             (documentUri, parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name),
             .. parseResult.BlockModules.Select(block => (block.Uri, block.Name)).DistinctBy(block => block.Uri),
         ];
-        // a module whose name another module of its project has is none the host has: what it has of that name, if anything, is another module. Only that
-        // module's semantics are left out.
-        var conflicts = NameConflictsOf(document, token);
+        // a module its project refuses, one whose name another module of the project has or whose parts make it invalid, is none the host has: what it has
+        // of that name, if anything, is another module. Only that module's semantics are left out.
+        var refused = RefusedOf(document, token);
         var root = SemanticsRootOf(document, isHostModule);
         var payloads = await Task.WhenAll(modules.Select(async module =>
         {
-            var semantics = conflicts.Any(conflict => string.Equals(conflict.ModuleName, module.Name, StringComparison.OrdinalIgnoreCase)) ? null
+            var semantics = refused.Values.Any(errors => errors.Any(each => string.Equals(each.ModuleName, module.Name, StringComparison.OrdinalIgnoreCase)))
+                ? null
                 : root is not null ? await SemanticsOfAsync(module.Name, SymbolUri.Module(root, module.Name), phase, token)
                 : isHostModule ? await SemanticsOfAsync(module.Name, null, phase, token)
                 : null;
@@ -258,21 +260,25 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        IReadOnlyList<Diagnostic> found = [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. NameTaken(conflicts, phase)];
+        IReadOnlyList<Diagnostic> found =
+            [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. RefusalsOf(refused, document, phase)];
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 
-    // the modules of the document whose name another module of its project has (ProjectModules.NameConflicts), its own or its blocks'.
-    private IReadOnlyList<ModuleNameConflict> NameConflictsOf(WorkspaceDocument document, CancellationToken token)
+    // the errors of the modules the document's project refuses, by the document each is in (ProjectModules.Refused); none for a document of no project.
+    private IReadOnlyDictionary<string, IReadOnlyList<(string ModuleName, VBCompileErrorInfo Error)>> RefusedOf(
+        WorkspaceDocument document, CancellationToken token)
         => document.IsFile && document.WorkspaceRoot.Length > 0
-            && ProjectModules.NameConflicts(documents, parsing, document.WorkspaceRoot, token)
-                .TryGetValue(document.Id.Uri.ToUri().AbsoluteUri, out var conflicts)
-                    ? conflicts
-                    : [];
+            ? ProjectModules.Refused(documents, parsing, document.WorkspaceRoot, token)
+            : new Dictionary<string, IReadOnlyList<(string ModuleName, VBCompileErrorInfo Error)>>();
 
-    // VBC09386, which the language server reports itself: neither module is the host's, so no analysis of either has it. The static phase says it.
-    private static IEnumerable<Diagnostic> NameTaken(IReadOnlyList<ModuleNameConflict> conflicts, AnalysisPhase phase)
-        => phase.HasFlag(AnalysisPhase.Static) ? conflicts.Select(conflict => Findings.FromVBCompileError(conflict.Error)) : [];
+    // VBC09386, VBC09388 and VBC09389 written in the document, which the language server reports itself: a refused module is not the host's, so no analysis
+    // of it has them. The static phase says them.
+    private static IEnumerable<Diagnostic> RefusalsOf(
+        IReadOnlyDictionary<string, IReadOnlyList<(string ModuleName, VBCompileErrorInfo Error)>> refused, WorkspaceDocument document, AnalysisPhase phase)
+        => phase.HasFlag(AnalysisPhase.Static) && refused.TryGetValue(document.Id.Uri.ToUri().AbsoluteUri, out var errors)
+            ? errors.Select(each => Findings.FromVBCompileError(each.Error))
+            : [];
 
     // the phases of the analysis that are of the code as it runs: none of what comes of evaluating it while a program waits in break mode - the host holds the
     // redefinitions that would free what the program holds, and applies them when it is run again, so the code the evaluation would be of is neither the code

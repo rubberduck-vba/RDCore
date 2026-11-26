@@ -176,7 +176,7 @@ internal sealed class ReferencedProjectService(
         var composition = _compositions.GetOrCompose(
             root, [.. modules.Select(module => (module.Uri, module.Kind, module.Parse))], resolver, projectName: project.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope, libraries: LibrariesOf(root, project.Root, composing, token),
-            documentHosts: hosts);
+            documentHosts: hosts, directives: ParsedModule.DirectivesOf(modules));
         return composition.Symbols ?? [];
     }
 }

@@ -69,10 +69,13 @@ public enum RedundantStatementKind
 public readonly record struct RedundantStatement(SourceLocation Location, RedundantStatementKind Kind);
 
 // a module of a project, as its parts make it (ModuleAssembly.Of). Redundant is what a part writes to no effect: a directive stated the same way as a
-// part before it, Creatable on a class that no other project sees, an '@Exposed annotation in a Class block.
+// part before it, Creatable on a class that no other project sees, an '@Exposed annotation in a Class block. Parts are the module's parts, its plain part
+// first.
 public sealed record class AssembledModule(string Name, ModuleType Kind, ModuleParseResult Parse, ModuleDirectives Directives)
 {
     public ImmutableArray<RedundantStatement> Redundant { get; init; } = [];
+
+    public ImmutableArray<ModulePart> Parts { get; init; } = [];
 }
 
 // a module that its parts make invalid: none of its parts loads.
@@ -196,7 +199,7 @@ public static class ModuleAssembly
                     ? RedundantStatementKind.ExposedAnnotationWithoutVisibility
                     : RedundantStatementKind.ExposedAnnotation))));
 
-            modules.Add(new AssembledModule(name, kind, parse, directives) { Redundant = redundant.ToImmutable() });
+            modules.Add(new AssembledModule(name, kind, parse, directives) { Redundant = redundant.ToImmutable(), Parts = [.. ordered] });
         }
 
         return (modules.ToImmutable(), refused.ToImmutable());
