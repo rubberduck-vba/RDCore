@@ -507,7 +507,7 @@ internal sealed class BenchRunner(
     // referenced one). A module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a
     // branch of a #If that is excluded, which only the host knows. The parser reads text alone: a form's designer is set on its parse from its text and its
     // companion file, as the language server sets it. A file of several modules is parsed once, and each of its modules is defined with its own part of the
-    // parse (RDCoreDocument.ParseOf): the file's own module first, then each block's, named as its header writes it.
+    // parse, as the language server defines them (ParsedModules.Of).
     private List<ParsedModule> Parsed(BenchWorkspace workspace, Uri root, List<string> problems, string prefix)
     {
         var modules = new List<ParsedModule>();
@@ -529,12 +529,7 @@ internal sealed class BenchRunner(
                 continue;
             }
 
-            var document = new RDCoreDocument(file, parse);
-            modules.Add(new ParsedModule(SymbolUri.Module(root, module.Name), module.Name, module.Type, document.ParseOf(file)!));
-            foreach (var block in parse.BlockModules)
-            {
-                modules.Add(new ParsedModule(SymbolUri.Module(root, block.Name), block.Name, block.Kind, document.ParseOf(block.Uri)!));
-            }
+            modules.AddRange(ParsedModules.Of(root, file, parse, module.Name, module.Type));
         }
 
         return modules;

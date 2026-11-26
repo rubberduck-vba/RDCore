@@ -219,7 +219,9 @@ public static class SymbolNavigation
                 // the ranges are of the directives, one for each name written; the interfaces also have the one every class implements implicitly.
                 var index = implementer.ImplementedInterfaceNames.ToList()
                     .FindIndex(name => string.Equals(name, implemented.Name, StringComparison.OrdinalIgnoreCase));
-                var range = index >= 0 && index < implementer.ImplementedInterfaceRanges.Length ? implementer.ImplementedInterfaceRanges[index] : default;
+                var range = index >= 0 && index < implementer.ImplementedInterfaceLocations.Length
+                    ? implementer.ImplementedInterfaceLocations[index].Range
+                    : default;
                 sites.Add(new SymbolSite(NameOccurrences.ModuleOf(implementer.Uri), range, range));
             }
         }

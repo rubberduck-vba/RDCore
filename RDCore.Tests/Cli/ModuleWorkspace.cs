@@ -28,7 +28,30 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 internal static class ModuleWorkspace
 {
-    internal static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace");
+    /// <summary>
+    /// The workspace root of every run, a folder of the test process's own on disk: the session starts in it, as one starts in its workspace's folder, so a
+    /// relative path in a program's file statements is a file there, never one of the folder the tests run from. It is taken away when the process exits.
+    /// </summary>
+    internal static readonly string Root = CreateRoot();
+
+    private static string CreateRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace-" + Environment.ProcessId);
+        Directory.CreateDirectory(root);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // a temporary folder: a file a program left open stays until the system clears the folder.
+            }
+        };
+
+        return root;
+    }
 
     /// <summary>A class module's source: the header every one has, then <paramref name="body"/>.</summary>
     public static string ClassModule(string name, params string[] body)
@@ -521,7 +544,9 @@ internal static class ModuleWorkspace
             environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
-            libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));
+            libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null),
+            // the real disk: the programs these tests run do their file I/O on real temporary files, which the modules' file system does not hold.
+            sessionFileSystem: new System.IO.Abstractions.FileSystem());
         var workspaceRoot = Wire.FileUri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
@@ -691,7 +716,7 @@ internal static class ModuleWorkspace
                         Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
                         Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree!.GetModuleDirectives()),
                         ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                        ImplementedInterfaceLocations = module.Parse.SyntaxTree!.GetImplementedInterfaceLocations(),
                         PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
                         Replace = true,
                         DeclareTypesOnly = declareTypesOnly,
@@ -710,7 +735,7 @@ internal static class ModuleWorkspace
                     ModuleName = module.Module.Name,
                     Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree.GetModuleDirectives()),
                     ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    ImplementedInterfaceLocations = module.Parse.SyntaxTree!.GetImplementedInterfaceLocations(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),
                     CodeOnly = true,
                 }, CancellationToken.None);

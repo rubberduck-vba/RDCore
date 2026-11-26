@@ -8,10 +8,12 @@ using RDCore.SDK.Workspace;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace.Forms;
@@ -422,6 +424,172 @@ public sealed class SymbolSyncServiceTests
         CollectionAssert.AreEqual(new[] { ("Mod1", false, true), ("Mod1", true, false) }, requests);
     }
 
+    // a workspace of Backup.bas, whose text is given, and Other.bas: what each is parsed to now is the text the test last gave it, and what the server has of
+    // it at the moment (a document being parsed again has nothing). What the host is sent is recorded: each definition (C for a code load) and each discard.
+    private sealed class BlocksWorkspace
+    {
+        public readonly Dictionary<string, string?> Texts = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Backup"] = null,
+            ["Other"] = "Public Sub Bar()\r\nEnd Sub",
+        };
+        public readonly List<string> Sent = [];
+        public readonly SymbolSyncService Sut;
+        public readonly Uri Backup = new(Path.Combine(Root, "src", "Backup.bas"));
+        public readonly Uri Other = new(Path.Combine(Root, "src", "Other.bas"));
+
+        public BlocksWorkspace(string backup)
+        {
+            Texts["Backup"] = backup;
+            var host = Substitute.For<IRDCoreClientApp>();
+            host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+            host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols), nameof(SessionDiscard)] });
+            host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    var request = call.Arg<DefineSymbolsParams>();
+                    Sent.Add(request.CodeOnly ? $"C {request.ModuleName}" : request.ModuleName);
+                    return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
+                });
+            host.SendRequestAsync<HostDiscardParams, DiscardResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    Sent.Add($"discard {call.Arg<HostDiscardParams>().ModuleName}");
+                    return Task.FromResult(new DiscardResult());
+                });
+
+            var orchestration = Substitute.For<IPlatformOrchestrationService>();
+            orchestration.RuntimeEnvironment.Returns(host);
+
+            var backupDocument = new WorkspaceDocument("src/Backup.bas", Root, backup, version: 2);
+            var documents = Substitute.For<IWorkspaceDocumentService>();
+            var otherDocument = new WorkspaceDocument("src/Other.bas", Root, "", version: 1);
+            documents.GetAllDocuments().Returns([backupDocument, otherDocument]);
+            documents.WorkspaceRoot.Returns(Root);
+            documents.TryGetDocument(Backup, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = backupDocument; return true; });
+            documents.TryGetDocument(Other, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = otherDocument; return true; });
+
+            bool Parsed(Uri uri, out ModuleParseResult parse)
+            {
+                var name = Path.GetFileNameWithoutExtension(uri.LocalPath);
+                parse = Texts[name] is { } text ? new ModuleParser().Parse(uri, text) : null!;
+                return parse is not null;
+            }
+
+            var parsing = Substitute.For<IParsingClientService>();
+            parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+                .Returns(call => { var found = Parsed((Uri)call[0], out var parse); call[1] = parse; return found; });
+            parsing.TryGetCached(Arg.Any<Uri>(), Arg.Any<int>(), out Arg.Any<ModuleParseResult>())
+                .Returns(call => { var found = Parsed((Uri)call[0], out var parse); call[2] = parse; return found; });
+
+            Sut = new SymbolSyncService(
+                orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries(),
+                NoOtherProjects());
+        }
+
+        // what was sent since the last time it was asked.
+        public string[] Taken()
+        {
+            var sent = Sent.ToArray();
+            Sent.Clear();
+            return sent;
+        }
+    }
+
+    private static string BackupOf(params string[] blocks)
+        => "Attribute VB_Name = \"Backup\"\r\nPublic Sub Run()\r\nEnd Sub\r\n"
+            + string.Concat(blocks.Select(block => $"Module {block}\r\nPublic Sub Go{block}()\r\nEnd Sub\r\nEnd Module\r\n"));
+
+    [TestMethod]
+    public async Task EachModuleOfAFile_IsDefinedInTheHost_ItsOwnThenEachBlocks_ThenTheCodeOfEach()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "Backup", "Helpers", "Tools", "Other", "C Backup", "C Helpers", "C Tools", "C Other" }, workspace.Taken());
+    }
+
+    // an edit that renames a block takes the old one out of the host and defines the new one, with the document's other modules; no other document's is sent.
+    [TestMethod]
+    public async Task ADocumentThatChanged_IsEachOfItsModulesDefinedAgain_AndABlockItNoLongerHasDiscarded()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Backup"] = BackupOf("Helpers", "Gadgets");
+        await workspace.Sut.SyncDocumentAsync(workspace.Backup, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "discard Tools", "Backup", "Helpers", "Gadgets", "C Backup", "C Helpers", "C Gadgets" }, workspace.Taken());
+    }
+
+    // a block that moved to another document is still a module of the workspace: the host keeps it, and the other document's sync defines it again.
+    [TestMethod]
+    public async Task ABlockThatMovedToAnotherDocument_IsNotDiscarded()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Backup"] = BackupOf("Helpers");
+        workspace.Texts["Other"] = "Public Sub Bar()\r\nEnd Sub\r\nModule Tools\r\nEnd Module\r\n";
+        await workspace.Sut.SyncDocumentAsync(workspace.Backup, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "Backup", "Helpers", "C Backup", "C Helpers" }, workspace.Taken());
+    }
+
+    // a block that moved is the other document's from then on: that document losing it takes it out of the host.
+    [TestMethod]
+    public async Task ABlockThatMovedToAnotherDocument_IsDiscarded_OnceThatDocumentLosesIt()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Texts["Backup"] = BackupOf("Helpers");
+        workspace.Texts["Other"] = "Public Sub Bar()\r\nEnd Sub\r\nModule Tools\r\nEnd Module\r\n";
+        await workspace.Sut.SyncDocumentAsync(workspace.Backup, CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Other"] = "Public Sub Bar()\r\nEnd Sub\r\n";
+        await workspace.Sut.SyncDocumentAsync(workspace.Other, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "discard Tools", "Other", "C Other" }, workspace.Taken());
+    }
+
+    // what a document declares is said by its parse: one the server has none of at the moment says nothing, and the host keeps its modules. A file that
+    // changed outside the editor and lost a block has it taken out by the workspace's sync.
+    [TestMethod]
+    [DataRow(true, DisplayName = "a document being parsed again")]
+    [DataRow(false, DisplayName = "a file that lost a block")]
+    public async Task TheWorkspacesSync_DiscardsOnlyWhatADocumentsParseNoLongerDeclares(bool beingParsed)
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Texts["Backup"] = beingParsed ? null : BackupOf("Helpers");
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        CollectionAssert.AreEqual(
+            beingParsed ? new[] { "Other", "C Other" } : new[] { "discard Tools", "Backup", "Helpers", "Other", "C Backup", "C Helpers", "C Other" },
+            workspace.Taken());
+    }
+
+    // a session composed anew holds none of what it was given: nothing of it is taken out.
+    [TestMethod]
+    public async Task ASessionComposedAnew_HasNothingDiscarded_ThatItWasNotGiven()
+    {
+        var workspace = new BlocksWorkspace(BackupOf("Helpers", "Tools"));
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None);
+        workspace.Taken();
+
+        workspace.Sut.SessionComposedAnew();
+        workspace.Texts["Backup"] = BackupOf("Helpers");
+        await workspace.Sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        CollectionAssert.AreEqual(new[] { "Backup", "Helpers", "Other", "C Backup", "C Helpers", "C Other" }, workspace.Taken());
+    }
+
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) ForDiscard(bool providesDiscard = true, bool hasHost = true)
     {
         var host = Substitute.For<IRDCoreClientApp>();
@@ -766,5 +934,62 @@ public sealed class SymbolSyncServiceTests
 
         Assert.IsTrue(heldBack, "the hold waits for the workspace");
         Assert.IsTrue(atOnce, "and nothing waits once it is brought up");
+    }
+
+    // a workspace of standard modules, each parsed as itself; and the names of the modules the host is sent.
+    private static (SymbolSyncService Sut, List<string> Sent) WorkspaceOf(params (string File, string Source)[] modules)
+    {
+        var sent = new List<string>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                sent.Add(call.Arg<DefineSymbolsParams>().ModuleName);
+                return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
+            });
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        WorkspaceDocument[] files = [.. modules.Select(module => new WorkspaceDocument($"src/{module.File}.bas", Root, module.Source))];
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns(files);
+        documents.WorkspaceRoot.Returns(Root);
+        var parses = files.ToDictionary(file => file.Id.Uri.ToUri().AbsoluteUri, file => new ModuleParser().Parse(file.Id.Uri.ToUri(), file.Text));
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var found = parses.TryGetValue(((Uri)call[0]).AbsoluteUri, out var parse);
+                call[1] = parse;
+                return found;
+            });
+
+        return (new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance,
+            new NoLibraries(), NoOtherProjects()), sent);
+    }
+
+    private static string Named(string name) => $"Attribute VB_Name = \"{name}\"\r\nPublic Sub Work()\r\nEnd Sub\r\n";
+
+    // MS-VBAL §4.2: the modules of a project have distinct names. Of two of one name, neither is the module of that name, and neither is the host's: which one
+    // would be is the order the project lists them in. A run is refused, and says why. A module of another name is the host's as any is.
+    [TestMethod]
+    [DataRow("A", "Dup", "B", "Dup", DisplayName = "two files, one VB_Name")]
+    [DataRow("Helpers", null, "B", "Helpers", DisplayName = "a file named as another module's VB_Name")]
+    [DataRow("A", "dup", "B", "DUP", DisplayName = "two names that differ in case")]
+    public async Task TwoModulesOfOneName_AreNeitherSentToTheHost_AndARunOfTheProgramIsRefused(
+        string firstFile, string? firstName, string secondFile, string secondName)
+    {
+        var (sut, sent) = WorkspaceOf(
+            (firstFile, firstName is null ? "Public Sub Work()\r\nEnd Sub\r\n" : Named(firstName)), (secondFile, Named(secondName)), ("C", Named("Other")));
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.Contains("Other", sent);
+        Assert.IsFalse(sent.Any(name => string.Equals(name, secondName, StringComparison.OrdinalIgnoreCase)), string.Join(", ", sent));
+        var refused = Assert.ContainsSingle(sut.Unsynced);
+        Assert.AreEqual(secondName, refused.Key, ignoreCase: true);
+        Assert.StartsWith(VBCompileErrorInfo.GetErrorString(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary), refused.Value);
     }
 }

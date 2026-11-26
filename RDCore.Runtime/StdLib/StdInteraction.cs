@@ -725,9 +725,11 @@ public sealed class StdInteraction(
             return RuntimeSemanticsEvaluationResult<VBDoubleValue>.Error(commandLine.ErrorInfo!);
         }
 
+        // the program starts where the session is, as MS-VBA's starts where its process is: a session's current directory is its own.
+        var workingDirectory = session.Files.TryGetCurrentDirectory(null, out var current) is null ? current : null;
         try
         {
-            return Succeed(new VBDoubleValue(_outside.Desktop.Shell(commandLine.Result!.ToString()!, windowStyle)));
+            return Succeed(new VBDoubleValue(_outside.Desktop.Shell(commandLine.Result!.ToString()!, windowStyle, workingDirectory)));
         }
         catch (FileNotFoundException exception)
         {

@@ -51,8 +51,9 @@ public static class ImplementsSemantics
 
     // where the directive that names the interface is written, which a symbol that was not read from source does not know.
     private static SourceLocation LocationOfDirective(VBClassModuleSymbol module, int index)
-        => index >= 0 && index < module.ImplementedInterfaceRanges.Length && module.ImplementedInterfaceRanges.Length == module.ImplementedInterfaceNames.Length
-            ? new(module.Uri, module.ImplementedInterfaceRanges[index])
+        => index >= 0 && index < module.ImplementedInterfaceLocations.Length
+            && module.ImplementedInterfaceLocations.Length == module.ImplementedInterfaceNames.Length
+            ? module.ImplementedInterfaceLocations[index]
             : LocationOf(module);
 
     private static SourceLocation LocationOfDirective(VBClassModuleSymbol module, VBClassModuleSymbol implemented)

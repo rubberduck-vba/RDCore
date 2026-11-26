@@ -1034,31 +1034,74 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
     }
 
+    /// <summary>
+    /// Lets go of the objects that the modules' variables, and their procedures' <c>Static</c> locals, hold, as a program that sets each to its initial
+    /// value does: an object that loses its last reference runs its <c>Terminate</c> (<strong>MS-VBAL §5.3.1.10</strong>), and the objects it
+    /// held are let go of in turn.
+    /// </summary>
+    /// <param name="session">The session these are the symbols of.</param>
+    /// <remarks>
+    /// A <c>Terminate</c> that reads a variable already let go of finds its initial value, or what code set it to since; one not let go of yet still holds
+    /// its object. It stops at the first <c>Terminate</c> that
+    /// leaves an error unhandled (<see cref="ISessionErrorState.Untrappable"/>), as a program stops there: what is still held is the wipe's to let go of.
+    /// </remarks>
+    internal void LetGoOfModuleVariables(IRuntimeSession session)
+    {
+        // taken before any of them is touched, as ResetStorage takes them.
+        var variables = table.ModuleLevelSymbols
+            .Where(symbol => symbol is ITypedSymbol typed && symbol.Kind is SymbolKindExt.Field or SymbolKindExt.Variable
+                && ObjectReferences.CanHoldAnObject(typed.ResolvedType))
+            .Concat(table.All().OfType<VBTypeMemberSymbol>().SelectMany(StaticsOf).Where(local => ObjectReferences.CanHoldAnObject(local.ResolvedType)))
+            .ToList();
+        foreach (var variable in variables)
+        {
+            if (session.Errors.Untrappable is not null)
+            {
+                return;
+            }
+
+            if (!TryGetSessionCell(variable, out var cell) || ObjectReferences.HeldIn(session, cell) is not { IsEmpty: false } held)
+            {
+                continue;
+            }
+
+            // the variable holds its initial value before anything it held is let go of; a Static is allocated again by its procedure's next call.
+            SessionBindings.TryDeallocate(variable);
+            if (variable is not VBLocalVariableSymbol)
+            {
+                _ = SessionBindings.TryAllocate(variable, DefaultValueOf(variable), out _);
+            }
+
+            ObjectReferences.Release(session, held);
+        }
+    }
+
     public bool TryComposeClassModule(
-        string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
+        string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations = default)
     {
         // a class of the session's own project before a referenced project's of the same name.
         var named = table.All().OfType<VBClassModuleSymbol>()
             .Where(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase)).ToList();
         var module = named.Find(candidate => candidate.GetProperty(SymbolProperties.Library) is null) ?? named.FirstOrDefault();
-        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceLocations);
     }
 
     public bool TryComposeClassModule(
-        Uri moduleUri, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
+        Uri moduleUri, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations = default)
     {
         ArgumentNullException.ThrowIfNull(moduleUri);
 
         var module = table.All().OfType<VBClassModuleSymbol>()
             .FirstOrDefault(candidate => string.Equals(candidate.Uri.AbsoluteUri, moduleUri.AbsoluteUri, StringComparison.Ordinal));
-        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceRanges);
+        return module is not null && Compose(module, implementedInterfaceNames, implementedInterfaceLocations);
     }
 
-    private bool Compose(VBClassModuleSymbol module, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges)
+    private bool Compose(
+        VBClassModuleSymbol module, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations)
     {
         // what the class declares: every member defined under its identity.
         var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames,
-            ImplementedInterfaceRanges = implementedInterfaceRanges.IsDefault ? [] : implementedInterfaceRanges,
+            ImplementedInterfaceLocations = implementedInterfaceLocations.IsDefault ? [] : implementedInterfaceLocations,
         };
         Replace(module, composed with { DefaultInterfaceMembers = VBClassType.FromClassModule(composed).Members });
 

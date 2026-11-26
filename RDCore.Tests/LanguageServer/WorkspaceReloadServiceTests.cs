@@ -17,6 +17,7 @@ using RDCore.LanguageServer.Workspace.States;
 using RDCore.Parsing;
 using RDCore.SDK;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
@@ -214,6 +215,24 @@ public sealed class WorkspaceReloadServiceTests
         await _symbols.Received(1).DiscardModuleAsync("B", Arg.Any<CancellationToken>(), false);
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
         _symbols.DidNotReceive().SessionComposedAnew();
+    }
+
+    // a file of blocks is the text of several modules: losing it loses each of them, by the names its parse gave them.
+    [TestMethod]
+    public async Task AFileOfBlocksTheProjectLost_HasEachOfItsModulesDiscarded_WhenTheHostKeepsItsSession()
+    {
+        HostAnswers(new HostProjectReloadResult { IsProgramRunning = true });
+        await LoadAsync("A.bas", "B.cls");
+        var parse = new ModuleParser().Parse(UriOf("B.cls"),
+            "Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n");
+        _parsing.TryGetCached(UriOf("B.cls"), out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
+        WriteProject("A.bas");
+
+        await _sut.ReloadAsync(CancellationToken.None);
+
+        var discarded = _symbols.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(ISymbolSyncService.DiscardModuleAsync))
+            .Select(call => (string)call.GetArguments()[0]!).ToArray();
+        CollectionAssert.AreEqual(new[] { "Backup", "Account", "Helpers" }, discarded);
     }
 
     [TestMethod]

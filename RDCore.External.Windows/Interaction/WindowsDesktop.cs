@@ -180,7 +180,7 @@ public sealed class WindowsDesktop : IDesktop
     /// The command line is <c>CreateProcess</c>'s to read, as MS-VBA's <c>Shell</c> gives it: a program path with spaces in it and no quotes around it is found the way
     /// Windows finds it.
     /// </remarks>
-    public int Shell(string pathName, VBAppWinStyle windowStyle)
+    public int Shell(string pathName, VBAppWinStyle windowStyle, string? workingDirectory)
     {
         var startup = new STARTUPINFOW
         {
@@ -191,7 +191,7 @@ public sealed class WindowsDesktop : IDesktop
 
         // CreateProcessW may write to the command line it is given, which is why it is a buffer and not a string.
         var commandLine = new StringBuilder(pathName);
-        if (!CreateProcessW(null, commandLine, IntPtr.Zero, IntPtr.Zero, false, 0, IntPtr.Zero, null, ref startup, out var process))
+        if (!CreateProcessW(null, commandLine, IntPtr.Zero, IntPtr.Zero, false, 0, IntPtr.Zero, workingDirectory, ref startup, out var process))
         {
             var error = Marshal.GetLastWin32Error();
             throw error is ERROR_FILE_NOT_FOUND or ERROR_PATH_NOT_FOUND

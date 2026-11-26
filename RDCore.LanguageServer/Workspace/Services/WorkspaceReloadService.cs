@@ -12,6 +12,7 @@ using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using System.Text.Json;
 using RDCore.SDK.Platform.Components;
+using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Workspace.Services;
 
@@ -351,10 +352,8 @@ internal sealed class WorkspaceReloadService(
                 return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
             }
 
-            // the name each module the primary project no longer has was defined under, which is read from what was parsed of it.
-            var removedModules = changed.LeftThePrimaryProject
-                .Select(module => parsing.TryGetCached(module.Id.Uri.ToUri(), out var parse) && parse.SyntaxTree?.GetDeclaredName() is { } name ? name : module.Name)
-                .ToList();
+            // the names the modules of each document the primary project no longer has were defined under, which are read from what was parsed of it.
+            var removedModules = changed.LeftThePrimaryProject.SelectMany(module => ModuleNamesOf(module.Id, module.Name)).ToList();
 
             var started = new WorkspaceReloadResult(changed.Added, changed.Removed, false, false);
             return Queued(new Applied(started, new FinishWork(changed.Loaded, [], removedModules, ComposeHost: false, (_, _) =>
@@ -584,9 +583,7 @@ internal sealed class WorkspaceReloadService(
             }
 
             var before = documents.TryGetDocument(id.Uri.ToUri(), out var document) ? document : null;
-            var moduleName = before is not null && parsing.TryGetCached(id.Uri.ToUri(), out var parse) && parse.SyntaxTree?.GetDeclaredName() is { } name
-                ? name
-                : before?.Name;
+            var moduleNames = before is not null ? ModuleNamesOf(id, before.Name) : null;
 
             // a document is loaded from an Unloaded state only: whatever it was - loaded, missing, unreadable - it is read anew, unless the client opened it meanwhile.
             var wasLoaded = documentStates.IsTracked(id) && documentStates.GetCurrentState(id) is LoadedDocumentState;
@@ -610,10 +607,10 @@ internal sealed class WorkspaceReloadService(
             reread++;
             if (!loaded)
             {
-                // the module's file is gone: what the host holds of it goes with it.
-                if (isModule && moduleName is not null)
+                // the module's file is gone: what the host holds of its modules goes with it.
+                if (isModule && moduleNames is not null)
                 {
-                    toDiscard.Add(moduleName);
+                    toDiscard.AddRange(moduleNames);
                 }
 
                 continue;
@@ -643,6 +640,10 @@ internal sealed class WorkspaceReloadService(
         }));
     }
 
+    // the names the host has a document's modules under, read off what was parsed of it: its own (fallbackName when its text names none), then its blocks'.
+    private IReadOnlyList<string> ModuleNamesOf(TextDocumentIdentifier id, string fallbackName)
+        => ParsedModules.NamesOf(parsing.TryGetCached(id.Uri.ToUri(), out var parse) ? parse : null, fallbackName);
+
     private bool IsRunningAWorkspace() => serverStateProvider.State is RunningServerState && projectFiles.Project?.ProjectInfo is not null;
 
     // what a project file would hold: the same text is the same project.
@@ -671,14 +672,14 @@ internal sealed class WorkspaceReloadService(
         var removed = before.Keys.Where(path => !after.ContainsKey(path)).ToList();
         var added = after.Keys.Where(path => !before.ContainsKey(path)).ToList();
 
-        // the name each removed module was defined under, which is read from what was parsed of it, before it goes.
+        // the names the modules of each removed document were defined under, which are read from what was parsed of it, before it goes.
         var removedModules = new List<string>();
         foreach (var path in removed)
         {
             var id = IdOf(root, path);
             if (before[path] && documents.TryGetDocument(id.Uri.ToUri(), out var document))
             {
-                removedModules.Add(parsing.TryGetCached(id.Uri.ToUri(), out var parse) && parse.SyntaxTree?.GetDeclaredName() is { } name ? name : document.Name);
+                removedModules.AddRange(ModuleNamesOf(id, document.Name));
             }
 
             documents.Remove(id);

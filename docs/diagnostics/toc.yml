@@ -214,6 +214,8 @@
   href: vbc09385.md
 - name: "VBC09386: Name conflicts with existing module, project, or object library"
   href: vbc09386.md
+- name: "VBC09387: Duplicate Option statement"
+  href: vbc09387.md
 - name: "VBR-0001: Application-defined or object-defined error"
   href: vbr-0001.md
 - name: "VBR00003: Return without GoSub"

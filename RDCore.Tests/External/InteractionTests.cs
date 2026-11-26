@@ -28,7 +28,7 @@ public sealed class InteractionTests
         NoDesktop.Instance.DoEvents();
         NoDesktop.Instance.Beep();
         NoDesktop.Instance.SendKeys("{NOT A KEY", wait: true);
-        Assert.AreEqual(0, NoDesktop.Instance.Shell("notepad.exe", VBAppWinStyle.VBNormalFocus));
+        Assert.AreEqual(0, NoDesktop.Instance.Shell("notepad.exe", VBAppWinStyle.VBNormalFocus, workingDirectory: null));
         Assert.IsTrue(NoDesktop.Instance.AppActivate("anything", wait: false));
     }
 

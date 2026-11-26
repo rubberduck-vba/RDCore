@@ -233,6 +233,8 @@ public enum VBCompileErrorId
     NotALegalObjectName = 9385,
     // MS-VBAL §4.2 Modules: a module's name is not the project name of a project its project references, a library among them (§4.1).
     NameConflictsWithModuleProjectOrLibrary = 9386,
+    // MS-VBAL §5.2.1 Option Directives: a module states each option directive at most once.
+    DuplicateOptionStatement = 9387,
 
 
     /***********************************************************************************************
