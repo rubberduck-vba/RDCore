@@ -447,7 +447,8 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         WriteBlocks();
         var workspace = await OpenedAsync();
         WriteBlocks("Tools");
-        _reload.ReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>()).Returns(new WorkspaceReloadResult(0, 0, false, false, Reread: 1));
+        _reload.ReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkspaceReloadResult(0, 0, false, false, Reread: 1));
 
         var refused = await workspace.ReloadChangedAsync(CancellationToken.None);
 
