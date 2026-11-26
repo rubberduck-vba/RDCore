@@ -567,6 +567,32 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { "5" }, run.Output);
     }
 
+    // the workspace is no folder of the disk the program runs on: a script's Class and Module blocks are modules of the program its build makes, each read
+    // from the file as the build read it, and the program prints what rdc run prints.
+    [TestMethod]
+    public async Task TheBuiltProgramOfAScript_RunsWhereItsWorkspaceIsNot_ItsBlocksAClassAndAModule()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Bank.vbs", string.Join("\r\n",
+            "Set first = New Account", "first.Deposit Helpers.Twice(20)", "Debug.Print first.Balance",
+            "Class Account", "Private total", "Public Sub Deposit(amount)", "total = total + amount", "End Sub",
+            "Public Property Get Balance()", "Balance = total", "End Property", "End Class",
+            "Module Helpers", "Public Function Twice(value)", "Twice = value * 2", "End Function", "End Module") + "\r\n"));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Bank", "Modules": [ { "RelativeUri": "Bank.vbs" } ] } }
+            """);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+        var run = await RunAsync(fileSystem, shipped, Root);
+        Assert.AreEqual(0, run.Exit, run.Error);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { "40" }, built.Output, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+    }
+
     // the workspace is not a folder on the disk the program runs on: the libraries its project references are in the program's folder, each with the
     // libraries it depends on, and a library's constant has the same value in the program as in rdc run - no object of the library is created, so no COM
     // library is asked for.

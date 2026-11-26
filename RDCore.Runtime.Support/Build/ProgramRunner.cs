@@ -69,10 +69,11 @@ internal static class ProgramRunner
             await output.WriteLineAsync(line);
         }
 
-        // an End ends the program, and so does a Stop in a release build (RD-VBAL §5.4.2.11): it ended, and no error ended it.
+        // an End ends the program, and so does a Stop in a release build (RD-VBAL §5.4.2.11): it ended, and no error ended it. A program that said the code
+        // its process ends with as it ended (WScript.Quit) ends with that one.
         if (result.Outcome is ExecutionOutcome.Completed or ExecutionOutcome.Halted)
         {
-            return Completed;
+            return result.Outcome is ExecutionOutcome.Halted ? result.ExitCode : Completed;
         }
 
         // the error's VBA number is in the message and never in the exit code, which is 1 whatever the error: a process's exit code is a byte on Linux,

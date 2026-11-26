@@ -1360,12 +1360,13 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         if (session.Halt.Pending is { } halt)
         {
             var location = session.Halt.Location;
+            var exitCode = session.Halt.ExitCode;
             session.Halt.Clear();
 
             if (halt is RuntimeHaltKind.End)
             {
                 SessionWipe.End(session);
-                return new ExecuteResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
+                return new ExecuteResult { Outcome = ExecutionOutcome.Halted, ExitCode = exitCode, Output = output.Lines };
             }
 
             return new ExecuteResult

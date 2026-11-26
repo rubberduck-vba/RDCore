@@ -24,20 +24,25 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// the parsed module, so the members it defines parent onto the module symbol composed here.
 /// </para>
 /// <para>
-/// A built program runs where its workspace's sources are not: the name and the kind its build read of each module are given instead (<c>known</c>),
-/// and no source of a module named there is read.
+/// A built program runs where its workspace's sources are not: the modules its build read of each file are given instead (<c>known</c>), and no source
+/// of a file named there is read. A file of several modules (its <c>Class</c> and <c>Module</c> blocks) has a symbol for each.
 /// </para>
 /// </remarks>
 /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
 /// <param name="project">The project.</param>
 /// <param name="fileSystem">The file system the sources are read from.</param>
-/// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+/// <param name="known">
+/// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
+/// </param>
 /// <param name="ansiCodePage">
 /// The code page of a source that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the environment's.
 /// </param>
 public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem,
-    IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage) : ISymbolProvider
+    IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage) : ISymbolProvider
 {
+    // the modules the project's files declare, a block of a file one of them, as the symbols were last provided: none until they are.
+    public int ModuleCount { get; private set; }
+
     public IEnumerable<Symbol> ProvideSymbols()
     {
         var modules = new List<Symbol>();
@@ -46,15 +51,23 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
             // the kind is the project's word for a document module, and the source's otherwise (ModuleKinds.Of), as the language server reads it. What a
             // document module's attributes make it is the language server's to send with its members (DefineSymbolsParams.Directives).
             // A document module's host class is the project's word too (ModuleKinds.HostClassOf): its code names that class's members.
-            var (name, kind) = known is not null && known.TryGetValue(module.RelativeUri, out var given) ? given : Read(module);
-            modules.Add(kind.IsClass()
-                ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
-                {
-                    IsDocument = kind == ModuleType.DocumentModule,
-                    HostClass = module.Super is { } super ? ModuleKinds.HostClassOf(super) : null,
-                }
-                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name));
+            // A file of several modules gives one symbol for each (ModuleKinds.ModulesOf): its own, which the project's word is about, then each block's.
+            var declared = known is not null && known.TryGetValue(module.RelativeUri, out var given)
+                ? given
+                : ModuleKinds.ModulesOf(module, ReadSourceOrNull(module.RelativeUri));
+            foreach (var (name, kind, isBlock) in declared)
+            {
+                modules.Add(kind.IsClass()
+                    ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
+                    {
+                        IsDocument = kind == ModuleType.DocumentModule,
+                        HostClass = !isBlock && module.Super is { } super ? ModuleKinds.HostClassOf(super) : null,
+                    }
+                    : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name));
+            }
         }
+
+        ModuleCount = modules.Count;
 
         // the project itself, by its name: what qualifies the names of its own modules and types (MVVM.AppContext, MS-VBAL §5.6.12), as a library's name
         // qualifies its own. It is of no library, which is what tells it from the libraries' projects. A module named as the project keeps the name, as the
@@ -69,13 +82,6 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
         {
             yield return module;
         }
-    }
-
-    // the module's name and kind, as its source says them.
-    private (string Name, ModuleType Kind) Read(RDCoreModule module)
-    {
-        var source = ReadSourceOrNull(module.RelativeUri);
-        return (ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source));
     }
 
     private string? ReadSourceOrNull(string relativeUri)

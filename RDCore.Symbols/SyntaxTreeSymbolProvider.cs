@@ -188,10 +188,28 @@ public sealed class SyntaxTreeSymbolProvider(
             conditional.Remove(control.Name);
         }
 
+        // a script's code (ProgramEntryPoint.ScriptName) is the file's own: what it declares (by a Dim or a Const anywhere in it, a ReDim, or a name it
+        // uses) is the module's, as a VBScript global is, and every procedure of the module sees it. It is read first, so the procedures know those names.
+        var script = module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(IsScript);
+        var scriptSymbols = script is null
+            ? []
+            : FromMember(builder, script, moduleScopeNames, conditional, blocks.IsConditional, directives, withImplicitDeclarations, implicitScope,
+                ofTheModule: true)
+                .ToList();
+        moduleScopeNames.UnionWith(scriptSymbols.Where(symbol => symbol is VBModuleFieldVariableMemberSymbol or VBConstantMemberSymbol)
+            .Select(symbol => symbol.Name));
+
         foreach (var child in module.Children)
         {
             switch (child)
             {
+                case MemberDeclarationNode member when ReferenceEquals(member, script):
+                    foreach (var symbol in scriptSymbols)
+                    {
+                        yield return symbol;
+                    }
+                    break;
+
                 case ExternalMemberDeclarationNode external:
                     yield return builder.BuildExternal(external);
                     break;
@@ -256,10 +274,13 @@ public sealed class SyntaxTreeSymbolProvider(
             _ => string.Empty,
         }).Where(name => name.Length > 0), StringComparer.OrdinalIgnoreCase);
 
+    private static bool IsScript(MemberDeclarationNode member)
+        => member.MemberKind == MemberKind.Procedure && member.Name == ProgramEntryPoint.ScriptName;
+
     private static IEnumerable<Symbol> FromMember(
         SymbolBuilder builder, MemberDeclarationNode member, IReadOnlySet<string> moduleScopeNames,
         IReadOnlyDictionary<string, ImmutableArray<SourceLocation>> conditional, Func<SourceLocation, bool> isConditional,
-        ModuleDirectives directives, bool withImplicitDeclarations, ImplicitDeclarationScope implicitScope)
+        ModuleDirectives directives, bool withImplicitDeclarations, ImplicitDeclarationScope implicitScope, bool ofTheModule = false)
     {
         switch (member.MemberKind)
         {
@@ -294,7 +315,7 @@ public sealed class SyntaxTreeSymbolProvider(
                     .Any(parameter => string.Equals(parameter.Name, site.Key, StringComparison.OrdinalIgnoreCase)))
                     .ToDictionary(site => site.Key, site => site.Value, StringComparer.OrdinalIgnoreCase);
                 var locals = builder.BuildLocals(
-                    member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter, isConditional);
+                    member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter, isConditional, ofTheModule);
                 foreach (var local in locals)
                 {
                     yield return local;

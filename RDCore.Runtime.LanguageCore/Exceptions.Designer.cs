@@ -813,6 +813,13 @@ namespace RDCore.Runtime.LanguageCore {
             }
         }
 
+        /// <summary>Looks up a localized string similar to Invalid in a Class or Module block.</summary>
+        internal static string VBCompileError_InvalidInABlock {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidInABlock", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses..
         /// </summary>

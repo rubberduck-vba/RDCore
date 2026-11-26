@@ -39,11 +39,13 @@ internal class PrecompilerNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         => new PrecompilerInlineIfStatementNode(NodeId, context.GetSourceLocation(_rootUri), [.. _children]);
 }
 
-internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors) : VBAConditionalCompilationBaseListener, ISyntaxNodeProvider
+// module: the address the directives' identities are keyed by, a block's module's (RDCoreDocument.BlockUri) or the file's; the file's by default.
+internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors, Uri? module = null)
+    : VBAConditionalCompilationBaseListener, ISyntaxNodeProvider
 {
     private readonly Uri _rootUri = sourceUri;
     private readonly ErrorListener _errors = errors;
-    private readonly Stack<PrecompilerNodeBuilder> _builderStack = new([new(sourceUri, new($"{sourceUri}/conditional", []))]);
+    private readonly Stack<PrecompilerNodeBuilder> _builderStack = new([new(sourceUri, new($"{module ?? sourceUri}/conditional", []))]);
 
     private PrecompilerNodeBuilder CurrentBuilder => _builderStack.Peek();
 

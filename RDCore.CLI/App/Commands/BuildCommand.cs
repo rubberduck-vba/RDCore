@@ -104,7 +104,11 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
 
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
         var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
-            entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))],
+            entryPoint.Procedure.Name, built.Definitions,
+            [.. workspace.Modules.SelectMany(module => module.Declared.Select(declared => new BuiltModule(module.RelativePath, declared.Name, declared.Kind)
+            {
+                IsBlock = declared.IsBlock,
+            }))],
             NativeDialogs: settings?.Value.NativeDialogs ?? false);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 

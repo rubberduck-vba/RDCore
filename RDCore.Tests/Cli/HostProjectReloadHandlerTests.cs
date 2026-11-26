@@ -134,6 +134,21 @@ public sealed class HostProjectReloadHandlerTests
         CollectionAssert.AreEqual(new[] { " 21 " }, result.Output.ToArray());
     }
 
+    // a file of blocks is the text of several modules, each of them a module of the session.
+    [TestMethod]
+    public async Task AFileOfBlocks_CountsEachOfItsModules_AmongTheModulesOfTheSessionComposedAgain()
+    {
+        _files.AddFile(Path.Combine(Root, "Backup.bas"), new MockFileData(
+            "Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n"));
+        await ComposeAsync("Program.bas");
+        WriteProject("Program.bas", "Backup.bas");
+
+        var reloaded = await _sut.Handle(new HostProjectReloadParams { WorkspaceRoot = new Uri(Root) }, CancellationToken.None);
+
+        Assert.IsTrue(reloaded.Composed);
+        Assert.AreEqual(4, reloaded.ModuleCount);
+    }
+
     [TestMethod]
     public async Task ASessionNotComposedYet_IsNotComposedByAReload()
     {

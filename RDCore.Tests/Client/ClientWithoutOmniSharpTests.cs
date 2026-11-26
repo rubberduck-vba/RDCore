@@ -156,6 +156,31 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
+    // a file of the project that holds a Class block and a Module block is three modules to the language server, as to rdc run: it defines each of them in the
+    // host, its own and each block's, and a program calls into all three.
+    [TestMethod]
+    public async Task TheBlocksOfAFileOfTheWorkspace_AreDefinedInTheHost_AsModulesAProgramUses()
+    {
+        await using var platform = await Platform.StartAsync(projectFile: AProjectOfBlocks,
+            files: new Dictionary<string, string> { ["Backup.bas"] = ABackupOfBlocks });
+        var executed = await RunAsync(platform, "Script", sessionModule: true,
+            source: "Public Sub Main()\r\n    Dim a As Account\r\n    Set a = New Account\r\n    a.Deposit 40\r\n"
+                + "    Debug.Print Helpers.Twice(a.Balance) + Backup.Total\r\nEnd Sub\r\n");
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "82" }, executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        await platform.ShutdownAsync(4);
+    }
+
+    private const string AProjectOfBlocks = "{ \"ProjectInfo\": { \"Name\": \"Blocks\", \"Modules\": [ { \"RelativeUri\": \"Backup.bas\" } ] } }";
+
+    private const string ABackupOfBlocks = "Attribute VB_Name = \"Backup\"\r\nPublic Function Total() As Long\r\n    Total = 2\r\nEnd Function\r\n"
+        + "Class Account\r\nPrivate m_balance As Long\r\nPublic Sub Deposit(ByVal amount As Long)\r\n    m_balance = m_balance + amount\r\nEnd Sub\r\n"
+        + "Public Property Get Balance() As Long\r\n    Balance = m_balance\r\nEnd Property\r\nEnd Class\r\n"
+        + "Module Helpers\r\nPublic Function Twice(ByVal value As Long) As Long\r\n    Twice = value * 2\r\nEnd Function\r\nEnd Module\r\n";
+
     // the environment host is started in its own folder, and the session it composes for the workspace starts in the workspace root: a relative path is a file
     // of the workspace.
     [TestMethod]
@@ -768,12 +793,17 @@ public sealed class ClientWithoutOmniSharpTests
 
         // the workspace has `others` modules besides Program, which the language server parses and composes the session of before it runs anything, and the
         // project file given, if one is; and the language of the user interface the user set, if one is.
-        public static async Task<Platform> StartAsync(int others = 0, string? projectFile = null, string? language = null)
+        public static async Task<Platform> StartAsync(
+            int others = 0, string? projectFile = null, string? language = null, IReadOnlyDictionary<string, string>? files = null)
         {
             var root = Path.Combine(Path.GetTempPath(), "RDCore", "raw-client", Guid.NewGuid().ToString("N"));
             var workspace = Path.Combine(root, "Workspace");
             Directory.CreateDirectory(workspace);
             File.WriteAllText(Path.Combine(workspace, "Program.bas"), ModuleText);
+            foreach (var (name, text) in files ?? new Dictionary<string, string>())
+            {
+                File.WriteAllText(Path.Combine(workspace, name), text);
+            }
             if (projectFile is not null)
             {
                 File.WriteAllText(Path.Combine(workspace, RDCore.SDK.Workspace.ProjectFile.FileName), projectFile);

@@ -109,6 +109,35 @@ namespace RDCore.Parsing {
             }
         }
 
+        /// <summary>
+        /// Looks up a localized string similar to An Attribute line is not written in a block: its header states the module&apos;s name and whether other
+        /// projects see it (Public Creatable Class), and a block&apos;s module has no other attributes.
+        /// </summary>
+        internal static string VBCompileError_AttributeInABlock_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_AttributeInABlock_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        /// Looks up a localized string similar to A module file&apos;s header (VERSION, BEGIN ... END) is not written in a block: the block&apos;s header
+        /// states what kind of module it is.
+        /// </summary>
+        internal static string VBCompileError_FileHeaderInABlock_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_FileHeaderInABlock_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        /// Looks up a localized string similar to Option Private Module is not written in a block: its header states it, as Private Module.
+        /// </summary>
+        internal static string VBCompileError_OptionPrivateModuleInABlock_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_OptionPrivateModuleInABlock_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>Looks up a localized string similar to Expected: Then. An #If or #ElseIf directive is written #If expression Then.</summary>
         internal static string VBCompileError_DirectiveExpectedThen_Verbose {
             get {
