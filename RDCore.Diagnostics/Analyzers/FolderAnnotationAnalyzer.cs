@@ -35,7 +35,7 @@ internal sealed class FolderAnnotationAnalyzer : IModuleAnalyzer
 
         foreach (var annotation in context.ParseResult.Trivia.OfType<AnnotationTriviaNode>())
         {
-            if (!string.Equals(annotation.Name, FolderAnnotation, StringComparison.OrdinalIgnoreCase)
+            if (!annotation.IsNamed(FolderAnnotation)
                 || annotation.Children is not [LiteralExpressionNode { StaticValue: VBStringValue written } literal, ..]
                 || string.Equals(written.Value, folder, StringComparison.Ordinal))
             {
@@ -55,11 +55,14 @@ internal sealed class FolderAnnotationAnalyzer : IModuleAnalyzer
                 : new AnalyzerFinding(RDCoreDiagnosticId.FolderAnnotationNotTheFilesFolder.ToCode(), annotation.SourceLocation.Range,
                     DiagnosticSeverity.Information, AnalyzerMessages.Format(RDCoreDiagnosticsResources.FolderAnnotationNotTheFilesFolder_Message, folder))
                 {
-                    Fixes = new DiagnosticFixes
-                    {
-                        Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.FolderAnnotationNotTheFilesFolder_Fix, folder),
-                            SyntaxEdits.Replace(literal.SourceLocation.Range, $"\"{folder.Replace("\"", "\"\"", StringComparison.Ordinal)}\""))],
-                    },
+                    // none for a folder name that no string literal writes (a line break, which a path can hold off Windows).
+                    Fixes = ExpressionWriter.LiteralOf(new VBStringValue(folder)) is { } text
+                        ? new DiagnosticFixes
+                        {
+                            Edits = [SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.FolderAnnotationNotTheFilesFolder_Fix, folder),
+                                SyntaxEdits.Replace(literal.SourceLocation.Range, text))],
+                        }
+                        : null,
                 };
         }
     }
