@@ -25,6 +25,9 @@ using RDCore.Tests.Platform;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Model.AST;
+using RDCore.SDK.Workspace;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -388,11 +391,11 @@ public sealed class CompiledEditAndContinueTests
 
         public Task OpenAsync(CancellationToken token) => Task.CompletedTask;
 
-        public bool TryGetFile(string path, out DebugFile file)
+        public bool TryGetFile(string path, [MaybeNullWhen(false)] out DebugFile file)
         {
             var moduleName = _loaded.Keys.FirstOrDefault(module => string.Equals(PathOf(module), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase));
-            file = DebugFile.Of(moduleName ?? string.Empty);
-            return moduleName is not null;
+            file = moduleName is null ? null : new DebugFile(moduleName, new RDCoreDocument(new Uri(PathOf(moduleName)), new ModuleParseResult()));
+            return file is not null;
         }
 
         public bool TryGetPath(string moduleName, out string path)

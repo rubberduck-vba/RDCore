@@ -4,6 +4,7 @@ using OmniSharp.Extensions.DebugAdapter.Protocol.Models;
 using OmniSharp.Extensions.DebugAdapter.Protocol.Requests;
 using OmniSharp.Extensions.DebugAdapter.Protocol.Server;
 using OmniSharp.Extensions.JsonRpc;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
@@ -212,6 +213,9 @@ internal sealed class ProgramDebugAdapter(
 
     private int ToLine(long clientLine) => (int)(_linesStartAt1 ? clientLine - 1 : clientLine);
 
+    // the module a line of a file is in: the block that holds it, or the file's own.
+    private static string ModuleAt(DebugFile file, int line) => file.NameOf(file.Document.ModuleAt(new SourcePosition(line, 0)));
+
     // a file is named as the client named it when it has: the same file, written as the workspace has it, may not be one the client recognizes.
     private Source? SourceOf(string module)
     {
@@ -385,10 +389,10 @@ internal sealed class ProgramDebugAdapter(
         // a client sets the breakpoints of a file, and the host those of a module: each module of the file is given the ones on its lines, and one given none
         // has its breakpoints cleared. Each answers for its own, which are put back in the order they were asked for.
         var set = new DebugBreakpoint[requested.Length];
+        var modules = requested.Select(breakpoint => ModuleAt(file, breakpoint.Line)).ToArray();
         foreach (var module in file.Modules)
         {
-            var at = Enumerable.Range(0, requested.Length)
-                .Where(index => string.Equals(file.ModuleAt(requested[index].Line), module, StringComparison.Ordinal)).ToArray();
+            var at = Enumerable.Range(0, requested.Length).Where(index => string.Equals(modules[index], module, StringComparison.Ordinal)).ToArray();
             var result = await debugging.SetBreakpointsAsync(module, [.. at.Select(index => requested[index])], cancellationToken);
             foreach (var (index, breakpoint) in at.Zip(result.Breakpoints))
             {
@@ -1006,7 +1010,7 @@ internal sealed class ProgramDebugAdapter(
         }
 
         // the line is of the file: the module it is a line of is the block that holds it, or the file's own.
-        var module = file.ModuleAt(ToLine(request.Line));
+        var module = ModuleAt(file, ToLine(request.Line));
 
         DebugGotoResult peeked;
         await _going.WaitAsync(cancellationToken);
