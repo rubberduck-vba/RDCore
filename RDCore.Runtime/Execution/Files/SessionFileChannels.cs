@@ -578,6 +578,14 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         return null;
     }
 
+    // the file system, the ANSI encoding and the path resolution the Scripting library's FileSystemObject acts through too: one current directory, and
+    // one rule for separators, for every file function of the session.
+    internal IFileSystem FileSystem => fileSystem;
+
+    internal Encoding AnsiEncoding => encoding;
+
+    internal bool TryResolve(ref string path) => Resolve(ref path) is null;
+
     // the session's current directory; null once it no longer exists, as when it is deleted while the session is in it.
     private string? CurrentDirectory() => _current is { } current && fileSystem.Directory.Exists(current) ? current : null;
 

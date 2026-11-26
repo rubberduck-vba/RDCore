@@ -233,6 +233,8 @@ public enum VBCompileErrorId
     NotALegalObjectName = 9385,
     // MS-VBAL §4.2 Modules: a module's name is not the project name of a project its project references, a library among them (§4.1).
     NameConflictsWithModuleProjectOrLibrary = 9386,
+    // MS-VBAL §5.2.1 Option Directives: a module states each option directive at most once.
+    DuplicateOptionStatement = 9387,
     // RD-VBAL §5.1: every part of a module is of the module's kind.
     ModulePartOfAnotherKind = 9388,
     // RD-VBAL §5.1: a directive of a module is stated by one of its parts, or the same by each part that states it.

@@ -80,7 +80,7 @@ public sealed class RuntimeFactsExposureTests
     [DataRow("ByVal n As Long", "Dim r As Long|r = 1 / n", DisplayName = "division by a number that is not known")]
     [DataRow("ByVal s As String", "Dim b As Byte|b = CByte(s)", DisplayName = "library call with an argument that is not known")]
     [DataRow("", "Dim n As Long|n = Int(Rnd() * 10)", DisplayName = "library call that has state")]
-    [DataRow("", "Dim o As Object|Set o = CreateObject(\"Scripting.Dictionary\")", DisplayName = "call into the outside world")]
+    [DataRow("", "Dim o As Object|Set o = CreateObject(\"ADODB.Connection\")", DisplayName = "call into the outside world")]
     [DataRow("", "Dim s As String|Open \"x\" For Input As #1|Line Input #1, s|Close #1", DisplayName = "file statements")]
     [DataRow("", "Dim c As Collection|c.Add 1", DisplayName = "member of a local that is not known along every path")]
     public async Task AnErrorRaisedForAnAssumedValue_IsNotStated(string parameters, string body)

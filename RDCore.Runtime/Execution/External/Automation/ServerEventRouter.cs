@@ -35,15 +35,15 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// </param>
 /// <param name="intercept">
 /// What handles an event itself, at the time it is handled, instead of the procedures the route names: a form's close, which the session does as <c>Unload</c> does.
-/// Returns whether it handled it.
+/// Returns what its handlers answered, a failure included; <see langword="null"/> for an event it does not handle.
 /// </param>
 /// <param name="source">
 /// The object of the session the events are raised by, whose connected sinks (<see cref="SessionConnections"/>) are called after the procedures the route names;
 /// <see langword="null"/> for one that is not the program's to connect to.
 /// </param>
 internal sealed class ServerEventRouter(
-    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route, Func<string, object?[], bool>? intercept = null,
-    VBRuntimeObjectId? source = null) : IAutomationEventSink
+    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route,
+    Func<string, object?[], RuntimeSemanticsEvaluationResult?>? intercept = null, VBRuntimeObjectId? source = null) : IAutomationEventSink
 {
     private readonly ServerObjects _objects = new(session, server);
 
@@ -120,12 +120,29 @@ internal sealed class ServerEventRouter(
         {
             Forms.SessionForms.Of(session).HideAll(session);
         }
+
+        Forms.SessionForms.Of(session).Wake();
     }
 
     private void Handle(string name, object?[] arguments, int? dispatchId)
     {
         // a program that is ending runs no more of its code: what the server raises as it lets go of the program's objects included.
-        if (session.Halt.Pending is RuntimeHaltKind.End || intercept?.Invoke(name, arguments) == true || session.Callables is not { } callables)
+        if (session.Halt.Pending is RuntimeHaltKind.End)
+        {
+            return;
+        }
+
+        if (intercept?.Invoke(name, arguments) is { } intercepted)
+        {
+            if (!intercepted.IsSuccess)
+            {
+                Failed(intercepted);
+            }
+
+            return;
+        }
+
+        if (session.Callables is not { } callables)
         {
             return;
         }
@@ -228,12 +245,7 @@ internal sealed class ServerEventRouter(
                     var handled = callables.ForMember(handler).Call(resolver, [new VBObjectValue(subscriber).RuntimeValue, .. bound]);
                     if (!handled.IsSuccess)
                     {
-                        // a handler the program was stopped in - an End, a debugger that ended it - did not fail: there is nothing to tell.
-                        if (session.Halt.Pending is not RuntimeHaltKind.End)
-                        {
-                            Report(handled);
-                        }
-
+                        Failed(handled);
                         ran = false;
                         break;
                     }
@@ -262,6 +274,16 @@ internal sealed class ServerEventRouter(
             {
                 session.Storage.TryDeallocate(address);
             }
+        }
+    }
+
+    // a handler the program was stopped in (an End, a debugger that ended it) did not fail: there is nothing to tell. A program that waits for its forms ends
+    // with the error; any other is only told.
+    private void Failed(RuntimeSemanticsEvaluationResult failed)
+    {
+        if (session.Halt.Pending is not RuntimeHaltKind.End && !Forms.SessionForms.Of(session).TryFail(failed))
+        {
+            Report(failed);
         }
     }
 

@@ -129,8 +129,13 @@ internal static class ExtractionName
     /// <param name="context">The workspace, whose modules are bound.</param>
     /// <param name="module">The address of the module in <paramref name="context"/> (<c>workspace#Module</c>).</param>
     /// <param name="accessibility">How far the new procedure is seen.</param>
+    /// <param name="isDead">
+    /// Whether a location of the module is in a branch of an <c>#If</c> block that is not live: a name declared only there is not declared (MS-VBAL §3.4).
+    /// <see langword="null"/> when that is not known, and every branch declares what it writes.
+    /// </param>
     public static ImmutableArray<ExtractionNameProblem> Validate(
-        string name, ExtractionPlan plan, ExtractionSource source, RenameContext context, Uri module, ExtractionAccessibility accessibility = ExtractionAccessibility.Private)
+        string name, ExtractionPlan plan, ExtractionSource source, RenameContext context, Uri module,
+        ExtractionAccessibility accessibility = ExtractionAccessibility.Private, Func<SourceLocation, bool>? isDead = null)
     {
         switch (VBIdentifier.Validate(name))
         {
@@ -165,7 +170,8 @@ internal static class ExtractionName
             IEnumerable<Symbol> projects = isProjects
                 ? moduleScope.SelfAndAncestors().Skip(1).SelectMany(outer => outer.DeclaredAs(declared)).Where(symbol => !IsOfALibrary(symbol))
                 : [];
-            if (procedureScope.DeclaredAs(declared).Concat(moduleScope.DeclaredAs(declared)).Concat(projects).FirstOrDefault() is { } existing)
+            if (procedureScope.DeclaredAs(declared).Concat(moduleScope.DeclaredAs(declared)).Concat(projects)
+                .FirstOrDefault(symbol => IsDeclared(symbol, isDead)) is { } existing)
             {
                 problems.Add(At(ExtractionNameProblemKind.Collision, declared, existing));
                 continue;
@@ -272,6 +278,10 @@ internal static class ExtractionName
 
     // a library's symbol says which library it is of; the workspace's say none.
     private static bool IsOfALibrary(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is not null;
+
+    // whether a symbol is declared as the module compiles: one declared only in branches of #If blocks that are not live is not (MS-VBAL §3.4).
+    private static bool IsDeclared(Symbol symbol, Func<SourceLocation, bool>? isDead)
+        => isDead is null || symbol is not WorkspaceSymbol workspace || workspace.LiveDeclaration(isDead) is not null;
 
     private static ExtractionNameProblem At(ExtractionNameProblemKind kind, string name, Symbol other)
         => new(kind, name, NameOccurrences.Describe(other), other is WorkspaceSymbol ? NameOccurrences.ModuleOf(other.Uri) : null,

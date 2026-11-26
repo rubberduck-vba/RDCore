@@ -68,7 +68,7 @@ internal sealed class CoreLanguageServerApp(
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
 
-    protected override TextDocumentSelector DocumentSelector => SupportedLanguages.DocumentSelector;
+    protected override TextDocumentSelector DocumentSelector => SupportedLanguageSelectors.DocumentSelector;
 
     // the files the client says changed are read as the notification arrives (ProjectFileWatchHandler), and a request about a document waits for them.
     protected override bool ServesFileChanges => true;

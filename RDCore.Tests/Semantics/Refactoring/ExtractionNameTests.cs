@@ -1,5 +1,10 @@
 using System.Globalization;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.Parsing;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Semantics;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -62,6 +67,33 @@ public sealed class ExtractionNameTests
         Assert.AreEqual(ExtractionNameProblemKind.Collision, problem.Kind);
         Assert.AreEqual("Step2Exit", problem.Name);
         Assert.IsEmpty(Problems("Step2", Loop, 2, 4), "only when the module declares it");
+    }
+
+    // MS-VBAL §3.4: a name the module declares only in a branch of an #If block that is not live is not declared, and is free for the new procedure.
+    [TestMethod]
+    [DataRow("0", true, DisplayName = "#If 0: the branch is dead, and the name is free")]
+    [DataRow("1", false, DisplayName = "#If 1: the branch is live, and the name is a collision")]
+    public void ANameDeclaredOnlyInADeadBranch_IsFree(string condition, bool dead)
+    {
+        var (plan, source, context, module, analyzed) = ExtractionFixture.Naming(
+            "Debug.Print n", 0, 0, end: $"End Sub\r\n#If {condition} Then\r\nPrivate Sub Helper()\r\nEnd Sub\r\n#End If");
+        Assert.AreEqual(ExtractionNameProblemKind.Collision, ExtractionName.Validate("Helper", plan, source, context, module).Single().Kind,
+            "every branch declares what it writes when which is live is not known");
+
+        var problems = ExtractionName.Validate("Helper", plan, source, context, module, isDead: DeadTestOf(analyzed.Text, ifBranchIsDead: dead));
+
+        CollectionAssert.AreEqual(
+            dead ? Array.Empty<ExtractionNameProblemKind>() : [ExtractionNameProblemKind.Collision], problems.Select(each => each.Kind).ToArray());
+    }
+
+    // the dead branches as the environment host says them of the module's text: the #If branch of its first block, or none.
+    private static Func<SourceLocation, bool> DeadTestOf(string text, bool ifBranchIsDead)
+    {
+        var parse = new ModuleParser().Parse(Flow.FlowFixture.FileOf(false), text);
+        var blocks = ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia);
+        var ifBranch = parse.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node)).OfType<PrecompilerIfBlockStatementNode>().First()
+            .Children.OfType<PrecompilerTriviaNode>().First();
+        return blocks.DeadTest(ifBranchIsDead ? blocks.DeadOrdinals([ifBranch.SourceLocation]) : []);
     }
 
     // a library's Format, written in the module: once the new procedure is declared there, it is what Format means.

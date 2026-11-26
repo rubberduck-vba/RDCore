@@ -301,7 +301,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var accessibility = AccessibilityOf(answers) ?? ExtractionAccessibility.Private;
         return new RefactorIdentifierCheckResult
         {
-            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility).Select(problem => new RefactorNotice
+            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility,
+                extraction.Part.Context.DeadTestOf(extraction.Module.Parse)).Select(problem => new RefactorNotice
             {
                 Code = Code($"Name{problem.Kind}"),
                 Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
@@ -398,7 +399,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var routeExits = !bool.TryParse(Answer(RouteExitsChoice), out var route) || route;
 
         // a name that cannot be declared there is refused; one that hides another declaration is the user's to choose.
-        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility)
+        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility,
+                extraction.Part.Context.DeadTestOf(extraction.Module.Parse))
             .FirstOrDefault(problem => !problem.IsWarning) is { } problem)
         {
             return (null, problem.ToMessage(RenameWorkspace.Locator(extraction.Part)));
@@ -582,7 +584,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         }
 
         var composition = recompose(new Dictionary<string, SDK.Model.AST.ModuleParseResult> { [extraction.Module.Module.AbsoluteUri] = parse });
-        var analysis = ExtractionModuleAnalysis.Of(extraction.Module.Module, text, parse, composition.Resolver, composition.ScopeTree);
+        var analysis = ExtractionModuleAnalysis.Of(
+            extraction.Module.Module, text, parse, composition.Resolver, composition.ScopeTree, extraction.Part.Context.DeadTestOf(parse));
         if (analysis.Procedure(member, memberKind) is not { } procedure)
         {
             return null;
@@ -642,7 +645,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var composition = recompose(written.ToDictionary(module => module.Key, module => module.Value.Parse));
         var after = written.ToDictionary(
             module => module.Key,
-            module => ExtractionModuleAnalysis.Of(module.Value.Module.Module, module.Value.Text, module.Value.Parse, composition.Resolver, composition.ScopeTree));
+            module => ExtractionModuleAnalysis.Of(module.Value.Module.Module, module.Value.Text, module.Value.Parse, composition.Resolver,
+                composition.ScopeTree, extraction.Part.Context.DeadTestOf(module.Value.Parse)));
 
         // the verification analyzes the text the edits leave, which is the one parsed here.
         var main = extraction.Module.Module.AbsoluteUri;
@@ -691,7 +695,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return null;
         }
 
-        var analysis = ExtractionModuleAnalysis.Of(module.Module, module.Source, module.Parse, part.Context.Resolver, part.Context.ScopeTree);
+        var analysis = ExtractionModuleAnalysis.Of(
+            module.Module, module.Source, module.Parse, part.Context.Resolver, part.Context.ScopeTree, part.Context.DeadTestOf(module.Parse));
         if (analysis.Procedure(member.Name, member.MemberKind) is not { } procedure)
         {
             return null;
@@ -858,7 +863,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             if (!_analyses.TryGetValue(module.AbsoluteUri, out var analysis))
             {
                 analysis = Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } other
-                    ? ExtractionModuleAnalysis.Of(other.Module, other.Source, other.Parse, Part.Context.Resolver, Part.Context.ScopeTree)
+                    ? ExtractionModuleAnalysis.Of(
+                        other.Module, other.Source, other.Parse, Part.Context.Resolver, Part.Context.ScopeTree, Part.Context.DeadTestOf(other.Parse))
                     : null;
                 _analyses[module.AbsoluteUri] = analysis;
             }

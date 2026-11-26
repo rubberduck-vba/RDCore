@@ -85,7 +85,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant); the module's own are found in the trivia, and shadow them.
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
-        var deadRanges = precompiled.DeadRanges;
+        var deadRanges = precompiled.DeadBranches;
         // and what they are on every platform, whichever this session runs on: where a Declare and a call of it are compiled.
         var platforms = PrecompilerLiveBranchEvaluator.CompiledPlatformsOf(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
@@ -193,7 +193,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)
-            .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks))
+            .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks, new StaticSemanticsOptions(deadRanges)))
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckDesigner(syntaxTree, parseResult.Designer))
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));

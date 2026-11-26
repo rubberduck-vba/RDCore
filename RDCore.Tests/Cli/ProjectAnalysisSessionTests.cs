@@ -127,6 +127,37 @@ public sealed class ProjectAnalysisSessionTests
         CollectionAssert.AreEqual(new[] { SymbolUri.Module(App, "Common").AbsoluteUri }, await ModelsAtAsync(App, "Common"));
     }
 
+    // an analysis session is never run: its file statements reach neither the machine's disk nor the file system its modules are read from, which is the
+    // user's disk in the host.
+    [TestMethod]
+    public async Task AnAnalysisSession_ReadsAndWritesNoFileOfTheUsers()
+    {
+        await ComposeAppAsync();
+        await AnalyzeAsync(Tools);
+        Assert.IsTrue(_analyses.TryGet(SymbolUri.Root(Tools), out var analysis));
+        var there = Path.Combine(Path.GetTempPath(), $"rdcore-analysis-there-{Guid.NewGuid():N}.txt");
+        var written = Path.Combine(Path.GetTempPath(), $"rdcore-analysis-written-{Guid.NewGuid():N}.txt");
+        var module = Path.Combine(Tools, "Common.bas");
+        File.WriteAllBytes(there, [1, 2, 3]);
+        try
+        {
+            Assert.IsNotNull(analysis.Session.Files.TryReadAll(there, out _), "a file on the machine's disk is not the session's to read");
+            Assert.IsNotNull(analysis.Session.Files.TryReadAll(module, out _), "nor a file of the modules' file system");
+
+            _ = analysis.Session.Files.TryWriteAll(written, [4]);
+            _ = analysis.Session.Files.TryWriteAll(module, [4]);
+
+            Assert.IsFalse(File.Exists(written), "the machine's disk is not written");
+            Assert.AreEqual(Modules.Single(each => each.Root == Tools && each.Name == "Common").Source, _files.File.ReadAllText(module),
+                "nor the modules' file system");
+        }
+        finally
+        {
+            File.Delete(there);
+            File.Delete(written);
+        }
+    }
+
     [TestMethod]
     public async Task AProject_IsANamespaceOfItsOwn_EachWay()
     {

@@ -214,6 +214,8 @@
   href: vbc09385.md
 - name: "VBC09386: Name conflicts with existing module, project, or object library"
   href: vbc09386.md
+- name: "VBC09387: Duplicate Option statement"
+  href: vbc09387.md
 - name: "VBC09388: Module part of another kind"
   href: vbc09388.md
 - name: "VBC09389: Module directive stated differently"

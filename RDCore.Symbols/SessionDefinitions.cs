@@ -3,6 +3,7 @@ using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Components;
@@ -12,10 +13,16 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Symbols;
 
-// a module of a project that has a parse, addressed under the project's root. A module of parts has the directives they state (ModuleAssembly); any
-// other has its tree's (Directives is null).
+// a module of a project that has a parse, addressed under the project's root (ParsedModules.Of gives a document's). A module of parts has the directives
+// they state (ModuleAssembly); any other has its tree's (Directives is null).
 public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse, ModuleDirectives? Directives = null)
 {
+    // the file the module is written in; none for a module the client supplied itself, or one of parts.
+    public Uri? Document { get; init; }
+
+    // where in its file a block's module is, from its header to its end; none for the file's own module, or one of parts.
+    public SourceRange? Range { get; init; }
+
     // the modules the parts of a project make, addressed under its root, and those that its parts make invalid (ModuleAssembly.Of), in the order of each
     // module's first part.
     public static (IReadOnlyList<ParsedModule> Modules, IReadOnlyList<RefusedModule> Refused) Assemble(Uri root, IEnumerable<ModulePart> parts)

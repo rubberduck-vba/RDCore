@@ -1115,22 +1115,22 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { "42" }, run.Output);
     }
 
-    private static readonly string CreatesADictionary = Module("Program",
+    // a class only a server has: ADO's, which every Windows machine has.
+    private static readonly string CreatesAConnection = Module("Program",
         "Public Sub Main()",
-        "    Dim D As Object",
-        "    Set D = CreateObject(\"Scripting.Dictionary\")",
-        "    D.Add \"one\", 1",
-        "    Debug.Print D.Count",
+        "    Dim C As Object",
+        "    Set C = CreateObject(\"ADODB.Connection\")",
+        "    Debug.Print C.State",
         "End Sub");
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task Run_CreatesAnObjectOfAnAutomationServerOfTheMachine_OnWindows()
     {
-        var run = await RunAsync(Files(("Program.bas", CreatesADictionary)), Root);
+        var run = await RunAsync(Files(("Program.bas", CreatesAConnection)), Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
-        CollectionAssert.AreEqual(new[] { "1" }, run.Output);
+        CollectionAssert.AreEqual(new[] { "0" }, run.Output);
     }
 
     // off Windows there is no COM: no automation server of the machine makes the object.
@@ -1138,7 +1138,7 @@ public sealed class BuildCommandTests
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     public async Task Run_CreatesNoObjectOfAnAutomationServer_ElsewhereThanOnWindows()
     {
-        var run = await RunAsync(Files(("Program.bas", CreatesADictionary)), Root);
+        var run = await RunAsync(Files(("Program.bas", CreatesAConnection)), Root);
 
         Assert.AreEqual(ProgramRunner.Failed, run.Exit);
         Assert.Contains("'429'", run.Error);
@@ -1596,7 +1596,7 @@ public sealed class BuildCommandTests
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task TheBuiltProgram_StartedInItsOwnFolder_CreatesAnObjectOfAnAutomationServerOfTheMachine()
-        => await StartedInItsOwnFolder_PrintsAsync(CreatesADictionary, "1");
+        => await StartedInItsOwnFolder_PrintsAsync(CreatesAConnection, "0");
 
     private static async Task StartedInItsOwnFolder_PrintsAsync(string program, string printed)
     {

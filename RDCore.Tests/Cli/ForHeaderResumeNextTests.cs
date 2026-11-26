@@ -1,3 +1,4 @@
+using RDCore.SDK.Runtime.Abstract.Execution;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Cli;
@@ -9,17 +10,19 @@ namespace RDCore.Tests.Cli;
 /// <item>nothing the statement evaluates is kept: the counter is not assigned, and neither the end nor the step is, even one evaluated before the error;</item>
 /// <item>the body runs, with no test of the counter against the end;</item>
 /// <item>its <c>Next</c> steps the counter and tests it with the end and the step the loop had: what an earlier pass through the statement left, 0 when there
-/// was none, and a step of 1 for a loop that has no <c>Step</c>.</item>
+/// was none, and a step of 1 for a loop that has no <c>Step</c> and counts an <c>Integer</c>, a <c>Long</c> or a <c>LongLong</c>;</item>
+/// <item>a loop of a <c>Variant</c> counter has none, and its <c>Next</c> raises error 92.</item>
 /// </list>
 /// </summary>
 [TestClass]
 public sealed class ForHeaderResumeNextTests
 {
-    private static async Task<string> Run(string body)
+    private static async Task<string> Run(string body, VBExecutionEngine? engine = null)
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nOn Error Resume Next\r\nDim n As Long, i As Long, k As Long, pass As Long\r\n"
-            + string.Join("\r\n", body.Split(" ;; ")) + "\r\nDebug.Print \"after \" & Err.Number & \" i=\" & i & \" k=\" & k\r\nEnd Sub\r\n";
-        return string.Join("/", await RunAsync([], program));
+            + string.Join("\r\n", body.Split(" ;; ")) + "\r\nDebug.Print \"after \" & Err.Number & \" i=\" & i & \" k=\" & k\r\nEnd Sub\r\n"
+            + "Private Function Fails(ByVal d As Long) As Long\r\nFails = 10 \\ d\r\nEnd Function\r\n";
+        return string.Join("/", engine is { } chosen ? await RunAsync([], program, chosen) : await RunAsync([], program));
     }
 
     // each loop is bounded by k, so a step of 0 cannot hang the test.
@@ -55,7 +58,41 @@ public sealed class ForHeaderResumeNextTests
     [DataRow("For i = 1 To 10 Step 10 \\ n", DisplayName = "the step of the first pass")]
     public async Task AnErrorInTheHeader_OfASecondPass_LeavesTheLoopWhatTheFirstPassGaveIt(string header)
         // the first pass runs with n = 1 (an end of 10, a step of 1) and leaves at i = 2; the second, with n = 0, keeps them.
-        => Assert.AreEqual("p1i1/p1i2/p2i2/p2i3/p2i4/p2i5/p2i6/after 11 i=6 k=7", await Run(
-            $"For pass = 1 To 2 ;; If pass = 1 Then n = {(header.Contains("Step") ? 10 : 1)} Else n = 0 ;; {header} ;; k = k + 1 ;; Debug.Print \"p\" & pass & \"i\" & i"
-            + " ;; If pass = 1 And i >= 2 Then Exit For ;; If k > 6 Then Exit For ;; Next ;; Next"));
+        => Assert.AreEqual(TwoPassesRun, await Run(TwoPasses(header)));
+
+    // a loop of header run twice: n is 1 on the first pass, or 10 for a header with a Step, and 0 on the second.
+    private static string TwoPasses(string header)
+        => $"For pass = 1 To 2 ;; If pass = 1 Then n = {(header.Contains("Step") ? 10 : 1)} Else n = 0 ;; {header} ;; k = k + 1"
+            + " ;; Debug.Print \"p\" & pass & \"i\" & i ;; If pass = 1 And i >= 2 Then Exit For ;; If k > 6 Then Exit For ;; Next ;; Next";
+
+    private const string TwoPassesRun = "p1i1/p1i2/p2i2/p2i3/p2i4/p2i5/p2i6/after 11 i=6 k=7";
+
+    [TestMethod]
+    [DataRow("For i = 1 To Fails(n)", "i0/after 11 i=1 k=1", VBExecutionEngine.Interpreter, DisplayName = "the end, interpreted")]
+    [DataRow("For i = 1 To Fails(n)", "i0/after 11 i=1 k=1", VBExecutionEngine.Compiled, DisplayName = "the end, compiled")]
+    [DataRow("For i = Fails(n) To 2", "i0/after 11 i=1 k=1", VBExecutionEngine.Interpreter, DisplayName = "the start, interpreted")]
+    [DataRow("For i = Fails(n) To 2", "i0/after 11 i=1 k=1", VBExecutionEngine.Compiled, DisplayName = "the start, compiled")]
+    [DataRow("For i = 1 To 3 Step Fails(n)", "i0/i0/i0/after 11 i=0 k=3", VBExecutionEngine.Interpreter, DisplayName = "the step, interpreted")]
+    [DataRow("For i = 1 To 3 Step Fails(n)", "i0/i0/i0/after 11 i=0 k=3", VBExecutionEngine.Compiled, DisplayName = "the step, compiled")]
+    public async Task AnErrorInAProcedureTheHeaderCalls_LeavesTheLoopAsAnErrorInTheHeaderItself(string header, string expected, VBExecutionEngine engine)
+        => Assert.AreEqual(expected, await Run($"{header} ;; {Body}", engine));
+
+    [TestMethod]
+    [DataRow("For i = 1 To Fails(n)", VBExecutionEngine.Interpreter, DisplayName = "the end, interpreted")]
+    [DataRow("For i = 1 To Fails(n)", VBExecutionEngine.Compiled, DisplayName = "the end, compiled")]
+    [DataRow("For i = 1 To 10 Step Fails(n)", VBExecutionEngine.Interpreter, DisplayName = "the step, interpreted")]
+    [DataRow("For i = 1 To 10 Step Fails(n)", VBExecutionEngine.Compiled, DisplayName = "the step, compiled")]
+    public async Task AnErrorInAProcedureTheHeaderCalls_OfASecondPass_LeavesTheLoopWhatTheFirstPassGaveIt(string header, VBExecutionEngine engine)
+        // the first pass runs with an end of 10 and a step of 1 (Fails(1), Fails(10)) and leaves at i = 2; the second, with n = 0, keeps them.
+        => Assert.AreEqual(TwoPassesRun, await Run(TwoPasses(header), engine));
+
+    [TestMethod]
+    [DataRow("For v = 1 To 10 \\ n", VBExecutionEngine.Interpreter, DisplayName = "the end, interpreted")]
+    [DataRow("For v = 1 To 10 \\ n", VBExecutionEngine.Compiled, DisplayName = "the end, compiled")]
+    [DataRow("For v = 1 To Fails(n)", VBExecutionEngine.Interpreter, DisplayName = "the end in a call, interpreted")]
+    [DataRow("For v = 1 To Fails(n)", VBExecutionEngine.Compiled, DisplayName = "the end in a call, compiled")]
+    public async Task AnErrorInTheHeader_OfAVariantCounter_RunsTheBodyOnce_AndNextIsError92(string header, VBExecutionEngine engine)
+        // the body runs with v as it was, Empty; the Next finds no loop.
+        => Assert.AreEqual("v/after 92 i=0 k=1", await Run(
+            $"Dim v As Variant ;; {header} ;; k = k + 1 ;; Debug.Print \"v\" & v ;; If k > 2 Then Exit For ;; Next", engine));
 }

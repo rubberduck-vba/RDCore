@@ -49,11 +49,14 @@ End Class
 |Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written.|
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
-|Running|`rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. The parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
+|Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file: the file's own module first, then each block's, named by its header. In `rdc run`, `rdc build` and `rdc bench`, the parts of one name are one module ([Modules of parts](#modules-of-parts)). A built program carries the modules its build assembled.|
+|Editing|A block that an edit takes out of its file, or renames, takes its module out of the environment host, unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
 
 > [!NOTE]
-> **Not implemented.** The language server does not define a block's module yet; only `rdc run`, `rdc build` and `rdc bench` do. VBA and VB6 have
-> no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
+> **Not implemented.** The language server defines each module of a file on its own and does not assemble parts: two parts of one name are
+> [`VBC09386`](../diagnostics/vbc09386.md) there, and it applies neither a block's header nor its annotations to the module. The analysis session of a
+> project other than the primary one keeps the module of a block that an edit takes out of its file. VBA and VB6 have no blocks. No diagnostic reports a
+> block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
 
 ### Implementation
 

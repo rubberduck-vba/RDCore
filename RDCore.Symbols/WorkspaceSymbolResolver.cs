@@ -161,7 +161,8 @@ public static class WorkspaceSymbolResolver
                     .With(SymbolProperties.PredeclaredId, directives.PredeclaredId)
                     .With(SymbolProperties.Extensible, directives.Extensible)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
-            // what the module says it is (VB_Description or '@ModuleDescription), as its first part that says it writes it: what a hover shows of it.
+            // what the module says it is (its VB_Description attribute, else its '@ModuleDescription annotation), as the first of its parts that writes one
+            // has it: what a hover and a completion list show.
             if (parseResult.GetModuleDescription() is { } description)
             {
                 module = (VBModuleSymbol)module.With(SymbolProperties.DocString, description);

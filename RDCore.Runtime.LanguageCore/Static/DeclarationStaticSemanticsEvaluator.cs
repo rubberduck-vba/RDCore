@@ -1,6 +1,7 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
@@ -86,12 +87,15 @@ public static class DeclarationStaticSemanticsEvaluator
     }
 
     // MS-VBAL §5.2
-    // reads the syntax tree, not the symbols: a name declared twice as the same kind is one symbol by then.
-    public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(ModuleNode module, ConditionalCompilationBlocks blocks)
+    // reads the syntax tree, not the symbols: a name declared twice as the same kind is one symbol by then. MS-VBAL §3.4: the branches of a conditional
+    // compilation block that are not live are not part of the module, so what one declares is not a declaration of it; options.DeadRanges or options.DeadAt
+    // names them, and a caller that has not evaluated the blocks passes neither, which reads every branch as an alternative of the others.
+    public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(
+        ModuleNode module, ConditionalCompilationBlocks blocks, StaticSemanticsOptions options = default)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
         var seen = new Dictionary<string, List<(MemberKind? Kind, SourceLocation Location)>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var child in module.Children)
+        foreach (var child in module.Children.Where(child => !options.IsDeadAt(child.SourceLocation)))
         {
             var (name, kind) = child switch
             {
@@ -132,6 +136,28 @@ public static class DeclarationStaticSemanticsEvaluator
             }
 
             declarations.Add((kind, child.SourceLocation));
+        }
+
+        // MS-VBAL §5.2.1: a module states each option directive at most once, whatever its value, so `Option Base 1` after `Option Base 0` is the option
+        // stated twice. MS-VBA refuses the second statement: "Duplicate Option statement" (observed in Excel). The branches of a conditional compilation
+        // block that each state it are one statement of it, as they are one declaration of a name. MS-VBAL §3.4: a branch that is not live is not part of the
+        // module, and neither is an option it states (options.DeadRanges, as for the declarations above).
+        var optionStatements = new Dictionary<ModuleOptions, List<SourceLocation>>();
+        foreach (var directive in module.Children.OfType<ModuleOptionDirectiveNode>().Where(directive => !options.IsDeadAt(directive.SourceLocation)))
+        {
+            var option = DirectiveOf(directive.ModuleOption);
+            if (!optionStatements.TryGetValue(option, out var statements))
+            {
+                optionStatements.Add(option, statements = []);
+            }
+
+            if (statements.Any(prior => !blocks.AreAlternatives(prior, directive.Location)))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateOptionStatement, directive.Location,
+                    string.Format(Exceptions.VBCompileError_DuplicateOptionStatement_Verbose, NameOf(option))));
+            }
+
+            statements.Add(directive.Location);
         }
 
         // MS-VBAL §5.3.1.4: `As Long()` - a type written with () - is what a Function, a Property Get or a Declare's Function returns, and nothing else is
@@ -185,6 +211,24 @@ public static class DeclarationStaticSemanticsEvaluator
             || (IsAccessor(prior.Kind) && IsAccessor(next.Kind) && prior.Kind != next.Kind);
 
     private static bool IsAccessor(MemberKind? kind) => kind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
+
+    // the directive an option is a value of: each value of Option Compare and of Option Base is that one directive (MS-VBAL §5.2.1.1, §5.2.1.2).
+    private static ModuleOptions DirectiveOf(ModuleOptions option) => option switch
+    {
+        ModuleOptions.OptionCompareText or ModuleOptions.OptionCompareDatabase => ModuleOptions.OptionCompareBinary,
+        ModuleOptions.OptionBase1 => ModuleOptions.OptionBase0,
+        _ => option,
+    };
+
+    private static string NameOf(ModuleOptions directive) => directive switch
+    {
+        ModuleOptions.OptionCompareBinary => "Option Compare",
+        ModuleOptions.OptionBase0 => "Option Base",
+        ModuleOptions.OptionExplicit => "Option Explicit",
+        ModuleOptions.OptionPrivateModule => "Option Private Module",
+        ModuleOptions.OptionStrict => "Option Strict",
+        _ => directive.ToString(),
+    };
 
     // MS-VBAL §5.6.4: a declared type is bound in the type binding context. A name that did not resolve where the declaration was read, which may have been
     // before what it names was defined, is resolved again as seen from the module: an error is a name that still does not, or one that is a procedural

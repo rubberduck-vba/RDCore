@@ -1226,6 +1226,24 @@ namespace RDCore.Runtime.LanguageCore {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Duplicate Option statement.
+        /// </summary>
+        internal static string VBCompileError_DuplicateOptionStatement {
+            get {
+                return ResourceManager.GetString("VBCompileError_DuplicateOptionStatement", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The module states {0} more than once: remove this statement..
+        /// </summary>
+        internal static string VBCompileError_DuplicateOptionStatement_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DuplicateOptionStatement_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Another module of the project is named &apos;{0}&apos;: give one of them another name..
         /// </summary>
         internal static string VBCompileError_ModuleNameTaken_Verbose {

@@ -9,12 +9,11 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
-using System.Text.RegularExpressions;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // one part of a module: the module of a file, or of one of its Class or Module blocks (IsBlock), with its own parse (RDCoreDocument.ParseOf), whose tree
-// is not null. A block's part has what its header states (IsPartial, IsCreatable, Visibility) and the header line (Header), where those words are written.
+// is not null. A block's part has what its header states (IsPartial, IsCreatable, Visibility) and where its header writes each word (Block).
 public sealed record class ModulePart(string Name, ModuleType Kind, ModuleParseResult Parse)
 {
     public bool IsBlock { get; init; }
@@ -25,7 +24,8 @@ public sealed record class ModulePart(string Name, ModuleType Kind, ModuleParseR
 
     public AccessModifier? Visibility { get; init; }
 
-    public BlockBoundaryTriviaNode? Header { get; init; }
+    // the block's module, with the range of each word of its header (BlockModule.NameRange and the others); none for a file's own module.
+    public BlockModule? Block { get; init; }
 
     // the parts a file declares: its own module, named and of the kind given, then each block's, in the order the file writes them.
     public static IEnumerable<ModulePart> PartsOf(Uri file, string name, ModuleType kind, ModuleParseResult parse)
@@ -40,8 +40,7 @@ public sealed record class ModulePart(string Name, ModuleType Kind, ModuleParseR
                 IsPartial = block.IsPartial,
                 IsCreatable = block.IsCreatable,
                 Visibility = block.Visibility,
-                Header = parse.Trivia.OfType<BlockBoundaryTriviaNode>()
-                    .FirstOrDefault(node => !node.IsEnd && node.SourceLocation.Range.Start.Line == block.Range.Start.Line),
+                Block = block,
             };
         }
     }
@@ -214,7 +213,7 @@ public static class ModuleAssembly
         }
 
         return plain.Select(part => part.IsBlock
-            ? VBCompileErrorInfo.For(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary, HeaderLocationOf(part, part.Name),
+            ? VBCompileErrorInfo.For(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary, HeaderLocationOf(part, part.Block?.NameRange),
                 string.Format(Exceptions.VBCompileError_ModuleNameTaken_Verbose, name))
             : ModuleNameStaticSemantics.NameTaken(part.Parse.SyntaxTree!, name));
     }
@@ -260,14 +259,15 @@ public static class ModuleAssembly
         if (part.Visibility is { } visibility)
         {
             var word = visibility is AccessModifier.Public ? "Public" : "Private";
+            var at = HeaderLocationOf(part, part.Block?.VisibilityRange);
             yield return kind.IsClass()
-                ? new Statement(Directive.Exposed, visibility is AccessModifier.Public, HeaderLocationOf(part, word), word, IsModifier: true)
-                : new Statement(Directive.PrivateModule, visibility is AccessModifier.Private, HeaderLocationOf(part, word), word, IsModifier: true);
+                ? new Statement(Directive.Exposed, visibility is AccessModifier.Public, at, word, IsModifier: true)
+                : new Statement(Directive.PrivateModule, visibility is AccessModifier.Private, at, word, IsModifier: true);
         }
 
         if (part.IsCreatable)
         {
-            yield return new Statement(Directive.Creatable, true, HeaderLocationOf(part, "Creatable"), "Creatable", IsModifier: true);
+            yield return new Statement(Directive.Creatable, true, HeaderLocationOf(part, part.Block?.CreatableRange), "Creatable", IsModifier: true);
         }
 
         foreach (var annotation in AnnotationsOf(part, "PredeclaredId"))
@@ -319,26 +319,11 @@ public static class ModuleAssembly
 
     // a part is reported at the word of its kind in its header, and a file part where it says its name, or at the start of its file.
     private static SourceLocation KindLocationOf(ModulePart part) => part.IsBlock
-        ? HeaderLocationOf(part, part.Kind.IsClass() ? "Class" : "Module")
+        ? HeaderLocationOf(part, part.Block?.KindRange)
         : part.Parse.SyntaxTree!.GetDeclaredNameDirective()?.Location
             ?? new SourceLocation(part.Parse.SyntaxTree!.SourceLocation.Uri, new SourceRange(0, 0, 0, 0));
 
-    // where the header writes a word, the header line when it does not, and the start of the part's tree without a header.
-    private static SourceLocation HeaderLocationOf(ModulePart part, string word)
-    {
-        if (part.Header is not { } header)
-        {
-            return part.Parse.SyntaxTree!.SourceLocation;
-        }
-
-        var match = Regex.Match(header.Source, $@"\b{Regex.Escape(word)}\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        if (!match.Success)
-        {
-            return header.SourceLocation;
-        }
-
-        var start = header.SourceLocation.Range.Start;
-        return new SourceLocation(header.SourceLocation.Uri,
-            new SourceRange(start.Line, start.Character + match.Index, start.Line, start.Character + match.Index + match.Length));
-    }
+    // where the header writes a word (BlockModule.NameRange and the others), in the part's file; the start of the block when the parse does not say.
+    private static SourceLocation HeaderLocationOf(ModulePart part, SourceRange? word)
+        => new(part.Parse.SyntaxTree!.SourceLocation.Uri, word ?? part.Block?.Range ?? part.Parse.SyntaxTree!.SourceLocation.Range);
 }

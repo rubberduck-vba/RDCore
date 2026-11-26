@@ -120,8 +120,9 @@ public sealed class ExcelMeasuredGapsRowsTests
             """Err.Raise 5, , , "g.chm" ;; P Err.HelpFile ;; Err.Raise 6 ;; P Err.HelpFile ;; Err.Clear ;; P "[" & Err.HelpFile & "]" """,
             "g.chm|g.chm|[]|");
 
-    // Observed in Excel: an error an automation object raises has the help context of its message, whatever one Err had - Scripting.Dictionary's 457 is
-    // 1000457, and a RegExp's 5020 is no message of MS-VBA's (1000095).
+    // Observed in Excel: an error an automation object raises has the help context of its message, whatever one Err had: Scripting.Dictionary's 457 is
+    // 1000457, and a RegExp's 5020, which has no message of MS-VBA's, is 1000095. The Dictionary is the platform's own; RegExp is a COM server, so this
+    // runs where COM does.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task AnErrorAnAutomationObjectRaises_HasTheHelpContextOfItsMessage()
@@ -154,9 +155,8 @@ public sealed class ExcelMeasuredGapsRowsTests
     public async Task AnErrorGivenNoSource_IsTheProjects(string id, string boxExtras, string probe, string printed)
         => await AssertPrintedAsync(id, boxExtras, "", probe, printed);
 
-    // Observed in Excel: an automation object's error is the project's too. Scripting.Dictionary is a COM server, so this runs where COM does.
+    // Observed in Excel: an automation object's error is the project's too. Scripting.Dictionary is the platform's own, so this runs on every platform.
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
     public async Task AnAutomationObjectsError_IsTheProjects()
         => await AssertPrintedAsync("s61 H11", "", "",
             """Dim d As Object ;; Set d = CreateObject("Scripting.Dictionary") ;; d.Add 1, 1 ;; d.Add 1, 1 ;; P Err.Number ;; P Err.Source""",

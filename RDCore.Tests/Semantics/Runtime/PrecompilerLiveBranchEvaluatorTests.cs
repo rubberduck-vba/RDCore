@@ -113,7 +113,7 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
 
         var evaluation = PrecompilerLiveBranchEvaluator.Evaluate(session, Evaluator(), new(StaticSymbol.GlobalUri), trivia);
 
-        Assert.IsEmpty(evaluation.DeadRanges);
+        Assert.IsEmpty(evaluation.DeadBranches);
         Assert.IsEmpty(evaluation.Errors);
     }
 
@@ -128,7 +128,7 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
 
         var evaluation = PrecompilerLiveBranchEvaluator.Evaluate(ComposeSession(), Evaluator(), new(StaticSymbol.GlobalUri), trivia);
 
-        Assert.IsEmpty(evaluation.DeadRanges);
+        Assert.IsEmpty(evaluation.DeadBranches);
         Assert.IsEmpty(evaluation.Errors);
     }
 

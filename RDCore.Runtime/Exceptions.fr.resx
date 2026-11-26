@@ -195,11 +195,17 @@
   <data name="VBRuntimeError_NobodyToAnswer_Verbose" xml:space="preserve">
     <value>{0} dans un programme exécuté sans surveillance (--unattended) : personne n'est là pour y répondre, et l'exécution échoue.</value>
   </data>
+  <data name="VBRuntimeError_NobodyToUnload_Verbose" xml:space="preserve">
+    <value>{0} est encore chargé quand le programme exécuté sans surveillance (--unattended) revient de son point d'entrée : personne n'est là pour le décharger, et l'exécution échoue.</value>
+  </data>
   <data name="VBForLoopOperandNotOfLoopType_Verbose" xml:space="preserve">
     <value>Cette boucle For compte en {0}, et son début, sa fin ou son pas n'est pas une valeur de ce type.</value>
   </data>
-  <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
-    <value>L'expression de collection de cette boucle For Each est Nothing. Son énumération requiert l'invocation de son membre _NewEnum, ce qui est impossible sur une référence d'objet non définie.</value>
+  <data name="VBForEach_ObjectRequired_Verbose" xml:space="preserve">
+    <value>La collection de cette boucle For Each est Nothing. Une boucle For Each énumère un tableau ou un objet, et Nothing n'est ni l'un ni l'autre.</value>
+  </data>
+  <data name="VBForEach_PropertyGetDidNotReturnObject_Verbose" xml:space="preserve">
+    <value>Le membre d'énumération (_NewEnum) de la collection de cette boucle For Each n'a renvoyé aucun objet : aucun énumérateur ne peut donner ses éléments à la boucle.</value>
   </data>
   <data name="VBMemberAssignment_NotAssignable_Verbose" xml:space="preserve">
     <value>L'objet n'a aucune variable publique, ni Property Let ni Property Set, de ce nom dans laquelle l'affectation puisse écrire.</value>

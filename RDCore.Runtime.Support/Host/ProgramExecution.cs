@@ -66,6 +66,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     private readonly Lock _sync = new();
     private ProgramState _state;
     private SuspendableExecution? _execution;
+
+    // the debugger's End, for a program that waits for its Visual Basic 6.0 forms to be unloaded (RuntimeExecutionPipeline.RunProgram): it ends the wait.
+    private CancellationTokenSource _ending = new();
     private RuntimeOutputBuffer _output = new();
     private ProgramEdits? _suspendedWith;
     private bool _terminating;
@@ -970,6 +973,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     public async Task<DebugAck> TerminateAsync(bool wipe, CancellationToken token = default)
     {
         Task idle;
+        CancellationTokenSource ending;
         lock (_sync)
         {
             switch (_state)
@@ -992,14 +996,17 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                         return new DebugAck();
                     }
 
-                    // a program that is running is stopped first, and ended by the request that runs it when it waits.
+                    // a program that is running is stopped first, and ended by the request that runs it when it waits. One that waits for its forms to be
+                    // unloaded runs no code to stop at: it is ended there.
                     (_terminating, _wipeOnTerminate) = (true, wipe);
                     idle = _idle.Task;
+                    ending = _ending;
                     StopAtTheNextInstruction();
                     break;
             }
         }
 
+        await ending.CancelAsync();
         try
         {
             await idle.WaitAsync(token);
@@ -1011,6 +1018,79 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         }
 
         return new DebugAck { Acted = true };
+    }
+
+    /// <summary>
+    /// Resets the session to what a new session of the program is: the objects the module variables and <c>Static</c> locals hold are let go of
+    /// (<see cref="SessionWipe.Release"/>), each that loses its last reference running its <c>Terminate</c>, and the session is then wiped as an <c>End</c>
+    /// wipes it (<see cref="SessionWipe.End"/>). A host that runs the program once for each request resets the session between two requests, so that
+    /// nothing one request left reaches the next.
+    /// </summary>
+    /// <returns>
+    /// What the <c>Terminate</c> handlers printed, and the error one left unhandled, reported as a run reports it; a refusal while a program is running.
+    /// </returns>
+    /// <remarks>
+    /// A program that waits is ended first, as a run ends it.
+    /// </remarks>
+    public Task<ExecuteResult> ResetAsync()
+    {
+        var session = provider.Session;
+        lock (_sync)
+        {
+            if (_state is ProgramState.Running || _alongside)
+            {
+                return Task.FromResult(Refused(Resources.Host_AProgramIsRunning));
+            }
+
+            if (_state is ProgramState.Suspended)
+            {
+                EndSuspended(session, wipe: false);
+            }
+
+            // a Terminate is program code, and runs as a program does: in the session's turn, on a thread of its own, with nothing else started meanwhile.
+            CloseToSessionStops(session);
+            Become(ProgramState.Running);
+            _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            (_terminating, _debugging, _stopWhenStarted, _streaming) = (false, false, false, false);
+        }
+
+        session.Turn.Enter();
+        lock (_sync)
+        {
+            _inTurn = true;
+        }
+
+        session.Halt.Clear();
+        HeldDefinitions.Hold(session);
+        return OffTheConnectionAsync(() => ResetToTheStart(session));
+    }
+
+    // the error a Terminate left unhandled is reported before the wipe clears the session's error state, which says where it was raised.
+    private ExecuteResult ResetToTheStart(IRuntimeSession session)
+    {
+        var output = new RuntimeOutputBuffer();
+        provider.Output.Target = output;
+        try
+        {
+            var result = SessionWipe.Release(session) is { } unhandled
+                ? Report(RuntimeSemanticsEvaluationResult.Error(unhandled), session, output, CancellationToken.None)
+                : new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
+            session.Halt.Clear();
+            SessionWipe.End(session);
+            session.Errors.ClearUntrappable();
+            // the next run starts where a new session does: the ChDir of a run, or of a Terminate, is left behind with the rest of it. A directory that is
+            // gone leaves the session where it is, as a new session is left where the host was.
+            if (provider.StartingDirectory is { } starting)
+            {
+                _ = session.Files.TryChangeDirectory(starting);
+            }
+
+            return result;
+        }
+        finally
+        {
+            Finished(session);
+        }
     }
 
     // a step into is due at the very next instruction, whichever procedure it is in: that is a pause. A program that was started and is not executing yet - it
@@ -1084,7 +1164,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             var arguments = started is null
                 ? RuntimeProcedureInvoker.ProgramArguments(entryPoint)
                 : RuntimeProcedureInvoker.ProgramArguments(entryPoint, started.Arguments);
-            return ReportEnd(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, arguments), session, output, token);
+            return ReportEnd(pipeline.RunProgram(entryPoint, session.Symbols.Resolver, arguments, token), session, output, token);
         }
         finally
         {
@@ -1101,6 +1181,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         lock (_sync)
         {
             execution = _execution = new SuspendableExecution(session);
+            _ending = new CancellationTokenSource();
             _output = NewSegmentOutput();
             provider.Output.Target = _output;
             if (_stopWhenStarted)
@@ -1113,7 +1194,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         try
         {
             using var registration = token.Register(() => Pause());
-            var stop = await execution.StartAsync(() => pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint)));
+            var end = _ending.Token;
+            var arguments = RuntimeProcedureInvoker.ProgramArguments(entryPoint);
+            var stop = await execution.StartAsync(() => pipeline.RunProgram(entryPoint, session.Symbols.Resolver, arguments, end));
             return Segment(session, stop);
         }
         catch

@@ -1034,6 +1034,48 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
     }
 
+    /// <summary>
+    /// Lets go of the objects that the modules' variables, and their procedures' <c>Static</c> locals, hold, as a program that sets each to its initial
+    /// value does: an object that loses its last reference runs its <c>Terminate</c> (<strong>MS-VBAL §5.3.1.10</strong>), and the objects it
+    /// held are let go of in turn.
+    /// </summary>
+    /// <param name="session">The session these are the symbols of.</param>
+    /// <remarks>
+    /// A <c>Terminate</c> that reads a variable already let go of finds its initial value, or what code set it to since; one not let go of yet still holds
+    /// its object. It stops at the first <c>Terminate</c> that
+    /// leaves an error unhandled (<see cref="ISessionErrorState.Untrappable"/>), as a program stops there: what is still held is the wipe's to let go of.
+    /// </remarks>
+    internal void LetGoOfModuleVariables(IRuntimeSession session)
+    {
+        // taken before any of them is touched, as ResetStorage takes them.
+        var variables = table.ModuleLevelSymbols
+            .Where(symbol => symbol is ITypedSymbol typed && symbol.Kind is SymbolKindExt.Field or SymbolKindExt.Variable
+                && ObjectReferences.CanHoldAnObject(typed.ResolvedType))
+            .Concat(table.All().OfType<VBTypeMemberSymbol>().SelectMany(StaticsOf).Where(local => ObjectReferences.CanHoldAnObject(local.ResolvedType)))
+            .ToList();
+        foreach (var variable in variables)
+        {
+            if (session.Errors.Untrappable is not null)
+            {
+                return;
+            }
+
+            if (!TryGetSessionCell(variable, out var cell) || ObjectReferences.HeldIn(session, cell) is not { IsEmpty: false } held)
+            {
+                continue;
+            }
+
+            // the variable holds its initial value before anything it held is let go of; a Static is allocated again by its procedure's next call.
+            SessionBindings.TryDeallocate(variable);
+            if (variable is not VBLocalVariableSymbol)
+            {
+                _ = SessionBindings.TryAllocate(variable, DefaultValueOf(variable), out _);
+            }
+
+            ObjectReferences.Release(session, held);
+        }
+    }
+
     public bool TryComposeClassModule(
         string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceLocation> implementedInterfaceLocations = default)
     {
