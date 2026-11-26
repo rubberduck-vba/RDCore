@@ -97,7 +97,7 @@ public enum RDCoreDiagnosticId
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
     MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
-    ModuleAnnotationHasAShortForm = 416, // '@ModuleDescription in a Class block: '@Description above the block's header annotates the block's module
+    ModuleAnnotationHasAShortForm = 416, // '@ModuleDescription or '@IgnoreModule of a block's module: '@Description or '@Ignore above its header
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,
