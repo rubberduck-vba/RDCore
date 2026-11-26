@@ -47,11 +47,33 @@ public sealed record class ModulePart(string Name, ModuleType Kind, ModuleParseR
     }
 }
 
-// a module of a project, as its parts make it (ModuleAssembly.Of). Redundant is where a part states a directive to no effect: the same way as a part
-// before it, or Creatable on a class that no other project sees.
+// why what a part writes has no effect where it is written: a modifier of its header (RDC00316) or an annotation (RDC00317).
+public enum RedundantStatementKind
+{
+    // a modifier that states a directive the same way as a part before it.
+    RestatedModifier,
+
+    // Creatable on a class that no other project sees.
+    CreatableNotExposed,
+
+    // an annotation that states a directive the same way as a part before it.
+    RestatedAnnotation,
+
+    // '@Exposed in a Class block whose header states the visibility, which alone says whether other projects see the class.
+    ExposedAnnotation,
+
+    // '@Exposed in a Class block whose header states no visibility: the class is not exposed, and a Public in the header would expose it.
+    ExposedAnnotationWithoutVisibility,
+}
+
+// what a part writes to no effect, where it writes it.
+public readonly record struct RedundantStatement(SourceLocation Location, RedundantStatementKind Kind);
+
+// a module of a project, as its parts make it (ModuleAssembly.Of). Redundant is what a part writes to no effect: a directive stated the same way as a
+// part before it, Creatable on a class that no other project sees, an '@Exposed annotation in a Class block.
 public sealed record class AssembledModule(string Name, ModuleType Kind, ModuleParseResult Parse, ModuleDirectives Directives)
 {
-    public ImmutableArray<SourceLocation> Redundant { get; init; } = [];
+    public ImmutableArray<RedundantStatement> Redundant { get; init; } = [];
 }
 
 // a module that its parts make invalid: none of its parts loads.
@@ -74,8 +96,9 @@ public static class ModuleAssembly
         Extensible,
     }
 
-    // a directive as a part states it: the word that states it, and whether that word is a modifier of the part's header.
-    private readonly record struct Statement(Directive Directive, bool Value, SourceLocation Location, string Word, bool IsModifier = false);
+    // a directive as a part states it: the word that states it, and whether that word is a modifier of the part's header or an annotation.
+    private readonly record struct Statement(
+        Directive Directive, bool Value, SourceLocation Location, string Word, bool IsModifier = false, bool IsAnnotation = false);
 
     // the modules the parts make, and those they make invalid, in the order of each name's first part. Parts of one name are taken in the order given:
     // the order the project lists its files, and the order each file writes its blocks.
@@ -96,7 +119,7 @@ public static class ModuleAssembly
             errors.AddRange(ordered.Where(part => part.Kind != kind).Select(part => VBCompileErrorInfo.For(VBCompileErrorId.ModulePartOfAnotherKind,
                 KindLocationOf(part), string.Format(Exceptions.VBCompileError_ModulePartOfAnotherKind_Verbose, name))));
 
-            var redundant = ImmutableArray.CreateBuilder<SourceLocation>();
+            var redundant = ImmutableArray.CreateBuilder<RedundantStatement>();
             var creatableWords = new List<SourceLocation>();
             var stated = new Dictionary<Directive, bool>();
             if (errors.Count == 0)
@@ -112,7 +135,8 @@ public static class ModuleAssembly
                     {
                         if (statement.Value == first.Value)
                         {
-                            redundant.Add(statement.Location);
+                            redundant.Add(new(statement.Location,
+                                statement.IsAnnotation ? RedundantStatementKind.RestatedAnnotation : RedundantStatementKind.RestatedModifier));
                         }
                         else
                         {
@@ -145,8 +169,15 @@ public static class ModuleAssembly
             // what no other project sees, no other project creates.
             if (kind.IsClass() && !directives.Exposed)
             {
-                redundant.AddRange(creatableWords.Where(word => !redundant.Contains(word)));
+                redundant.AddRange(creatableWords.Where(word => !redundant.Any(entry => entry.Location == word))
+                    .Select(word => new RedundantStatement(word, RedundantStatementKind.CreatableNotExposed)));
             }
+
+            // the header of a Class block alone states whether other projects see the class: nothing reads an '@Exposed of the block.
+            redundant.AddRange(ordered.Where(part => part.IsBlock && part.Kind.IsClass()).SelectMany(part => AnnotationsOf(part, "Exposed")
+                .Select(annotation => new RedundantStatement(annotation.SourceLocation, part.Visibility is null
+                    ? RedundantStatementKind.ExposedAnnotationWithoutVisibility
+                    : RedundantStatementKind.ExposedAnnotation))));
 
             modules.Add(new AssembledModule(name, kind, parse, directives) { Redundant = redundant.ToImmutable() });
         }
@@ -221,12 +252,14 @@ public static class ModuleAssembly
             yield return new Statement(Directive.Creatable, true, HeaderLocationOf(part, "Creatable"), "Creatable", IsModifier: true);
         }
 
-        foreach (var annotation in part.Parse.Trivia.OfType<AnnotationTriviaNode>()
-            .Where(annotation => string.Equals(annotation.Name, "PredeclaredId", StringComparison.OrdinalIgnoreCase)))
+        foreach (var annotation in AnnotationsOf(part, "PredeclaredId"))
         {
-            yield return new Statement(Directive.PredeclaredId, true, annotation.SourceLocation, "@PredeclaredId");
+            yield return new Statement(Directive.PredeclaredId, true, annotation.SourceLocation, "@PredeclaredId", IsAnnotation: true);
         }
     }
+
+    private static IEnumerable<AnnotationTriviaNode> AnnotationsOf(ModulePart part, string name)
+        => part.Parse.Trivia.OfType<AnnotationTriviaNode>().Where(annotation => string.Equals(annotation.Name, name, StringComparison.OrdinalIgnoreCase));
 
     private static Directive? AttributeDirectiveOf(string name) => name switch
     {

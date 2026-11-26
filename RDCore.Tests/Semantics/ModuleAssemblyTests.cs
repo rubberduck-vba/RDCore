@@ -118,23 +118,25 @@ public sealed class ModuleAssemblyTests
         Assert.AreEqual(expected, TextAt(second, error.Location.Range));
     }
 
-    // a directive a later part states the same way is redundant there, and the module is valid.
+    // a directive a later part states the same way is redundant there, a modifier or an annotation, and the module is valid.
     [TestMethod]
-    [DataRow("First", "Public Partial Class Account|End Class", ModuleType.StdModule, DisplayName = "two headers")]
+    [DataRow("First", "Public Partial Class Account|End Class", ModuleType.StdModule, "Public Partial Class Account|End Class", "Public",
+        RedundantStatementKind.RestatedModifier, DisplayName = "two headers")]
     [DataRow("Account", "VERSION 1.0 CLASS|BEGIN|  MultiUse = -1  'True|END|Attribute VB_Name = \"Account\"|Attribute VB_Exposed = True",
-        ModuleType.ClassModule, DisplayName = "an attribute, then a header")]
-    public void ADirectiveALaterPartStatesTheSame_IsRedundantThere_AndTheModuleIsValid(string owner, string first, ModuleType kind)
+        ModuleType.ClassModule, "Public Partial Class Account|End Class", "Public", RedundantStatementKind.RestatedModifier,
+        DisplayName = "an attribute, then a header")]
+    [DataRow("First", "Partial Class Account|'@PredeclaredId|End Class", ModuleType.StdModule, "Partial Class Account|'@PredeclaredId|End Class",
+        "@PredeclaredId", RedundantStatementKind.RestatedAnnotation, DisplayName = "two annotations")]
+    public void ADirectiveALaterPartStatesTheSame_IsRedundantThere_AndTheModuleIsValid(
+        string owner, string first, ModuleType kind, string second, string expected, RedundantStatementKind expectedKind)
     {
-        var second = "Public Partial Class Account|End Class";
-
         var (modules, refused) = ModuleAssembly.Of([.. PartsOf(First, owner, kind, first), .. PartsOf(Second, "Second", ModuleType.StdModule, second)]);
 
         Assert.IsFalse(refused.Any(module => module.Name == "Account"));
-        var account = Single(modules, "Account");
-        Assert.IsTrue(account.Directives.Exposed);
-        var redundant = account.Redundant.Single();
-        Assert.AreEqual(Second, redundant.Uri);
-        Assert.AreEqual("Public", TextAt(second, redundant.Range));
+        var redundant = Single(modules, "Account").Redundant.Single();
+        Assert.AreEqual(expectedKind, redundant.Kind);
+        Assert.AreEqual(Second, redundant.Location.Uri);
+        Assert.AreEqual(expected, TextAt(second, redundant.Location.Range));
     }
 
     // Creatable says what other projects may do with a class, so it is redundant on a class that no other project sees, and on no other.
@@ -147,7 +149,26 @@ public sealed class ModuleAssemblyTests
         var account = Single(ModuleAssembly.Of(PartsOf(First, "First", ModuleType.StdModule, lines)).Modules, "Account");
 
         Assert.IsTrue(account.Directives.Creatable);
-        Assert.AreEqual(isRedundant ? "Creatable" : null, account.Redundant.Select(location => TextAt(lines, location.Range)).SingleOrDefault());
+        Assert.AreEqual(isRedundant ? ("Creatable", RedundantStatementKind.CreatableNotExposed) : default,
+            account.Redundant.Select(entry => (TextAt(lines, entry.Location.Range), entry.Kind)).SingleOrDefault());
+    }
+
+    // the header of a Class block alone says whether other projects see the class: an '@Exposed in the block is read by nothing, whatever the header says,
+    // and is redundant there.
+    [TestMethod]
+    [DataRow("Public Class Account|'@Exposed|End Class", true, RedundantStatementKind.ExposedAnnotation, DisplayName = "Public")]
+    [DataRow("Private Class Account|'@Exposed|End Class", false, RedundantStatementKind.ExposedAnnotation, DisplayName = "Private")]
+    [DataRow("Partial Class Account|'@Exposed|End Class", false, RedundantStatementKind.ExposedAnnotationWithoutVisibility,
+        DisplayName = "no visibility")]
+    public void AnExposedAnnotation_InAClassBlock_IsRedundant_AndTheHeaderSaysWhetherTheClassIsExposed(
+        string lines, bool isExposed, RedundantStatementKind expectedKind)
+    {
+        var account = Single(ModuleAssembly.Of(PartsOf(First, "First", ModuleType.StdModule, lines)).Modules, "Account");
+
+        Assert.AreEqual(isExposed, account.Directives.Exposed);
+        var redundant = account.Redundant.Single();
+        Assert.AreEqual(expectedKind, redundant.Kind);
+        Assert.AreEqual((First, "@Exposed"), (redundant.Location.Uri, TextAt(lines, redundant.Location.Range)));
     }
 
     // MS-VBAL §4.2: two plain parts are two modules of one name, neither of which is the module: each is reported where it says its name.
