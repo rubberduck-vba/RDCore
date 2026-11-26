@@ -37,7 +37,10 @@ public sealed class PublicControlFieldAccessAnalyzerTests
                 Members =
                 [
                     new MemberDescription { Name = "Text", Kind = MemberKind.PropertyGet, Type = "String", DispId = 0 },
-                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyLet, DispId = 0, Parameters = [new ParameterDescription { Name = "Text", Type = "String" }] },
+                    new MemberDescription
+                    {
+                        Name = "Text", Kind = MemberKind.PropertyLet, DispId = 0, Parameters = [new ParameterDescription { Name = "Text", Type = "String" }],
+                    },
                 ],
             },
         ],

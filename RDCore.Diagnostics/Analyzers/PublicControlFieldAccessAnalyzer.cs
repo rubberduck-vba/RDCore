@@ -11,8 +11,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// the form's class, so any module can reach it; the form's own code is what should read and change its controls.
 /// </summary>
 /// <remarks>
-/// The host states that a binding is a control (<see cref="ValueExpressionSemanticFlags.BoundToDesignerControl"/>): the designer declares it, and the code has no
-/// declaration of it. A control reached through a form object (<c>f.TextBox1</c>) is found the same way as one reached through the form's name.
+/// The host states that a binding is a control (<see cref="ValueExpressionSemanticFlags.BoundToDesignerControl"/>): the designer declares it, and the code
+/// has no declaration of it. A control reached through a form object (<c>f.TextBox1</c>) is found the same way as one reached through the form's name.
 /// </remarks>
 internal sealed class PublicControlFieldAccessAnalyzer : IModuleAnalyzer
 {
