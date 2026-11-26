@@ -1,9 +1,11 @@
 using System.Globalization;
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -22,9 +24,12 @@ public sealed class IgnoreAnnotationsTests
 
     private const string NamesNoDiagnostic = "RDC00418";
 
-    private static ModuleParseResult Parse(params string[] lines)
+    private static ModuleParseResult Parse(params string[] lines) => Parse(fileLevelStatements: false, lines);
+
+    private static ModuleParseResult Parse(bool fileLevelStatements, params string[] lines)
     {
-        var parse = new ModuleParser().Parse(File, string.Join("\r\n", lines) + "\r\n");
+        var parser = new ModuleParser(workspaceOptions: Options.Create(new SdkWorkspaceOptions { FileLevelStatements = fileLevelStatements }));
+        var parse = parser.Parse(File, string.Join("\r\n", lines) + "\r\n");
         Assert.IsEmpty(parse.SyntaxErrors, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
         return parse;
     }
@@ -189,6 +194,31 @@ public sealed class IgnoreAnnotationsTests
 
         CollectionAssert.AreEqual(new[] { "RDC01001@0", "RDC01001@8", "RDC01002@4" }, Published(parse,
             found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 8), Finding("RDC01002", 4)]));
+    }
+
+    // the same, on the file's first line: no code of the file's own module is above it, with or without file-level statements.
+    [TestMethod]
+    [DataRow("Ignore", false, DisplayName = "'@Ignore")]
+    [DataRow("IgnoreModule", false, DisplayName = "'@IgnoreModule")]
+    [DataRow("Ignore", true, DisplayName = "'@Ignore, with file-level statements")]
+    [DataRow("IgnoreModule", true, DisplayName = "'@IgnoreModule, with file-level statements")]
+    public void InAFileOfBlocks_AnAnnotationOnTheFirstLine_AboveABlocksHeader_SuppressesInThatBlock(string name, bool fileLevelStatements)
+    {
+        var parse = Parse(fileLevelStatements,
+            $"'@{name} RDC01001",   // 0
+            "Class Account",
+            "    Public Sub Deposit()",
+            "    End Sub",
+            "End Class",
+            "Module Logger",        // 5
+            "    Public Sub Log()",
+            "    End Sub",
+            "End Module");
+        var account = new RDCoreDocument(File, parse).ParseOf(parse.BlockModules[0].Uri);
+        Assert.HasCount(1, account!.GetHeaderAnnotations(), "the premise: the annotation is a header annotation of Account's module");
+
+        CollectionAssert.AreEqual(new[] { "RDC01001@6", "RDC01002@2" }, Published(parse,
+            found: [Finding("RDC01001", 2), Finding("RDC01001", 6), Finding("RDC01002", 2)]));
     }
 
     [TestMethod]
