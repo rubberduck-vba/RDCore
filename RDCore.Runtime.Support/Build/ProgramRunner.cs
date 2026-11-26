@@ -28,10 +28,17 @@ internal static class ProgramRunner
 
     public static readonly RDCoreDiagnosticCode AmbiguousEntryPoint = new(RDCoreDiagnosticCode.CorePrefix, 30002);
 
-    // the entry point of the project's modules, as the session defined them (ProgramEntryPoint.Of); null, with what rdc says of it, when it has none.
+    // the entry point of the project's modules, as the session defined them (ProgramEntryPoint.Of); null, with what rdc says of it, when it has none. A run
+    // of one module's file (startModule) starts where that module would start as a project of its own: its script, else its Sub Main. The file names the
+    // module, so no other module's procedure answers to it, and a library is still not run.
     public static (string Module, VBTypeMemberSymbol Procedure)? EntryPointOf(IRuntimeSession session, IEnumerable<string> modules, ProjectBuild? build,
-        out string? refusal)
+        out string? refusal, string? startModule = null)
     {
+        if (startModule is not null)
+        {
+            (modules, build) = ([startModule], (build ?? new ProjectBuild()) with { EntryPoint = null });
+        }
+
         var resolved = ProgramEntryPoint.Of(build, modules
             .Select(name => session.Symbols.TryGetModule(name, out var module) ? module : null)
             .OfType<VBModuleSymbol>()

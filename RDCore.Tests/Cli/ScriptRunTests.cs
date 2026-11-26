@@ -248,4 +248,82 @@ public sealed class ScriptRunTests
         Assert.AreEqual(ProgramRunner.Completed, exit, error);
         Assert.AreEqual(string.Empty, output);
     }
+
+    // a script of a project runs as a module of it: rdc run of its file starts at its own code, the other script's code does not run, and the procedures of
+    // the other script are there for it to call.
+    [TestMethod]
+    [DataRow("Backup.vbs", "backup", "undone", DisplayName = "the first script of the project")]
+    [DataRow("Restore.vbs", "restore", "saved", DisplayName = "the second script of the project")]
+    public async Task EachScriptOfAProject_RunsByItsFile_AndCallsTheOtherScriptsProcedures(string file, string first, string second)
+    {
+        var (exit, output, error) = await RunInProjectAsync(file, ScriptsOfTools);
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines(first, second), output);
+    }
+
+    // a module of the project that is no script runs from its file as it ran as a project of its own: from its Sub Main, which can call a script's
+    // procedures, and the script's code does not run.
+    [TestMethod]
+    public async Task AModuleOfAProjectThatIsNoScript_RunsByItsFile_FromItsSubMain()
+    {
+        const string program = "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Debug.Print \"main\", Twice(21)\r\nEnd Sub\r\n";
+        const string script = "WScript.Echo \"script\"\r\nFunction Twice(value)\r\nTwice = value * 2\r\nEnd Function\r\n";
+        var (exit, output, error) = await RunInProjectAsync("Program.bas", [("Maths.vbs", script), ("Program.bas", program)]);
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        StringAssert.StartsWith(output, "main", error);
+        StringAssert.Contains(output, "42", error);
+        Assert.IsFalse(output.Contains("script", StringComparison.Ordinal), output);
+    }
+
+    // a module of the project with neither a script nor a Sub Main is refused as a project of its own is: it has no entry point, whatever the other modules
+    // declare.
+    [TestMethod]
+    public async Task AModuleOfAProjectWithNeitherAScriptNorASubMain_IsRefused_AsItIsOnItsOwn()
+    {
+        const string helpers = "Attribute VB_Name = \"Helpers\"\r\nPublic Sub Helper()\r\nEnd Sub\r\n";
+        var inProject = await RunInProjectAsync("Helpers.bas",
+            [.. ScriptsOfTools, ("Program.bas", "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nEnd Sub\r\n"), ("Helpers.bas", helpers)]);
+        var onItsOwn = await RunInProjectAsync("Helpers.bas", [("Helpers.bas", helpers)], listed: false);
+
+        Assert.AreEqual(ProgramRunner.Refused, inProject.Exit, inProject.Error);
+        StringAssert.Contains(inProject.Error, ProgramRunner.NoEntryPoint.ToString());
+        Assert.AreEqual(onItsOwn.Error, inProject.Error, "the refusal is the one the module's file gets as a project of its own");
+        Assert.AreEqual(string.Empty, inProject.Output);
+    }
+
+    // two scripts of a project: each calls a procedure of the other's.
+    private static readonly (string File, string Text)[] ScriptsOfTools =
+    [
+        ("Backup.vbs", "WScript.Echo \"backup\"\r\nUndo\r\nSub Save()\r\nWScript.Echo \"saved\"\r\nEnd Sub\r\n"),
+        ("Restore.vbs", "WScript.Echo \"restore\"\r\nSave\r\nSub Undo()\r\nWScript.Echo \"undone\"\r\nEnd Sub\r\n"),
+    ];
+
+    // rdc run of one file of a folder: the folder's .rdproj lists every file (listed), or there is none and the file is a project of its own.
+    private static async Task<(int Exit, string Output, string Error)> RunInProjectAsync(string file, (string File, string Text)[] files, bool listed = true)
+    {
+        var fileSystem = new MockFileSystem();
+        fileSystem.Directory.CreateDirectory(Root);
+        foreach (var (name, text) in files)
+        {
+            fileSystem.File.WriteAllText(Path.Combine(Root, name), text);
+        }
+
+        if (listed)
+        {
+            var modules = string.Join(", ", files.Select(each => $$"""{ "RelativeUri": "{{each.File}}" }"""));
+            fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"),
+                $$"""{ "Version": "0.1.0", "ProjectInfo": { "Name": "Tools", "Modules": [ {{modules}} ] } }""");
+        }
+
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+            new DirectoryLibrarySource(new FileSystem(), Symbols));
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error,
+            new ScriptedKeys(interactive: false), Options.Create(new AppOptions()));
+        var exit = await command.ExecuteAsync([Path.Combine(Root, file)], CancellationToken.None);
+        return (exit, output.ToString(), error.ToString());
+    }
 }
