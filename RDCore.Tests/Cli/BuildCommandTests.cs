@@ -516,11 +516,16 @@ public sealed class BuildCommandTests
         => BuildAndRunNamedAsync(fileSystem, libraries, folder, "Hello", args);
 
     // the program built under name: its executable is name in the test's folder.
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunNamedAsync(MockFileSystem fileSystem,
         RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, string name, params string[] args)
+        => BuildAndRunFromAsync(fileSystem, libraries, Root, folder, name, args);
+
+    // the program rdc build makes of from, the workspace's folder or a module file, built under name.
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunFromAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string from, string folder, string name, params string[] args)
     {
         var (command, messages) = Command(fileSystem, libraries: libraries);
-        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", name, .. args], CancellationToken.None),
+        Assert.AreEqual(0, await command.ExecuteAsync([from, "--name", name, .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
         var context = new AssemblyLoadContext("built program", isCollectible: true);
@@ -567,6 +572,29 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { "5" }, run.Output);
     }
 
+    // a script of a project builds into a program of the project that starts at that script: the other script's code does not run, its procedures are
+    // there to call.
+    [TestMethod]
+    [DataRow("Backup.vbs", "backup", "undone", DisplayName = "the first script of the project")]
+    [DataRow("Restore.vbs", "restore", "saved", DisplayName = "the second script of the project")]
+    public async Task TheBuiltProgramOfAScriptOfAProject_StartsAtThatScript(string file, string first, string second)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Backup.vbs", "Debug.Print \"backup\"\r\nUndo\r\nSub Save()\r\nDebug.Print \"saved\"\r\nEnd Sub\r\n"),
+            ("Restore.vbs", "Debug.Print \"restore\"\r\nSave\r\nSub Undo()\r\nDebug.Print \"undone\"\r\nEnd Sub\r\n"));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "Tools", "Modules": [ { "RelativeUri": "Backup.vbs" }, { "RelativeUri": "Restore.vbs" } ] } }
+            """);
+        var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
+
+        var built = await BuildAndRunFromAsync(
+            fileSystem, shipped, Path.Combine(Root, file), Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), "Tools");
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { first, second }, built.Output, built.Error);
+    }
+
     // the workspace is no folder of the disk the program runs on: a script's Class and Module blocks are modules of the program its build makes, each read
     // from the file as the build read it, and the program prints what rdc run prints.
     [TestMethod]
@@ -591,6 +619,76 @@ public sealed class BuildCommandTests
         Assert.AreEqual(0, built.Exit, built.Error);
         CollectionAssert.AreEqual(new[] { "40" }, built.Output, built.Error);
         CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+    }
+
+    // RD-VBAL §5.1: a Partial block of another file is a part of the module of its name, which rdc run runs as one module: a procedure of one part uses
+    // what is Private to another. Its built program runs it the same.
+    [TestMethod]
+    public async Task AModuleOfParts_RunsAsOneModule_AndItsBuiltProgramTheSame()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Private count As Long", "Public Sub Main()", "    Add 20", "    Add 22", "    Debug.Print count", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
+                "Partial Module Program", "Private Sub Add(ByVal n As Long)", "    count = count + n", "End Sub", "End Module") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output, run.Error);
+        CompiledExecutionTests.RequirePayloads();
+        var built = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+    }
+
+    // a module its parts make invalid refuses the run, named by its name, and none of its parts runs.
+    [TestMethod]
+    public async Task AModuleItsPartsMakeInvalid_RefusesTheRun()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print \"ran\"", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"", "Partial Class Program", "End Class") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit, run.Error);
+        Assert.IsEmpty(run.Output);
+        StringAssert.Contains(run.Error, "Program: ");
+    }
+
+    // a dead #If branch of one part is of its own file: the lines another part writes at the same positions are live, and run.
+    [TestMethod]
+    public async Task ADeadBranchOfOnePart_LeavesWhatAnotherPartWritesAtTheSameLinesLive()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "#If False Then", "Private Const A As Long = 1", "Private Const B As Long = 2", "Private Const C As Long = 3",
+                "Private Const D As Long = 4", "#End If", "Public Sub Main()", "    Greet", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
+                "Partial Module Program", "Private Sub Greet()", "    Debug.Print \"a\"", "    Debug.Print \"b\"", "End Sub", "End Module") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "a", "b" }, run.Output, run.Error);
+    }
+
+    // a name that two parts declare is declared twice in the module, wherever each part writes it: a declaration of one part is never an alternative of a
+    // #If branch of another, even at that branch's lines.
+    [TestMethod]
+    public async Task ANameTwoPartsDeclare_IsAmbiguous_EvenAtTheLinesOfTheOtherPartsBranch()
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "#If True Then", "Private total As Long", "#Else", "Private count As Long", "#End If",
+                "Public Sub Main()", "    Debug.Print \"ran\"", "End Sub")),
+            ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
+                "Partial Module Program", "Private first As Long", "Private second As Long", "Private third As Long", "Private total As Long",
+                "End Module") + "\r\n"));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit, run.Error);
+        Assert.IsEmpty(run.Output);
+        StringAssert.Contains(run.Error, RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_AmbiguousName);
     }
 
     // the workspace is not a folder on the disk the program runs on: the libraries its project references are in the program's folder, each with the

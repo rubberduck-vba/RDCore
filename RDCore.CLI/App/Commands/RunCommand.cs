@@ -16,7 +16,8 @@ namespace RDCore.CLI.App.Commands;
 
 internal sealed class RunCommandOptions
 {
-    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted.")]
+    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file: a file the .rdproj "
+        + "of its folder lists runs that project from its module. The current folder when omitted.")]
     public string? Path { get; set; }
 
     [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = "Debug or Release.")]
@@ -62,7 +63,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         try
         {
             workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
-                ansiCodePage: runner.Environment.AnsiCodePage);
+                ansiCodePage: runner.Environment.AnsiCodePage, inItsProject: true);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
@@ -85,7 +86,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
             return ProgramRunner.Refused;
         }
 
-        if (ProgramRunner.EntryPointOf(provider.Session, modules, workspace.Project.Build, out var refusal) is not { } entryPoint)
+        if (ProgramRunner.EntryPointOf(provider.Session, modules, workspace.Project.Build, out var refusal, workspace.Given?.Name) is not { } entryPoint)
         {
             await Error.WriteLineAsync(refusal);
             return ProgramRunner.Refused;
