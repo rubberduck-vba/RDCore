@@ -49,7 +49,7 @@ internal sealed class FolderAnnotationAnalyzer : IModuleAnalyzer
                     Fixes = new DiagnosticFixes
                     {
                         Edits = [SyntaxEdits.Fix(RDCoreDiagnosticsResources.FolderAnnotationNotTheFilesFolder_RootFix,
-                            SyntaxEdits.Remove(RemovalOf(context.ParseResult, annotation)))],
+                            SyntaxEdits.Remove(AnnotationEdits.RemovalOf(context.ParseResult, annotation)))],
                     },
                 }
                 : new AnalyzerFinding(RDCoreDiagnosticId.FolderAnnotationNotTheFilesFolder.ToCode(), annotation.SourceLocation.Range,
@@ -78,25 +78,5 @@ internal sealed class FolderAnnotationAnalyzer : IModuleAnalyzer
         return Path.IsPathRooted(relative) || folders.Any(name => name == ".." || name.Contains('.', StringComparison.Ordinal))
             ? null
             : string.Join('.', folders);
-    }
-
-    // the comment's lines when the annotation is all the comment says, else the annotation alone.
-    private static SourceRange RemovalOf(ModuleParseResult parse, AnnotationTriviaNode annotation)
-    {
-        var at = annotation.SourceLocation.Range;
-        var comment = parse.Trivia.OfType<CommentTriviaNode>().FirstOrDefault(candidate => candidate.SourceLocation.Uri == annotation.SourceLocation.Uri
-            && candidate.SourceLocation.Range.Start <= at.Start && at.End <= candidate.SourceLocation.Range.End);
-        if (comment?.SourceLocation.Range is { } range && range.Start.Line == range.End.Line && at.Start.Line == at.End.Line)
-        {
-            var offset = at.Start.Character - range.Start.Character;
-            var length = at.End.Character - at.Start.Character;
-            if (offset >= 0 && offset + length <= comment.Value.Length && comment.Value.Remove(offset, length).Trim() == "'"
-                && LineEdits.WholeLinesOf(parse, comment) is { } lines)
-            {
-                return lines;
-            }
-        }
-
-        return at;
     }
 }
