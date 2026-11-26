@@ -16,8 +16,8 @@ namespace RDCore.CLI.App.Commands;
 
 internal sealed class RunCommandOptions
 {
-    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file: a file the .rdproj of its folder lists runs that project from "
-        + "its module. The current folder when omitted.")]
+    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file: a file the .rdproj "
+        + "of its folder lists runs that project from its module. The current folder when omitted.")]
     public string? Path { get; set; }
 
     [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = "Debug or Release.")]

@@ -588,7 +588,8 @@ public sealed class BuildCommandTests
             """);
         var shipped = RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Platform;
 
-        var built = await BuildAndRunFromAsync(fileSystem, shipped, Path.Combine(Root, file), Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), "Tools");
+        var built = await BuildAndRunFromAsync(
+            fileSystem, shipped, Path.Combine(Root, file), Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime), "Tools");
 
         Assert.AreEqual(0, built.Exit, built.Error);
         CollectionAssert.AreEqual(new[] { first, second }, built.Output, built.Error);

@@ -258,8 +258,10 @@ public sealed class ScriptRunTests
     {
         var fileSystem = new MockFileSystem();
         fileSystem.Directory.CreateDirectory(Root);
-        fileSystem.File.WriteAllText(Path.Combine(Root, "Backup.vbs"), "WScript.Echo \"backup\"\r\nUndo\r\nSub Save()\r\nWScript.Echo \"saved\"\r\nEnd Sub\r\n");
-        fileSystem.File.WriteAllText(Path.Combine(Root, "Restore.vbs"), "WScript.Echo \"restore\"\r\nSave\r\nSub Undo()\r\nWScript.Echo \"undone\"\r\nEnd Sub\r\n");
+        fileSystem.File.WriteAllText(Path.Combine(Root, "Backup.vbs"),
+            "WScript.Echo \"backup\"\r\nUndo\r\nSub Save()\r\nWScript.Echo \"saved\"\r\nEnd Sub\r\n");
+        fileSystem.File.WriteAllText(Path.Combine(Root, "Restore.vbs"),
+            "WScript.Echo \"restore\"\r\nSave\r\nSub Undo()\r\nWScript.Echo \"undone\"\r\nEnd Sub\r\n");
         fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Tools", "Modules": [ { "RelativeUri": "Backup.vbs" }, { "RelativeUri": "Restore.vbs" } ] } }
             """);
