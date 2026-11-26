@@ -61,12 +61,6 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     public BenchModule? Given { get; init; }
 
     /// <summary>
-    /// The <c>build</c> section a run of the workspace starts by: the project's, with the module of the file it was given as the entry point
-    /// (<see cref="Given"/>), as <c>rdc run Backup.vbs</c> runs the script of its own file; the project's as it is otherwise.
-    /// </summary>
-    public ProjectBuild? RunBuild => Given is { } given ? (Project.Build ?? new ProjectBuild()) with { EntryPoint = given.Name } : Project.Build;
-
-    /// <summary>
     /// The root of the workspace as its <c>file</c> URI (<see cref="SymbolUri.Root"/>): what its modules are addressed under.
     /// </summary>
     public Uri RootUri => SymbolUri.Root(Root);
