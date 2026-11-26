@@ -152,7 +152,7 @@ public sealed class BlockModulesNavigationTests
         Assert.IsNull(renamed.Value, "neither the VB_Name attribute nor the file is edited");
     }
 
-    // the twin of the row above: the file's own module is renamed as in a file of no blocks, its VB_Name and the file both.
+    // the twin of the test above: the file's own module is renamed as in a file of no blocks, its VB_Name and the file both.
     [TestMethod]
     public async Task TheFilesOwnModule_IsRenamed_ItsVbNameAndItsFile()
     {
@@ -175,7 +175,7 @@ public sealed class BlockModulesNavigationTests
         return [.. (await sut.CompleteDocumentAsync(Document, new Position(line, character), CancellationToken.None)).Items.Select(item => item.Label)];
     }
 
-    // a line of a class block is completed in that class: its fields are names there, and Me and RaiseEvent are statements of a class.
+    // a line of a class block is completed in that class: its fields are names there, and RaiseEvent, which only a class writes, is offered.
     [TestMethod]
     public async Task ALineOfAClassBlock_IsCompletedInThatClass()
     {
