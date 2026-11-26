@@ -5,7 +5,7 @@ namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
 /// What the debugger shows of a value: a number as the text it let-coerces to (<strong>MS-VBAL §5.5.1.2.4</strong>), as MS-VBA writes it, and not .NET's;
-/// a string as its literal (<strong>MS-VBAL §3.3.4</strong>).
+/// a string between double quotes, each double quote in it written twice, as its literal is (<strong>MS-VBAL §3.3.4</strong>).
 /// </summary>
 [TestClass]
 public sealed class DebugValueFormatterTests
