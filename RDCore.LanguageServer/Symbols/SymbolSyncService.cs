@@ -250,7 +250,7 @@ internal sealed class SymbolSyncService(
                 (moduleUri, ModuleType.StdModule, parseResult),
             ],
             resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token),
-            documentHosts: hosts);
+            documentHosts: hosts, directives: ParsedModule.DirectivesOf(others));
 
         // a module the client keeps editing is defined again every time it is run, so the newest
         // definition has to win rather than being skipped as a duplicate. Its parse result travels with the request to
@@ -296,8 +296,9 @@ internal sealed class SymbolSyncService(
             var (workspaceRoot, modules, hosts) = CollectModules(token);
             collected = [.. modules.Select(module => module.Name)];
 
-            // the modules of a name that another module of the project has are none of the program's (MS-VBAL §4.2): a run of it is refused, and says why.
-            foreach (var (name, error) in ProjectModules.NameConflicts(documents, parsing, documents.WorkspaceRoot, token).Values)
+            // a module its parts make invalid, two modules of one name among them (MS-VBAL §4.2), is none of the program's: a run of it is refused, and says
+            // why.
+            foreach (var (name, error) in ProjectModules.Refused(documents, parsing, documents.WorkspaceRoot, token).Values.SelectMany(errors => errors))
             {
                 failed.TryAdd(name, $"{error.Description}: {error.Verbose}");
             }
@@ -311,7 +312,8 @@ internal sealed class SymbolSyncService(
 
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
-                implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts);
+                implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts,
+                directives: ParsedModule.DirectivesOf(modules));
 
             // a module the workspace no longer has - a block taken out of its file, a module renamed, while the file changed outside the editor - is taken out
             // of the host before the others are bound again.
@@ -466,7 +468,7 @@ internal sealed class SymbolSyncService(
             root, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver,
             projectName: other.Project.ProjectInfo.Name is { Length: > 0 } name ? name : null, implicitScope: ImplicitScope,
             libraries: referencedProjects?.LibrariesOf(root, other.Root) ?? referencedLibraries.SymbolsOf(root, other.Project.ProjectInfo),
-            documentHosts: hosts);
+            documentHosts: hosts, directives: ParsedModule.DirectivesOf(modules));
 
     // the projects the primary project references, each with its modules and what their names are bound against, as its own analysis binds them: they are
     // defined in its session as names of those projects (DefineSymbolsParams.Library), beside its own modules.
@@ -550,7 +552,7 @@ internal sealed class SymbolSyncService(
 
         var (workspaceRoot, modules, hosts) = CollectModules(token);
         var file = document.Id.Uri.ToUri();
-        var changed = modules.Where(module => module.Document == file).ToList();
+        var changed = modules.Where(module => module.Documents.Contains(file)).ToList();
         if (workspaceRoot is not null && changed.Count > 0)
         {
             // what the document no longer declares - a block the edit took out, a module it renamed - is taken out of the host, unless another document
@@ -563,7 +565,8 @@ internal sealed class SymbolSyncService(
             // declare is what its names are bound against), a block the edit added among them; then the code of each is loaded, checked against the same.
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
-                implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts);
+                implicitScope: ImplicitScope, libraries: PrimaryLibraries(workspaceRoot, token), documentHosts: hosts,
+                directives: ParsedModule.DirectivesOf(modules));
             SessionDefinition Changed(ParsedModule module, SessionDefinitionPhase phase)
                 => new(phase, workspaceRoot, module, workspaceResolver, ImplicitScope, Replace: true);
             foreach (var module in changed)
@@ -588,7 +591,7 @@ internal sealed class SymbolSyncService(
         {
             var root = SymbolUri.Root(other.Root);
             var (_, theirs, theirHosts) = CollectModules(other.Root, root, token);
-            var theirChanged = theirs.Where(module => module.Document == file).ToList();
+            var theirChanged = theirs.Where(module => module.Documents.Contains(file)).ToList();
             if (theirChanged.Count == 0)
             {
                 continue;
@@ -646,7 +649,7 @@ internal sealed class SymbolSyncService(
             return;
         }
 
-        var parsed = modules.Select(module => module.Document).OfType<Uri>().ToHashSet();
+        var parsed = modules.SelectMany(module => module.Documents).ToHashSet();
         string[] gone;
         lock (_definedFrom)
         {

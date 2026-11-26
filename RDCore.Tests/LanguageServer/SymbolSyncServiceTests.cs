@@ -937,7 +937,10 @@ public sealed class SymbolSyncServiceTests
     }
 
     // a workspace of standard modules, each parsed as itself; and the names of the modules the host is sent.
-    private static (SymbolSyncService Sut, List<string> Sent) WorkspaceOf(params (string File, string Source)[] modules)
+    private static (SymbolSyncService Sut, List<string> Sent) WorkspaceOf(params (string File, string Source)[] modules) => WorkspaceOf(null, modules);
+
+    // requests, when given, gets every DefineSymbols request the host is sent.
+    private static (SymbolSyncService Sut, List<string> Sent) WorkspaceOf(List<DefineSymbolsParams>? requests, params (string File, string Source)[] modules)
     {
         var sent = new List<string>();
         var host = Substitute.For<IRDCoreClientApp>();
@@ -947,6 +950,7 @@ public sealed class SymbolSyncServiceTests
             .Returns(call =>
             {
                 sent.Add(call.Arg<DefineSymbolsParams>().ModuleName);
+                requests?.Add(call.Arg<DefineSymbolsParams>());
                 return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
             });
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
@@ -991,5 +995,38 @@ public sealed class SymbolSyncServiceTests
         var refused = Assert.ContainsSingle(sut.Unsynced);
         Assert.AreEqual(secondName, refused.Key, ignoreCase: true);
         Assert.StartsWith(VBCompileErrorInfo.GetErrorString(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary), refused.Value);
+    }
+
+    // RD-VBAL §5.1: a Partial block of a module's name is a part of that module: the host is sent one module with every part's declarations, and a run is
+    // not refused.
+    [TestMethod]
+    public async Task APartialBlockOfAModulesName_IsAPartOfIt_AndTheHostIsSentOneModuleWithBothParts()
+    {
+        var requests = new List<DefineSymbolsParams>();
+        var (sut, _) = WorkspaceOf(requests,
+            ("A", Named("Helpers")), ("B", "Attribute VB_Name = \"B\"\r\nPartial Module Helpers\r\nPublic Sub More()\r\nEnd Sub\r\nEnd Module\r\n"));
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.IsEmpty(sut.Unsynced);
+        var helpers = requests.Where(request => request.ModuleName == "Helpers").ToArray();
+        Assert.IsNotEmpty(helpers);
+        Assert.IsTrue(helpers.Any(request => request.Symbols.Any(symbol => symbol.Name == "Work") && request.Symbols.Any(symbol => symbol.Name == "More")),
+            string.Join(" | ", helpers.Select(request => string.Join(", ", request.Symbols.Select(symbol => symbol.Name)))));
+    }
+
+    // a module its parts make invalid is none of the host's either, and a run says why: a Partial Class block of a standard module's name (VBC09388).
+    [TestMethod]
+    public async Task APartOfAnotherKind_RefusesTheModule_AndARunOfTheProgramSaysWhy()
+    {
+        var (sut, sent) = WorkspaceOf(
+            ("A", Named("Helpers")), ("B", "Attribute VB_Name = \"B\"\r\nPartial Class Helpers\r\nPublic Sub More()\r\nEnd Sub\r\nEnd Class\r\n"));
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.DoesNotContain("Helpers", sent);
+        var refused = Assert.ContainsSingle(sut.Unsynced);
+        Assert.AreEqual("Helpers", refused.Key);
+        Assert.StartsWith(VBCompileErrorInfo.GetErrorString(VBCompileErrorId.ModulePartOfAnotherKind), refused.Value);
     }
 }
