@@ -937,11 +937,12 @@ public sealed class DocumentDiagnosticsServiceTests
     private static WorkspaceDocument StandardModule(string file, string? name)
         => new($"src/{file}.bas", Root, (name is null ? string.Empty : $"Attribute VB_Name = \"{name}\"\r\n") + "Public Sub Work()\r\nEnd Sub\r\n");
 
-    // the documents of the project, each parsed as itself.
+    // the documents of the project, each parsed as itself, in a workspace that allows blocks in a module file.
     private void ModulesAre(params WorkspaceDocument[] modules)
     {
         WorkspaceHas(modules);
-        var parses = modules.ToDictionary(module => module.Id.Uri.ToUri().AbsoluteUri, module => new ModuleParser().Parse(module.Id.Uri.ToUri(), module.Text));
+        var parses = modules.ToDictionary(module => module.Id.Uri.ToUri().AbsoluteUri,
+            module => FileLevelStatementsOn.Parser().Parse(module.Id.Uri.ToUri(), module.Text));
         _parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
             .Returns(call =>
             {

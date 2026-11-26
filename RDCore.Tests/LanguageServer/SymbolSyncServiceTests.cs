@@ -426,6 +426,7 @@ public sealed class SymbolSyncServiceTests
 
     // a workspace of Backup.bas, whose text is given, and Other.bas: what each is parsed to now is the text the test last gave it, and what the server has of
     // it at the moment (a document being parsed again has nothing). What the host is sent is recorded: each definition (C for a code load) and each discard.
+    // The workspace allows blocks in a module file.
     private sealed class BlocksWorkspace
     {
         public readonly Dictionary<string, string?> Texts = new(StringComparer.OrdinalIgnoreCase)
@@ -472,7 +473,7 @@ public sealed class SymbolSyncServiceTests
             bool Parsed(Uri uri, out ModuleParseResult parse)
             {
                 var name = Path.GetFileNameWithoutExtension(uri.LocalPath);
-                parse = Texts[name] is { } text ? new ModuleParser().Parse(uri, text) : null!;
+                parse = Texts[name] is { } text ? FileLevelStatementsOn.Parser().Parse(uri, text) : null!;
                 return parse is not null;
             }
 
@@ -936,7 +937,8 @@ public sealed class SymbolSyncServiceTests
         Assert.IsTrue(atOnce, "and nothing waits once it is brought up");
     }
 
-    // a workspace of standard modules, each parsed as itself; and the names of the modules the host is sent.
+    // a workspace of standard modules, each parsed as itself, in a workspace that allows blocks in a module file; and the names of the modules the host is
+    // sent.
     private static (SymbolSyncService Sut, List<string> Sent) WorkspaceOf(params (string File, string Source)[] modules)
     {
         var sent = new List<string>();
@@ -956,7 +958,7 @@ public sealed class SymbolSyncServiceTests
         var documents = Substitute.For<IWorkspaceDocumentService>();
         documents.GetAllDocuments().Returns(files);
         documents.WorkspaceRoot.Returns(Root);
-        var parses = files.ToDictionary(file => file.Id.Uri.ToUri().AbsoluteUri, file => new ModuleParser().Parse(file.Id.Uri.ToUri(), file.Text));
+        var parses = files.ToDictionary(file => file.Id.Uri.ToUri().AbsoluteUri, file => FileLevelStatementsOn.Parser().Parse(file.Id.Uri.ToUri(), file.Text));
         var parsing = Substitute.For<IParsingClientService>();
         parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
             .Returns(call =>

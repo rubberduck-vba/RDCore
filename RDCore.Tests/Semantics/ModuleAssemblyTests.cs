@@ -23,8 +23,9 @@ public sealed class ModuleAssemblyTests
     // the source of a file: its lines, which a DataRow writes with | between them.
     private static string Source(string lines) => string.Join("\r\n", lines.Split('|')) + "\r\n";
 
+    // the files are module files, in a workspace that allows their blocks.
     private static IEnumerable<ModulePart> PartsOf(Uri file, string name, ModuleType kind, string lines)
-        => ModulePart.PartsOf(file, name, kind, new ModuleParser().Parse(file, Source(lines)));
+        => ModulePart.PartsOf(file, name, kind, FileLevelStatementsOn.Parser().Parse(file, Source(lines)));
 
     private static string TextAt(string lines, SourceRange range)
         => lines.Split('|')[range.Start.Line][range.Start.Character..range.End.Character];

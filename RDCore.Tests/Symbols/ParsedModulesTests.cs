@@ -21,7 +21,8 @@ public sealed class ParsedModulesTests
         + "Class Account\r\nPublic Sub Deposit()\r\nEnd Sub\r\nEnd Class\r\n"
         + "Module Helpers\r\nPublic Function Twice()\r\nEnd Function\r\nEnd Module\r\n";
 
-    private static ModuleParseResult Parse(string source) => new ModuleParser().Parse(File, source);
+    // a module file, in a workspace that allows its blocks.
+    private static ModuleParseResult Parse(string source) => FileLevelStatementsOn.Parser().Parse(File, source);
 
     private static string[] Members(ParsedModule module)
         => [.. module.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Select(member => member.Name)];
