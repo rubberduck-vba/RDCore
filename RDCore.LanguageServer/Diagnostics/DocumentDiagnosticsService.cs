@@ -177,12 +177,9 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        // the host has a block's module under the block's name.
+        // the host has a module under the name RD-VBA gives it: a block's is its header's.
         var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
-        var moduleName = module == documentUri
-            ? parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name
-            : parseResult.BlockModules.FirstOrDefault(block => block.Uri == module)?.Name;
-        if (moduleName is null)
+        if (new RDCoreDocument(documentUri, parseResult).NameOf(module) is not { } moduleName)
         {
             return null;
         }

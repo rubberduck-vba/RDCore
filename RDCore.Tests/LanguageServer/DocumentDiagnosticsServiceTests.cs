@@ -694,6 +694,26 @@ public sealed class DocumentDiagnosticsServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    // a file's own module is the host's by the name its source gives it (Attribute VB_Name), and by its file's name when the source gives none.
+    [TestMethod]
+    [DataRow("Named", "Named", DisplayName = "named by its source")]
+    [DataRow(null, "Own", DisplayName = "named by its file")]
+    public async Task AFilesOwnModule_IsAskedOfTheHostByTheNameItsSourceGivesIt_OrItsFilesName(string? declared, string expected)
+    {
+        var own = StandardModule("Own", declared);
+        ModulesAre(own);
+        _documents.WorkspaceRoot.Returns(Root);
+        var module = SymbolUri.Module(Root, expected);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(module, true, [], [], [])])));
+
+        var semantics = await Sut().SemanticsAsync(own.Id.Uri.ToUri(), CancellationToken.None);
+
+        Assert.AreEqual(module, semantics?.Module);
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == expected && request.ModuleUri!.AbsoluteUri == module.AbsoluteUri),
+            Arg.Any<CancellationToken>());
+    }
+
     // a monitor of the program the host runs, which says it waits in break mode or not, as the host says when it is asked.
     private static (EditStatusMonitor Monitor, Func<bool, Task> Say) ProgramThatWaits(WorkspaceRefresh refresh)
     {
