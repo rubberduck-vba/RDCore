@@ -85,9 +85,15 @@ public sealed class ModuleAnnotationShortFormAnalyzerTests
                 "End Module"), "Ignore"));
 
     [TestMethod]
-    public void AboveTheHeader_TheFixRenamesIt()
-        => Assert.AreEqual(Source("Public Sub Own()", "End Sub", "'@Ignore RDC01001", "Class Shape", "End Class"),
-            Fixed(Source("Public Sub Own()", "End Sub", "'@IgnoreModule RDC01001", "Class Shape", "End Class"), "Ignore"));
+    [DataRow(true, DisplayName = "below the file's own code")]
+    [DataRow(false, DisplayName = "on the file's first line")]
+    public void AboveTheHeader_TheFixRenamesIt(bool codeAbove)
+    {
+        string[] above = codeAbove ? ["Public Sub Own()", "End Sub"] : [];
+
+        Assert.AreEqual(Source([.. above, "'@Ignore RDC01001", "Class Shape", "End Class"]),
+            Fixed(Source([.. above, "'@IgnoreModule RDC01001", "Class Shape", "End Class"]), "Ignore"));
+    }
 
     [TestMethod]
     public void NothingIsReported_WithoutFileLevelStatements_OrInAFileWithoutBlocks_OrForTheShortForm()
