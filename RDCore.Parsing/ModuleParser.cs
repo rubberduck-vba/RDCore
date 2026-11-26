@@ -142,6 +142,8 @@ public partial class ModuleParser(
             // what the header writes before the block's kind; what each makes of the module is the language's.
             modules.Add(new BlockModule(block.Name, ModuleKinds.Of(block.Kind), module, range, tree)
             {
+                NameRange = new SourceRange(new SourcePosition(block.HeaderLine, block.NameColumn).AnchoredAt(anchorOffset),
+                    new SourcePosition(block.HeaderLine, block.NameColumn + block.Name.Length).AnchoredAt(anchorOffset)),
                 IsPartial = block.IsPartial,
                 IsCreatable = block.IsCreatable,
                 Visibility = block.Visibility,

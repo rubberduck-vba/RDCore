@@ -229,6 +229,20 @@ public sealed class BlockModulesParseTests
             parse.BlockModules.Select(block => (block.Name, block.IsPartial, block.IsCreatable, block.Visibility)).ToArray());
     }
 
+    // where the header writes the module's name, after its modifiers and however it is indented: where a conflict of the name is reported.
+    [TestMethod]
+    public void EachBlock_IsNamedWhereItsHeaderWritesTheName()
+    {
+        var parse = Parse(Module,
+            "  Class Account ",
+            "End Class",
+            "Private Partial Module Helpers ' tools",
+            "End Module");
+
+        CollectionAssert.AreEqual(new SourceRange?[] { new SourceRange(new(0, 8), new(0, 15)), new SourceRange(new(2, 23), new(2, 30)) },
+            parse.BlockModules.Select(block => block.NameRange).ToArray());
+    }
+
     // a block's header states what these lines state in a module file: each is an error at its line, the attribute of a member's too.
     [TestMethod]
     public void AModuleFilesHeaderLine_InABlock_IsInvalidThere_AtItsLine()
@@ -300,6 +314,7 @@ public sealed class BlockModulesParseTests
 
         var logger = parse.BlockModules.Single();
         Assert.AreEqual(new SourceRange(new(10, 4), new(13, 10)), logger.Range);
+        Assert.AreEqual(new SourceRange(new(10, 11), new(10, 17)), logger.NameRange);
         var log = logger.SyntaxTree.Children.OfType<MemberDeclarationNode>().Single();
         Assert.AreEqual(new SourcePosition(11, 4), log.SourceLocation.Range.Start);
     }

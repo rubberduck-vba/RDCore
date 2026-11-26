@@ -6,6 +6,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
@@ -42,17 +43,32 @@ internal static class ProjectModules
         return (workspaceRoot, modules, hosts);
     }
 
-    // the modules of a project whose name another module of it has, a block's included, by their document, and the error each is in (MS-VBAL §4.2): a
-    // file's own module only, which the error is said in.
-    public static IReadOnlyDictionary<string, (string ModuleName, VBCompileErrorInfo Error)> NameConflicts(
+    // the modules of a project whose name another module of it has, by their document, and the error each is in (MS-VBAL §4.2): the file's own module's
+    // where its file says its name, and each block's at the name in its header.
+    public static IReadOnlyDictionary<string, IReadOnlyList<ModuleNameConflict>> NameConflicts(
         IWorkspaceDocumentService documents, IParsingClientService parsing, string projectRoot, CancellationToken token)
     {
         var parsed = Parsed(documents, parsing, projectRoot, token);
         var taken = ModuleNameStaticSemantics.NamesTakenTwice(NamesOf(parsed));
-        return parsed.Where(module => taken.Contains(module.Name)).ToDictionary(
-            module => module.Document.Id.Uri.ToUri().AbsoluteUri,
-            module => (module.Name, ModuleNameStaticSemantics.NameTaken(module.Parse.SyntaxTree!, module.Name)));
+        var conflicts = new Dictionary<string, IReadOnlyList<ModuleNameConflict>>();
+        foreach (var (document, name, parse) in parsed)
+        {
+            var uri = document.Id.Uri.ToUri();
+            IEnumerable<ModuleNameConflict> own = taken.Contains(name)
+                ? [new(name, ModuleNameStaticSemantics.NameTaken(parse.SyntaxTree!, name), OfABlock: false)]
+                : [];
+            var blocks = parse.BlockModules.Where(block => taken.Contains(block.Name)).Select(block
+                => new ModuleNameConflict(block.Name, ModuleNameStaticSemantics.NameTaken(new SourceLocation(uri, block.NameRange ?? block.Range), block.Name),
+                    OfABlock: true));
+            if (own.Concat(blocks).ToList() is { Count: > 0 } found)
+            {
+                conflicts[uri.AbsoluteUri] = found;
+            }
+        }
+
+        return conflicts;
     }
+
 
     private static List<(WorkspaceDocument Document, string Name, ModuleParseResult Parse)> Parsed(
         IWorkspaceDocumentService documents, IParsingClientService parsing, string projectRoot, CancellationToken token)
@@ -79,3 +95,7 @@ internal static class ProjectModules
     private static IEnumerable<string> NamesOf(List<(WorkspaceDocument Document, string Name, ModuleParseResult Parse)> parsed)
         => parsed.SelectMany(module => module.Parse.BlockModules.Select(block => block.Name).Prepend(module.Name));
 }
+
+// a module whose name another module of its project has (ProjectModules.NameConflicts): its name, its error, and whether it is a block's module or its
+// file's own.
+internal sealed record ModuleNameConflict(string ModuleName, VBCompileErrorInfo Error, bool OfABlock);

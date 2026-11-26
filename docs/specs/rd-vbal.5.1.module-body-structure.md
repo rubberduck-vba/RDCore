@@ -41,7 +41,7 @@ End Class
 
 |Aspect|Rule|
 |---|---|
-|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it.|
+|Name|The header names the module. An `Attribute VB_Name` inside a block does not rename it. A block named as another module of the project is [`VBC09386`](../diagnostics/vbc09386.md), at the name in its header.|
 |Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
@@ -54,8 +54,8 @@ End Class
 
 > [!NOTE]
 > **Not implemented.** The analysis session of a project other than the primary one keeps the module of a block that an edit takes out of its file. VBA and VB6
-> have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own. Two blocks of
-> the same name are not reported either. The parse reads a header's modifiers, and nothing applies them to the module.
+> have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
+> The parse reads a header's modifiers, and nothing applies them to the module.
 
 ### Implementation
 

@@ -57,8 +57,11 @@ public static class ModuleNameStaticSemantics
             .Select(group => group.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     // the error of a module whose name another module of its project has (NamesTakenTwice).
-    public static VBCompileErrorInfo NameTaken(ModuleNode module, string name)
-        => VBCompileErrorInfo.For(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary, LocationOf(module),
+    public static VBCompileErrorInfo NameTaken(ModuleNode module, string name) => NameTaken(LocationOf(module), name);
+
+    // the same error, where the module's name is written: a block's module is named in its header, and a VB_Name inside it names nothing.
+    public static VBCompileErrorInfo NameTaken(SourceLocation location, string name)
+        => VBCompileErrorInfo.For(VBCompileErrorId.NameConflictsWithModuleProjectOrLibrary, location,
             string.Format(Exceptions.VBCompileError_ModuleNameTaken_Verbose, name));
 
     // the name is reported where the module says it, and at the start of the module when its file says it.
