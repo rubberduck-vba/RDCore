@@ -70,7 +70,8 @@ public sealed class VisualBasicFormDebugLaunchTests
 
     // the program, started under a debugger and waiting at Main's Stop, debugged through the adapter: launched, its breakpoints set, continued; then what
     // the test does with the session.
-    private static async Task DebugAsync(string program, bool closedByItsUser, Func<CompiledEditAndContinueTests.Session, EnvironmentSessionProvider, Task> debug)
+    private static async Task DebugAsync(
+        string program, bool closedByItsUser, Func<CompiledEditAndContinueTests.Session, EnvironmentSessionProvider, Task> debug)
     {
         CompiledExecutionTests.RequirePayloads();
         var libraries = new ModuleWorkspace.WorkspaceLibraries([], VisualBasicFormLifecycleTests.Shipped)
