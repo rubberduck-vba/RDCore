@@ -53,7 +53,10 @@ public sealed class ParsedModulesTests
 
         var module = ParsedModules.Of(Root, File, parse, "File", ModuleType.ClassModule).Single();
 
-        Assert.AreEqual(new ParsedModule(SymbolUri.Module(Root, name), name, ModuleType.ClassModule, parse) { Document = File }, module);
+        // Documents is an array, which a record compares by reference: it is compared by its items.
+        Assert.AreEqual(
+            new ParsedModule(SymbolUri.Module(Root, name), name, ModuleType.ClassModule, parse) { Document = File, Documents = module.Documents }, module);
+        CollectionAssert.AreEqual(new[] { File }, module.Documents.ToArray());
     }
 
     [TestMethod]

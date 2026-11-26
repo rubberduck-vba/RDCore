@@ -1047,4 +1047,48 @@ public sealed class DocumentDiagnosticsServiceTests
 
         Assert.HasCount(told, ConflictsIn(result));
     }
+
+    // a module file, and a document whose Partial block is a part of the file's module.
+    private static (WorkspaceDocument Plain, WorkspaceDocument Block) PartsOfHelpers(string kind)
+        => (StandardModule("A", "Helpers"),
+            new WorkspaceDocument(
+                "src/B.bas", Root, $"Attribute VB_Name = \"B\"\r\nPartial {kind} Helpers\r\nPublic Sub More()\r\nEnd Sub\r\nEnd {kind}\r\n"));
+
+    // RD-VBAL §5.1: a Partial block of a module's name is a part of that module, and no second module of that name: neither document is in conflict, and
+    // what the host has of the module is asked for.
+    [TestMethod]
+    public async Task APartialBlockOfAModulesName_IsInNoConflict_AndTheHostIsAskedOfTheModule()
+    {
+        var (plain, block) = PartsOfHelpers("Module");
+        ModulesAre(plain, block);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        Assert.IsEmpty(ConflictsIn(await Sut().GetAsync(plain.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        Assert.IsEmpty(ConflictsIn(await Sut().GetAsync(block.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        await host.Received().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Helpers"), Arg.Any<CancellationToken>());
+    }
+
+    // RD-VBAL §5.1: a part of another kind than the module's is VBC09388, at the kind its header writes, in the part's own document; the module is refused,
+    // so what the host has of it is not asked for.
+    [TestMethod]
+    public async Task APartOfAnotherKind_IsAnErrorAtItsHeader_AndTheHostIsNotAskedOfTheModule()
+    {
+        var (plain, block) = PartsOfHelpers("Class");
+        ModulesAre(plain, block);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var code = VBCompileErrorId.ModulePartOfAnotherKind.ToCode().ToString();
+
+        var inPlain = await Sut().GetAsync(plain.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var inBlock = await Sut().GetAsync(block.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.IsFalse(inPlain.Diagnostics.Any(diagnostic => diagnostic.Code?.String == code));
+        var error = Assert.ContainsSingle(inBlock.Diagnostics.Where(diagnostic => diagnostic.Code?.String == code));
+        Assert.AreEqual(DiagnosticSeverity.Error, error.Severity);
+        Assert.AreEqual((1, 8), (error.Range.Start.Line, error.Range.Start.Character), "the header's Class");
+        await host.DidNotReceive().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Helpers"), Arg.Any<CancellationToken>());
+    }
 }
