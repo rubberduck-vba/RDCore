@@ -500,13 +500,23 @@ public sealed class VisualBasicFormLifecycleTests
         Assert.IsEmpty(recorded.Shown);
     }
 
+    // an error Form_Load leaves unhandled stops the run with it: the handler of the code that loaded the form does not catch it, as it catches an error in
+    // Form_Initialize.
     [TestMethod]
-    [Ignore("ending a VB6 run on an error in Form_Load, whatever handler the caller has, is not implemented")]
     public async Task AnErrorInLoad_EndsTheRun_WhateverHandlerTheCallerHas()
     {
-        var printed = await RunAsync("On Error GoTo h", "FailLoad = True", "Load Form2", "Exit Sub", "h:", "Debug.Print \"caught \" & Err.Number");
+        ExecuteResult? ended = null;
+        await ModuleWorkspace.InspectAsync(
+            [], Program(["On Error GoTo h", "FailLoad = True", "Load Form2", "Exit Sub", "h:", "Debug.Print \"caught \" & Err.Number"]), (_, result, _) =>
+            {
+                ended = result;
+                return Task.CompletedTask;
+            }, libraries: Libraries, language: SupportedLanguages.VB6, forms: Forms());
 
-        CollectionAssert.AreEqual(new[] { "Initialize", "Load" }, printed);
+        var printed = ended!.Output.Select(line => line.Trim()).ToArray();
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, ended.Outcome, ended.ErrorMessage);
+        Assert.AreEqual(11, ended.ErrorNumber, ended.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]
