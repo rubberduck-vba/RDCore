@@ -8,7 +8,7 @@ namespace RDCore.CLI.Host.Handlers;
 
 /// <summary>
 /// Handles <c>rdcore/host/discard</c>: takes a module out of the runtime session this host owns - what it declared and what it held, and the code and
-/// the semantic model that were made of it.
+/// the semantic model that were made of it - or out of the analysis session of the project the request's root names.
 /// </summary>
 /// <remarks>
 /// A module that is defined again keeps every name it no longer declares, with the storage it was given and the value it holds. This is what a
@@ -16,10 +16,24 @@ namespace RDCore.CLI.Host.Handlers;
 /// </remarks>
 internal sealed class HostDiscardHandler(
     IEnvironmentSessionProvider sessionProvider,
+    IProjectAnalysisSessions analyses,
     ILogger<HostDiscardHandler> logger) : RDCoreRequestHandler<HostDiscardParams, DiscardResult>
 {
     protected override async Task<DiscardResult> HandleAsync(HostDiscardParams request, CancellationToken token)
     {
+        // a project that is analyzed and not run, as DefineSymbolsHandler routes a definition: no program runs in its session, and the module goes at once.
+        if (request.WorkspaceRoot is { } root && analyses.TryGet(root, out var analysis))
+        {
+            var unloaded = new ModuleUnloader(analysis.Session, analysis.Image).Unload(request.ModuleUri);
+            analysis.Session.Memory.Reclaim();
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("🗑️ {module}: {discarded} symbol(s) discarded from the analysis of {root}.", request.ModuleName, unloaded, root);
+            }
+
+            return new DiscardResult { Discarded = unloaded };
+        }
+
         if (!sessionProvider.IsComposed)
         {
             return new DiscardResult();

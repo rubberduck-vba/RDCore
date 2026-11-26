@@ -91,7 +91,7 @@ internal sealed class ShellHost
     /// Takes the program's module out of the session (<c>rdcore/host/discard</c>).
     /// </summary>
     public async Task<DiscardResult> DiscardAsync(string? moduleName = null)
-        => await new HostDiscardHandler(_provider, NullLogger<HostDiscardHandler>.Instance)
+        => await new HostDiscardHandler(_provider, NSubstitute.Substitute.For<IProjectAnalysisSessions>(), NullLogger<HostDiscardHandler>.Instance)
             .Handle(new HostDiscardParams
             {
                 ModuleName = moduleName ?? ModuleName,
