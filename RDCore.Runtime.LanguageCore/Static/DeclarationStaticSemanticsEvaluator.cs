@@ -150,7 +150,7 @@ public static class DeclarationStaticSemanticsEvaluator
                 optionStatements.Add(option, statements = []);
             }
 
-            if (statements.Any(prior => !blocks.AreAlternatives(prior.Range.Start, directive.Location.Range.Start)))
+            if (statements.Any(prior => !blocks.AreAlternatives(prior, directive.Location)))
             {
                 errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateOptionStatement, directive.Location,
                     string.Format(Exceptions.VBCompileError_DuplicateOptionStatement_Verbose, NameOf(option))));
