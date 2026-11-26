@@ -500,8 +500,8 @@ public sealed class VisualBasicFormLifecycleTests
         Assert.IsEmpty(recorded.Shown);
     }
 
-    // an error Form_Load leaves unhandled stops the run with it: the handler of the code that loaded the form does not catch it, as it catches an error in
-    // Form_Initialize.
+    // an error Form_Load leaves unhandled stops the run with it: the handler of the code that loaded the form does not catch it, though it catches an error in
+    // Form_Initialize (AnErrorInInitialize_IsTheCallers).
     [TestMethod]
     public async Task AnErrorInLoad_EndsTheRun_WhateverHandlerTheCallerHas()
     {
