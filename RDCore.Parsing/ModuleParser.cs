@@ -64,9 +64,6 @@ public partial class ModuleParser(
     IOptions<SdkWorkspaceOptions>? workspaceOptions = null) : IModuleParser
 {
     private readonly SdkWorkspaceOptions _workspace = workspaceOptions?.Value ?? new();
-
-    // the workspace's options with the FileLevelStatements setting off: which documents have statements outside their procedures whatever it says.
-    private readonly SdkWorkspaceOptions _withoutTheSetting = (workspaceOptions?.Value ?? new()) with { FileLevelStatements = false };
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
@@ -94,7 +91,7 @@ public partial class ModuleParser(
         var looks = 0L;
         // a file declares modules in blocks only where it may have statements outside its procedures: elsewhere a header and an end line are the file's
         // own module's, and syntax errors there.
-        IReadOnlyList<FileBlock> blocks = _workspace.AllowsFileLevelStatements(uri.AbsolutePath) ? FileBlocks.Find(content) : [];
+        var blocks = ModuleKinds.BlocksOf(uri.AbsolutePath, content, _workspace);
         var result = LargeStackThread.Run(() =>
         {
             t_directiveLooks = 0;
@@ -115,7 +112,7 @@ public partial class ModuleParser(
         // a document of a language that always has statements outside its procedures (a .vbs) is a script; a module that the setting alone allows them
         // (SdkWorkspaceOptions.FileLevelStatements) is one only when it writes one, and a class module never is.
         var allows = _workspace.AllowsFileLevelStatements(module.AbsolutePath);
-        t_alwaysScript = allows && _withoutTheSetting.AllowsFileLevelStatements(module.AbsolutePath);
+        t_alwaysScript = _workspace.AlwaysHasFileLevelStatements(module.AbsolutePath);
         t_fileStatements = allows && (t_alwaysScript || !ModuleKinds.Of(super: null, content, module.AbsolutePath).IsClass());
         return Parse(uri, module, content, anchorOffset, [], Statistics, token);
     }
