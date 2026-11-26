@@ -99,7 +99,7 @@ End Module
 |Body|Every part's declarations, then every part's procedures: the module declares its names before its procedures, as one file writes them.|
 |Scope|One module scope. A name two parts declare is [`VBC09301`](../diagnostics/vbc09301.md), even where one of them is written at the lines of an `#If` branch of the other part: branches are of one file.|
 |Files|Each node keeps its part's file and position. A symbol, a dead `#If` branch and an error are each of their own part's file.|
-|Options|Each `Option` is stated in one part, as in one file.|
+|Options|An `Option` that a part states is the module's, for every part. Stated in two parts, it is stated twice: [`VBC09387`](../diagnostics/vbc09387.md).|
 |Names|Two plain parts are two modules of one name, and so are two parts of one module in one file: [`VBC09386`](../diagnostics/vbc09386.md).|
 |Refused|A module that `VBC09386`, `VBC09388` or `VBC09389` refuses does not load, none of its parts does, and a program that has it does not run.|
 
@@ -108,7 +108,7 @@ The parts state the module's directives. Each part that states one states it the
 |Directive|A module file states it with|A block states it with|When no part states it|
 |---|---|---|---|
 |Exposed (`Class`)|`VB_Exposed`|`Public`, or `Private` for not exposed|Not exposed.|
-|Creatable (`Class`)|`VB_Creatable`|`Creatable`|The file's attribute; a class of blocks alone is not creatable.|
+|Creatable (`Class`)|`VB_Creatable`|`Creatable`|Creatable when a module file is a part, as a file that states nothing is; a class of blocks alone is not creatable.|
 |Private (`Module`)|`Option Private Module`|`Private`, or `Public` for not private|Public.|
 |Default instance|`VB_PredeclaredId`|`'@PredeclaredId`|None.|
 |Extensible|`VB_Extensible`|No block form.|Not extensible.|

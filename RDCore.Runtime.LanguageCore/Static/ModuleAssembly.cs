@@ -47,7 +47,7 @@ public sealed record class ModulePart(string Name, ModuleType Kind, ModuleParseR
     }
 }
 
-// why what a part writes has no effect where it is written: a modifier of its header (RDC00316) or an annotation (RDC00317).
+// why what a part writes has no effect where it is written: a modifier of its header or an annotation.
 public enum RedundantStatementKind
 {
     // a modifier that states a directive the same way as a part before it.
