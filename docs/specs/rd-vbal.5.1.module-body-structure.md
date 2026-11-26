@@ -47,11 +47,12 @@ End Class
 |Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written.|
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are.|
 |Header and end lines|They are in no module's tree. The parse keeps each as trivia of the file, and a comment on either line is a comment of the file's own module.|
-|Running|`rdc run`, `rdc build` and `rdc bench` define each module of the file on its own: the file's own module first, then each block's, named by its header. A built program carries the modules of each file.|
+|Defining|The language server, `rdc run`, `rdc build` and `rdc bench` define each module of the file on its own: the file's own module first, then each block's, named by its header. A built program carries the modules of each file.|
+|Editing|A block that an edit takes out of its file, or renames, takes its module out of the environment host, unless another file of the project declares that name. A file that leaves the workspace takes out every module of it.|
 
 > [!NOTE]
-> **Not implemented.** The language server does not define a block's module yet; only `rdc run`, `rdc build` and `rdc bench` do. VBA and VB6 have
-> no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own. Two blocks of
+> **Not implemented.** The analysis session of a project other than the primary one keeps the module of a block that an edit takes out of its file. VBA and VB6
+> have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own. Two blocks of
 > the same name are not reported either.
 
 ### Implementation
