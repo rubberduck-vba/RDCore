@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.SemanticTokens;
 
@@ -133,9 +134,20 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
             {
                 types.Add(Path.GetFileNameWithoutExtension(path));
             }
+
+            // and so is a class block of any document, named in its header: the document's parse as it is now, another's as it was last parsed.
+            var its = other.Id.Uri.ToUri() == documentUri ? parse : parsing.TryGetCached(other.Id.Uri.ToUri(), out var cached) ? cached : null;
+            foreach (var block in its?.BlockModules ?? [])
+            {
+                if (block.Kind.IsClass())
+                {
+                    types.Add(block.Name);
+                }
+            }
         }
 
-        if (parse.SyntaxTree is { } module)
+        // what the document declares, in each of its modules.
+        foreach (var module in parse.BlockModules.Select(block => block.SyntaxTree).Prepend(parse.SyntaxTree).OfType<ModuleNode>())
         {
             Collect(module, constants, types);
         }

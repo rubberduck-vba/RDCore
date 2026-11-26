@@ -74,7 +74,7 @@ internal sealed class WorkspaceSymbolSearch(
         }
 
         var outline = await DocumentOutline.OfAsync(document, parsing, resolver, options.Value, token);
-        IReadOnlyList<WorkspaceSymbolEntry> entries = outline is null ? [] : [.. Flatten(outline, container: null, document.Id.Uri)];
+        IReadOnlyList<WorkspaceSymbolEntry> entries = [.. outline.SelectMany(module => Flatten(module, container: null, document.Id.Uri))];
         _outlines[key] = (document.Text, entries);
         return entries;
     }

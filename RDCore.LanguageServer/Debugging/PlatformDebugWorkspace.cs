@@ -13,6 +13,7 @@ using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Components;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.LanguageServer.Debugging;
 
@@ -36,10 +37,11 @@ internal sealed class PlatformDebugWorkspace(
     private readonly CancellationTokenSource _lifetime = new();
 
     // which file is which module, and which module is which file: made anew, and swapped whole, as the program goes on - the requests of a client that read them
-    // meanwhile read one or the other, never half of each.
-    private sealed record class Maps(IReadOnlyDictionary<string, (string Module, Uri Document)> ByPath, IReadOnlyDictionary<string, string> ByModule);
+    // meanwhile read one or the other, never half of each. A file of blocks is several modules, each addressed in its document (RDCoreDocument).
+    private sealed record class Maps(
+        IReadOnlyDictionary<string, (DebugFile File, Uri Document)> ByPath, IReadOnlyDictionary<string, (string Path, Uri Address)> ByModule);
 
-    private Maps _maps = new(new Dictionary<string, (string, Uri)>(), new Dictionary<string, string>());
+    private Maps _maps = new(new Dictionary<string, (DebugFile, Uri)>(), new Dictionary<string, (string, Uri)>());
 
     // the paths of the files of a Windows workspace are not case-sensitive, and a client is no more careful than the file system is about which case it uses.
     private static StringComparer PathComparer => WorkspacePaths.Comparer;
@@ -98,10 +100,12 @@ internal sealed class PlatformDebugWorkspace(
         }
     }
 
-    // a module is named by its source (Attribute VB_Name), the name of the file when the source does not say - as the symbols of the workspace are defined.
+    // a module is named by its source (Attribute VB_Name), the name of the file when the source does not say - as the symbols of the workspace are defined; a
+    // block's module is named by its header.
     private void MapDocuments()
     {
-        var (byPath, byModule) = (new Dictionary<string, (string Module, Uri Document)>(PathComparer), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        var byPath = new Dictionary<string, (DebugFile File, Uri Document)>(PathComparer);
+        var byModule = new Dictionary<string, (string Path, Uri Address)>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in documents.GetAllDocuments())
         {
             var uri = document.Id.Uri.ToUri();
@@ -110,10 +114,14 @@ internal sealed class PlatformDebugWorkspace(
                 continue;
             }
 
-            var module = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
             var path = Path.GetFullPath(document.Id.Uri.GetFileSystemPath());
-            byPath[path] = (module, uri);
-            byModule[module] = path;
+            var file = new DebugFile(parse.SyntaxTree.GetDeclaredName() ?? document.Name, new RDCoreDocument(uri, parse));
+            byPath[path] = (file, uri);
+            byModule[file.Module] = (path, uri);
+            foreach (var block in parse.BlockModules)
+            {
+                byModule.TryAdd(block.Name, (path, block.Uri));
+            }
         }
 
         _ = Interlocked.Exchange(ref _maps, new Maps(byPath, byModule));
@@ -121,9 +129,9 @@ internal sealed class PlatformDebugWorkspace(
 
     // what the program had as it was started, or as it last went on. A file listed and missing, or a module that could not be loaded, as the program was started
     // is no edit - the program ran without it - and is not why it can't go on: what is refused is what is so since.
-    private sealed record class Baseline(IReadOnlySet<string> Readable, IReadOnlySet<string> Unloaded, IReadOnlyDictionary<string, string> Names);
+    private sealed record class Baseline(IReadOnlySet<string> Readable, IReadOnlySet<string> Unloaded, IReadOnlyDictionary<string, DebugFile> Names);
 
-    private Baseline _baseline = new(new HashSet<string>(), new HashSet<string>(), new Dictionary<string, string>());
+    private Baseline _baseline = new(new HashSet<string>(), new HashSet<string>(), new Dictionary<string, DebugFile>());
 
     // a load that failed or was stopped left the host with what nothing says: it is loaded again before the program goes on.
     private bool _loadFailed;
@@ -163,34 +171,34 @@ internal sealed class PlatformDebugWorkspace(
         return unloaded;
     }
 
-    private Baseline BaselineOf(Maps maps, IReadOnlyDictionary<string, string>? names = null)
+    private Baseline BaselineOf(Maps maps, IReadOnlyDictionary<string, DebugFile>? names = null)
     {
         var files = ProgramFiles();
         return new Baseline(
             files.Where(file => Unreadable(file) is null).Select(FullPath).ToHashSet(PathComparer),
             Unloaded(files).Keys.ToHashSet(StringComparer.OrdinalIgnoreCase),
-            names ?? maps.ByPath.ToDictionary(entry => entry.Key, entry => entry.Value.Module, PathComparer));
+            names ?? maps.ByPath.ToDictionary(entry => entry.Key, entry => entry.Value.File, PathComparer));
     }
 
-    public bool TryGetModule(string path, out string moduleName)
+    public bool TryGetFile(string path, [MaybeNullWhen(false)] out DebugFile file)
     {
         // a client writes a path as its platform does, and the workspace has them as the file system does.
         var found = Volatile.Read(ref _maps).ByPath.TryGetValue(Path.GetFullPath(path), out var entry);
-        moduleName = entry.Module ?? string.Empty;
+        file = entry.File;
         return found;
     }
 
     public bool TryGetPath(string moduleName, out string path)
     {
-        var found = Volatile.Read(ref _maps).ByModule.TryGetValue(moduleName, out var file);
-        path = file ?? string.Empty;
+        var found = Volatile.Read(ref _maps).ByModule.TryGetValue(moduleName, out var module);
+        path = module.Path ?? string.Empty;
         return found;
     }
 
     public async Task<IReadOnlyList<string>> ModulesDeclaringAsync(string entryPoint, CancellationToken token)
     {
         var maps = Volatile.Read(ref _maps);
-        string[] program = [.. ProgramFiles().Select(FullPath).Where(maps.ByPath.ContainsKey).Select(path => maps.ByPath[path].Module)];
+        string[] program = [.. ProgramFiles().Select(FullPath).Where(maps.ByPath.ContainsKey).SelectMany(path => maps.ByPath[path].File.Modules)];
         if (program.Length == 0)
         {
             return [];
@@ -208,8 +216,9 @@ internal sealed class PlatformDebugWorkspace(
     public async Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
     {
         var maps = Volatile.Read(ref _maps);
-        if (!maps.ByModule.TryGetValue(moduleName, out var path) || !maps.ByPath.TryGetValue(path, out var entry)
-            || !parsing.TryGetCached(entry.Document, out var parse))
+        if (!maps.ByModule.TryGetValue(moduleName, out var module) || !maps.ByPath.TryGetValue(module.Path, out var entry)
+            || !parsing.TryGetCached(entry.Document, out var file)
+            || new RDCoreDocument(entry.Document, file).ParseOf(module.Address) is not { } parse)
         {
             return new ExecuteResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
         }
@@ -220,7 +229,8 @@ internal sealed class PlatformDebugWorkspace(
         // a program run again has the modules as they are named now, and what is loaded now.
         Volatile.Write(ref _baseline, BaselineOf(maps));
 
-        // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration.
+        // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration. A block's module is
+        // run on its own part of its file's parse, as it was defined.
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         return await environment.SendRequestAsync<HostExecuteParams, ExecuteResult>(new HostExecuteParams
         {
@@ -346,19 +356,36 @@ internal sealed class PlatformDebugWorkspace(
         }
 
         // a module named otherwise by its source than it was when the program started is a module the program does not have - its breakpoints, its frames are
-        // of the name it had - until it is run again, whatever is saved meanwhile; named back, it is the module the program has.
+        // of the name it had - until it is run again, whatever is saved meanwhile; named back, it is the module the program has. A block's header names its
+        // module as an attribute names a file's: a name gone from a file where another has come is a module renamed.
         var maps = Volatile.Read(ref _maps);
         foreach (var (path, was) in baseline.Names)
         {
-            if (maps.ByPath.TryGetValue(path, out var now) && !string.Equals(was, now.Module, StringComparison.OrdinalIgnoreCase))
+            if (maps.ByPath.TryGetValue(path, out var now) && Renamed(was, now.File) is ({ } from, { } to))
             {
-                return string.Format(DebuggerMessages.ResumeRefusedForRenamed, was, now.Module);
+                return string.Format(DebuggerMessages.ResumeRefusedForRenamed, from, to);
             }
         }
 
         // the program goes on with what is loaded now: what is refused next is what changes from it.
         Volatile.Write(ref _baseline, BaselineOf(maps, baseline.Names));
         return null;
+    }
+
+    // the name a file's module had and the one it has now: the file's own module named otherwise, or a block's name gone where another has come (a block added
+    // or removed alone is a module added or removed, which the load says).
+    private static (string? From, string? To) Renamed(DebugFile was, DebugFile now)
+    {
+        if (!string.Equals(was.Module, now.Module, StringComparison.OrdinalIgnoreCase))
+        {
+            return (was.Module, now.Module);
+        }
+
+        var gone = Blocks(was).Except(Blocks(now), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        var come = Blocks(now).Except(Blocks(was), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        return gone is not null && come is not null ? (gone, come) : (null, null);
+
+        static IEnumerable<string> Blocks(DebugFile file) => file.Document.Parse.BlockModules.Select(block => block.Name);
     }
 
     public async Task CloseAsync()

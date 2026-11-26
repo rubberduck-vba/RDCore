@@ -383,7 +383,7 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](https://
 
 ### `textDocument/semanticTokens/full` and `rdcore/session/semanticTokens`
 
-The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares (a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class`), unless it follows a `.` or a `!`, which makes it a member of something.
+The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the document's modules declare, a block's included (a constant is `readonly`, the name of an enumeration, a user-defined type, or a class module or `Class` block of the workspace is a `class`), unless it follows a `.` or a `!`, which makes it a member of something.
 
 `rdcore/session/semanticTokens` ([`SessionSemanticTokensParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.SessionSemanticTokensParams.html)) answers the same for code fragments the client supplies, which are in no document: the condition of a breakpoint, say. The request has the complete source of a module and its name, which the names of the fragments are resolved against, and the fragments. The answer has the tokens of each fragment, in the order they were asked, encoded as `textDocument/semanticTokens/full` encodes them, with the first line of a fragment as line 0. Many fragments are asked in one request, so that coloring a list of them costs one round trip, not one each.
 
@@ -571,9 +571,11 @@ declared where it is defined.
 
 ### `textDocument/documentSymbol` and `workspace/symbol`
 
-The language server answers `textDocument/documentSymbol` (**LSP 3.17** §Document Symbols Request) with the outline of a document: its module, what the
-module declares, and the members of its `Enum`s and `Type`s under them. Each symbol's range is its whole declaration, and its selection range the name it
-declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
+The language server answers `textDocument/documentSymbol` (**LSP 3.17** §Document Symbols Request) with the outline of a document: a root for each of its
+modules, the file's own first and then each block's ([**RD-VBAL §5.1**](rd-vbal.5.1.module-body-structure.md)), what each module declares, and the members
+of its `Enum`s and `Type`s under them. Each symbol's range is its whole declaration, and its selection range the name it declares; a block's module is
+its block, from its header to its end, named where its header writes the name. A procedure's locals are not in the outline. For a `.rdc` program,
+ranges are in its lines.
 
 The accessors of a property share its name and its kind, so each one's `detail` is the keywords it is declared with (`Property Get`, `Property Let` or
 `Property Set`, `ProcedureKeywords`). Any other symbol has no `detail`.
@@ -793,8 +795,9 @@ settings; the language server, as the client of its components, with what its ow
 
 The language server answers `textDocument/selectionRange` (**LSP 3.17** §Selection Range Request) with what a selection at each position grows to, step by
 step: each node of the syntax tree written around the position, from a name through its expression, its statement, the block of a structured statement and
-the procedure, to everything the module declares (`SyntaxSelection`). Each step is in the next.
-A position that no node is written around is answered with the empty range at it. For a `.rdc` program, ranges are in its lines.
+the procedure, to everything the module declares (`SyntaxSelection`). Each step is in the next. In a block's module
+([**RD-VBAL §5.1**](rd-vbal.5.1.module-body-structure.md)), the last step is the block, from its header to its end.
+A position that no node is written around is answered with the empty range at it, or in a block with the block. For a `.rdc` program, ranges are in its lines.
 
 ### `textDocument/formatting` and `textDocument/rangeFormatting`
 
@@ -836,10 +839,11 @@ The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3
 
 ### `textDocument/foldingRange`
 
-The language server answers `textDocument/foldingRange` (**LSP 3.17** §Folding Range Request) with what folds in a module:
+The language server answers `textDocument/foldingRange` (**LSP 3.17** §Folding Range Request) with what folds in each module of a document, a block's included:
 
 |What|From, to|Kind|
 |---|---|---|
+|A `Class` or `Module` block of the file ([**RD-VBAL §5.1**](rd-vbal.5.1.module-body-structure.md))|its header, to its `End Class` or `End Module`|`region`|
 |A member declaration that spans more than one line: a procedure, a property accessor, a `Type`, an `Enum`, a `Declare` broken over lines|its first line, to its `End` statement|`region`|
 |A block that spans more than one line, however deep: `If`, `Select Case`, `For`, `For Each`, a `Do` or `While` loop, `With`|its first line, to its `End` (`End If`, `Next`, `Loop`, ...)|none|
 

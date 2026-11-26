@@ -37,9 +37,9 @@ internal sealed class DocumentSymbolHandler(
             return new SymbolInformationOrDocumentSymbolContainer();
         }
 
-        return await DocumentOutline.OfAsync(document, parsing, resolver, options.Value, cancellationToken) is { } outline
-            ? new SymbolInformationOrDocumentSymbolContainer(SymbolInformationOrDocumentSymbol.Create(outline))
-            : new SymbolInformationOrDocumentSymbolContainer();
+        // a root for each module of the document: its own, and each block's.
+        var outline = await DocumentOutline.OfAsync(document, parsing, resolver, options.Value, cancellationToken);
+        return new SymbolInformationOrDocumentSymbolContainer(outline.Select(SymbolInformationOrDocumentSymbol.Create));
     }
 
     protected override DocumentSymbolRegistrationOptions CreateRegistrationOptions(

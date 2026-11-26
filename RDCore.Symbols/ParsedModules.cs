@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
@@ -19,14 +20,20 @@ public static class ParsedModules
         var name = NameOf(own, fallbackName);
         return
         [
-            new ParsedModule(SymbolUri.Module(root, name), name, ownKind, own) { Document = file },
+            new ParsedModule(SymbolUri.Module(root, name), name, ownKind, own) { Document = file, Documents = [file] },
             .. parse.BlockModules.Select(block => new ParsedModule(SymbolUri.Module(root, block.Name), block.Name, block.Kind, document.ParseOf(block.Uri)!)
             {
                 Document = file,
+                Documents = [file],
                 Range = block.Range,
             }),
         ];
     }
+
+    // the parts a document is the text of (ModulePart.PartsOf), its own module named as Of names it: what the modules of a project are assembled from
+    // (ParsedModule.Assemble).
+    public static IEnumerable<ModulePart> PartsOf(Uri file, ModuleParseResult parse, string fallbackName, ModuleType ownKind)
+        => ModulePart.PartsOf(file, NameOf(new RDCoreDocument(file, parse).ParseOf(file) ?? parse, fallbackName), ownKind, parse);
 
     // the names a document's modules are defined under, its own first: what the host holds of the document, read off what was parsed of it. A document with no
     // parse is its own module alone, named fallbackName.

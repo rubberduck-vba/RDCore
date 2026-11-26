@@ -69,6 +69,32 @@ public sealed class DocumentSymbolHandlerTests
         Assert.AreEqual(SymbolKind.Method, member.Kind);
     }
 
+    // a file of blocks is several modules: a root for each, the file's own first, each with its own members. A block's root is written from its header to
+    // its end, and named on its header.
+    [TestMethod]
+    public async Task AFileOfBlocks_IsARootForEachOfItsModules()
+    {
+        WorkspaceContains(Document);
+        _parsing.ParseDocumentAsync(DocUri, Arg.Any<CancellationToken>())
+            .Returns(Parse(
+                "Attribute VB_Name = \"Mod1\"",
+                "Public Sub Alpha()",
+                "End Sub",
+                "Class Account",
+                "Public Sub Deposit()",
+                "End Sub",
+                "End Class"));
+
+        var roots = (await Sut().Handle(Request(), CancellationToken.None))!.Select(AsDocumentSymbol).ToList();
+
+        CollectionAssert.AreEqual(new[] { "Mod1", "Account" }, roots.Select(root => root.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Alpha" }, roots[0].Children!.Select(child => child.Name).ToArray());
+        Assert.AreEqual(SymbolKind.Class, roots[1].Kind);
+        CollectionAssert.AreEqual(new[] { "Deposit" }, roots[1].Children!.Select(child => child.Name).ToArray());
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(3, 0, 6, 9), roots[1].Range);
+        Assert.AreEqual(3, roots[1].SelectionRange.Start.Line);
+    }
+
     [TestMethod]
     public async Task AClassModule_ProjectsWithTheClassKind()
     {

@@ -205,7 +205,7 @@ public partial class ModuleParser(
         return comment < 0 ? to : comment;
     }
 
-    // the word of a block's header that starts at a column of its line (FileBlock.NameColumn and the others), to the end of its name: none when the header
+    // the word of a block's header that starts at a column of its line (FileBlock.NameColumn and the others), to the end of the word: none when the header
     // does not write it.
     private static SourceRange? HeaderWordAt(string content, List<int> starts, int line, int? column, SourcePosition anchorOffset)
     {
