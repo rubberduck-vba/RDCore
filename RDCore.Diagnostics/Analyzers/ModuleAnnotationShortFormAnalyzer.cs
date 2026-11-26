@@ -75,20 +75,8 @@ internal sealed class ModuleAnnotationShortFormAnalyzer(IOptions<SdkWorkspaceOpt
         return SyntaxEdits.Fix(Title(written), SyntaxEdits.Replace(name, written));
     }
 
-    // in the declarations section: written above the header as the header is indented, under its short name, and removed where it is. None for an
-    // annotation that runs on past its line.
+    // in the declarations section: written above the header under its short name, and removed where it is. None for an annotation that runs on past its
+    // line.
     private static EditFix? Moved(ModuleParseResult parse, BlockModule block, AnnotationTriviaNode annotation, string written)
-    {
-        if (AnnotationEdits.TextOf(parse, annotation) is not { } text)
-        {
-            return null;
-        }
-
-        var headerLine = parse.Trivia.OfType<BlockBoundaryTriviaNode>().FirstOrDefault(boundary => !boundary.IsEnd
-            && boundary.SourceLocation.Range.Start.Line == block.Range.Start.Line);
-        var indent = headerLine?.Source[..(headerLine.Source.Length - headerLine.Source.TrimStart().Length)] ?? string.Empty;
-        return SyntaxEdits.Fix(Title(written),
-            LineEdits.InsertLinesBefore(parse, block.Range, $"{indent}'@{written}{text[(1 + annotation.Name.Length)..]}"),
-            SyntaxEdits.Remove(AnnotationEdits.RemovalOf(parse, annotation)));
-    }
+        => AnnotationEdits.MoveAbove(parse, annotation, block.Range, written) is { } edits ? SyntaxEdits.Fix(Title(written), edits) : null;
 }
