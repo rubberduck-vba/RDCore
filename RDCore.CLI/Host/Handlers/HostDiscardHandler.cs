@@ -7,8 +7,8 @@ using RDCore.SDK.Platform.Components;
 namespace RDCore.CLI.Host.Handlers;
 
 /// <summary>
-/// Handles <c>rdcore/host/discard</c>: takes a module out of the runtime session this host owns - what it declared and what it held, and the code and
-/// the semantic model that were made of it - or out of the analysis session of the project the request's root names.
+/// Handles <c>rdcore/host/discard</c>: takes a module out of the runtime session this host owns (what it declared and what it held, and the code and
+/// the semantic model that were made of it), or out of the analysis session of the project the request's root names.
 /// </summary>
 /// <remarks>
 /// A module that is defined again keeps every name it no longer declares, with the storage it was given and the value it holds. This is what a
