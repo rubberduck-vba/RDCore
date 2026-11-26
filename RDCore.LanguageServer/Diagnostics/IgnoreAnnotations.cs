@@ -3,10 +3,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
 
@@ -100,12 +98,7 @@ internal static class IgnoreAnnotations
 
     // an argument as it names a diagnostic: a name (RDC00315, ProcedureNotUsed), or a string that writes one.
     private static IEnumerable<(SyntaxNode Argument, string Text)> Arguments(AnnotationTriviaNode annotation)
-        => annotation.Children.Select(argument => (argument, argument switch
-        {
-            SimpleNameExpressionNode name => name.IdentifierName,
-            LiteralExpressionNode { StaticValue: VBStringValue text } => text.Value,
-            _ => string.Empty,
-        }));
+        => annotation.Children.Select((argument, index) => (argument, annotation.GetArgumentText(index) ?? string.Empty));
 
     // a diagnostic code of any provider, written as a code, or the name of a legacy Rubberduck inspection that a core code took the place of.
     private static bool TryResolve(string text, out IReadOnlyList<RDCoreDiagnosticCode> codes)
