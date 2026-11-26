@@ -100,12 +100,13 @@ public sealed class VisualBasicFormPrintTests
         CollectionAssert.AreEqual(new[] { "True True" }, printed, string.Join(" | ", printed));
     }
 
+    // Its AutoRedraw is False, so nothing is drawn, but the current point moves as it would on a shown form (VB6, native and p-code).
     [TestMethod]
-    public async Task AFormThatIsNotShown_PrintsNothing()
+    public async Task AFormThatIsNotShown_MovesItsCurrentPoint_AsItPrints()
     {
         var printed = await RunAsync("Load Form5", "Form5.Print \"Score\";", Moved("Form5"));
 
-        CollectionAssert.AreEqual(new[] { "False False" }, printed, string.Join(" | ", printed));
+        CollectionAssert.AreEqual(new[] { "True False" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]
