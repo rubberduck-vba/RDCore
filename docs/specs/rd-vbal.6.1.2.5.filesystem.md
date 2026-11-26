@@ -25,7 +25,9 @@ platform's storage (**MS-VBAL §2.7.3**). In RD-VBA:
 - A project that a `.rdworkspace` lists ([**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md)) starts in the folder of that
   `.rdworkspace`, and goes back to it when it is reloaded. `App.Path` is still the folder of the project's own `.rdproj`.
 - The current directory is the session's own. `ChDir` and `ChDrive` move it for that session alone: the environment host's process, and any other
-  session it runs, stay where they are. `End` leaves it where the program put it, and `Shell` starts a program in it.
+  session it runs, stay where they are. `End` leaves it where the program put it, and `Shell` starts a program in it. A reset between runs
+  ([**RD-VBAL §5.4.2.22** End Statement](rd-vbal.5.4.2.22.end-statement.md#reset-between-runs)) puts it back where the session started;
+  if that folder has been removed, the directory stays where it is.
 - `CurDir` gives the current directory as the system gives a process's. On Windows it is the path as given. On Linux and macOS it is the real path,
   each link on the way followed: on macOS, a workspace under `/var` is under `/private/var`.
 - On Windows, `RmDir` of the current directory raises error `75`, as **MS-VBA** does: its current directory is its process's, which Windows does not

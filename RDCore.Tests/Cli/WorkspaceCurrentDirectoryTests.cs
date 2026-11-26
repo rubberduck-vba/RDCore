@@ -15,6 +15,7 @@ using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Platform;
 using System.IO.Abstractions;
+using System.IO.Abstractions.TestingHelpers;
 using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
@@ -175,6 +176,46 @@ public sealed class WorkspaceCurrentDirectoryTests
         provider.Compose(Project(_root).ProjectInfo, Wire.FileUri(_root));
 
         Assert.AreEqual(_root, CurrentDirectoryOf(provider));
+    }
+
+    // a reset between runs leaves behind what a run did to the session: the next run starts in the workspace root, as a new session does.
+    [TestMethod]
+    public async Task ARunAfterAReset_StartsInTheWorkspaceRoot()
+    {
+        using var provider = Compose(_root);
+        var moved = await RunAsync(provider, _root, "ChDir \"Sub\"");
+        Assert.AreEqual(Path.Combine(_root, "Sub"), CurrentDirectoryOf(provider), $"a run leaves the directory where it put it: {string.Join("|", moved)}");
+
+        var reset = await provider.Execution.ResetAsync();
+        Assert.AreEqual(ExecutionOutcome.Completed, reset.Outcome, reset.ErrorMessage);
+        var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")");
+
+        CollectionAssert.AreEqual(new[] { _root, "data.txt" }, printed, string.Join("|", printed));
+    }
+
+    // a session that starts in a directory that is gone has no starting directory to go back to: a reset leaves it where the run put it. The file system is
+    // the test's own, where the directory is gone on every platform: Windows refuses to delete a process's current directory.
+    [TestMethod]
+    public async Task AReset_WhenTheStartingDirectoryCouldNotBeRead_LeavesTheSessionWhereTheRunPutIt()
+    {
+        var starting = Path.Combine(_root, "Starting");
+        var moved = Path.Combine(_root, "Moved");
+        var missing = Path.Combine(_root, "Missing");
+        var fileSystem = new MockFileSystem(new Dictionary<string, MockFileData>(), starting);
+        fileSystem.Directory.CreateDirectory(moved);
+        fileSystem.Directory.Delete(starting);
+        using var provider = new EnvironmentSessionProvider(Profile(), fileSystem, NullLogger<EnvironmentSessionProvider>.Instance);
+        // a workspace root that is not there leaves the session where the process is, which is the directory that is gone.
+        provider.Compose(Project(missing).ProjectInfo, Wire.FileUri(missing));
+        Assert.IsNull(provider.StartingDirectory, "the session starts in a directory that could not be read");
+
+        var ran = await RunAsync(provider, missing, $"ChDir \"{moved}\"");
+        Assert.AreEqual(moved, CurrentDirectoryOf(provider), $"a run leaves the directory where it put it: {string.Join("|", ran)}");
+
+        var reset = await provider.Execution.ResetAsync();
+
+        Assert.AreEqual(ExecutionOutcome.Completed, reset.Outcome, reset.ErrorMessage);
+        Assert.AreEqual(moved, CurrentDirectoryOf(provider));
     }
 
     // the shell's scratch workspace is no folder of the user's: a session with no workspace of the user's starts where the host was started.

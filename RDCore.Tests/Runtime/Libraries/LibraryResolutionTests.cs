@@ -166,4 +166,16 @@ public sealed class LibraryResolutionTests
         Assert.IsInstanceOfType<VBProjectSymbol>(resolver.ResolveQualifier("Widgets", ScopeKind.Global, Program.Uri).Symbol);
         Assert.IsNull(resolver.ResolveValue("Parts", ScopeKind.Local, Program.Uri).Symbol, "the members of a class are the members of an object, not names of the project");
     }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.10 Simple Name Expressions")]
+    public void ALibraryWithAClassOfItsOwnName_IsTheLibrary_AsAQualifier()
+    {
+        // Windows Script Host's library is IHost, and so is the interface of its WScript object: IHost.IHost_Class is the library's class.
+        var host = new LibraryDescription { Name = "Host", Classes = [new ClassDescription { Name = "Host" }, new ClassDescription { Name = "Host_Class" }] };
+        var resolver = ResolverOf(host);
+
+        Assert.IsInstanceOfType<VBProjectSymbol>(resolver.ResolveQualifier("Host", ScopeKind.Global, Program.Uri).Symbol);
+        Assert.AreEqual("Host_Class", VBProjectSymbol.ResolveQualifiedType(resolver, "Host", "Host_Class", Program.Uri).Symbol?.Name);
+    }
 }
