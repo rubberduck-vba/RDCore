@@ -32,8 +32,20 @@ that a handler catches unwinds the activations it leaves, and their objects term
 has not ended, and keeps its state until it ends. A line the shell runs is a program of its own: one that ends on an error resets the session, the
 variables that earlier lines assigned included.
 
+### Reset between runs
+
+RD-VBA addition: a session can be reset between two runs of a program, for a host that runs the program once for each request, so that nothing one
+run left reaches the next.
+The reset sets each module variable and `Static` local that holds an object to its initial value, and an object that loses its last reference runs its
+`Class_Terminate`. The session is then reset as `End` resets it, and its current directory goes back to the one it started in
+([**RD-VBAL §6.1.2.5** FileSystem](rd-vbal.6.1.2.5.filesystem.md)). A `Class_Terminate` that leaves an error unhandled stops the release there: the
+reset reports the error as a run does, and the objects still held go with the session, running no `Class_Terminate`. A program that waits is ended
+first. While a program runs, the reset is refused. Objects that hold one another, and that nothing else holds, never lose their last reference,
+and run no `Class_Terminate`, as in **MS-VBA**.
+
 ## Implementation
 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `Halt` instructions.
 - `RDCore.Runtime.Execution.RuntimeProcedureInvoker` leaves the activations of a program that ends as they are.
-- `RDCore.Runtime.Execution.SessionWipe` resets the session.
+- `RDCore.Runtime.Execution.SessionWipe` resets the session, and lets go of what the module variables hold before a reset between runs.
+- `RDCore.Runtime.Support.Host.ProgramExecution` runs the reset between runs on the program's thread, in the session's turn.

@@ -621,6 +621,15 @@
   <data name="VBCompileError_NameConflictsWithModuleProjectOrLibrary_Verbose" xml:space="preserve">
     <value>'{0}' is a library or a project that the project references: give the module another name.</value>
   </data>
+  <data name="VBCompileError_DuplicateOptionStatement" xml:space="preserve">
+    <value>Duplicate Option statement</value>
+  </data>
+  <data name="VBCompileError_DuplicateOptionStatement_Verbose" xml:space="preserve">
+    <value>The module states {0} more than once: remove this statement.</value>
+  </data>
+  <data name="VBCompileError_ModuleNameTaken_Verbose" xml:space="preserve">
+    <value>Another module of the project is named '{0}': give one of them another name.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>

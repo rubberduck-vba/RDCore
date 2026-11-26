@@ -6,8 +6,8 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A program that references a library runs against the real thing: the objects of <c>Scripting</c> are the machine's own, created, called and let go of
-/// through the whole pipeline. These need the servers of a Windows machine, and are skipped everywhere else.
+/// A program that references a library runs against the real thing: the objects of a server of the machine, ADO's and Excel's, are created, called and let
+/// go of through the whole pipeline. These need the servers of a Windows machine, and are skipped everywhere else.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §2.3.1.2 References")]
@@ -15,7 +15,7 @@ namespace RDCore.Tests.Cli;
 [SupportedOSPlatform("windows")]
 public sealed class AutomationEndToEndTests
 {
-    private static WorkspaceLibraries Scripting
+    private static WorkspaceLibraries Adodb
     {
         get
         {
@@ -25,39 +25,12 @@ public sealed class AutomationEndToEndTests
                 directory = directory.Parent;
             }
 
-            return new(["Scripting"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+            return new(["ADODB"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
         }
     }
 
     private static Task<string[]> Run(params string[] lines)
-        => RunAsync([], $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n", Scripting);
-
-    [TestMethod]
-    public async Task ADictionary_IsCreated_AddedTo_AndRead()
-        => CollectionAssert.AreEqual(new[] { "2", "10", "True", "False" }, await Run(
-            "Dim d As New Scripting.Dictionary",
-            "d.Add \"a\", 10",
-            "d.Add \"b\", 20",
-            "Debug.Print d.Count",
-            "Debug.Print d.Item(\"a\")",
-            "Debug.Print d.Exists(\"b\")",
-            "Debug.Print d.Exists(\"c\")"));
-
-    // the key and the item are Variants passed by reference, given the loop's Long: the dictionary holds Longs (MS-VBAL §5.3.1.11).
-    [TestMethod]
-    public async Task ADictionary_IsFilledWithTheVariablesOfALoop()
-        => CollectionAssert.AreEqual(new[] { "3", "6" }, await Run(
-            "Dim d As New Scripting.Dictionary",
-            "Dim i As Long",
-            "Dim s As Long",
-            "For i = 1 To 3",
-            "d.Add i, i",
-            "Next",
-            "For i = 1 To 3",
-            "s = s + d.Item(i)",
-            "Next",
-            "Debug.Print d.Count",
-            "Debug.Print s"));
+        => RunAsync([], $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n", Adodb);
 
     /// <summary>
     /// An event Excel raises while a call is made is handled inside the call: the handler of a workbook's <c>BeforeClose</c> cancels it by setting an argument Excel passed
@@ -165,73 +138,15 @@ public sealed class AutomationEndToEndTests
         CollectionAssert.AreEqual(new[] { "43", "hi", "$A$2", "$A$1", "$A$2", "1", "2", "3" }, output);
     }
 
-    [TestMethod]
-    public async Task ForEach_OverADictionary_VisitsItsKeys_AndOverItsKeysAndItems_ItsArrays()
-        => CollectionAssert.AreEqual(new[] { "a", "b", "a", "b", "1", "2" }, await Run(
-            "Dim d As New Scripting.Dictionary",
-            "d.Add \"a\", 1",
-            "d.Add \"b\", 2",
-            "Dim v As Variant",
-            "For Each v In d",
-            "Debug.Print v",
-            "Next",
-            "For Each v In d.Keys",
-            "Debug.Print v",
-            "Next",
-            "For Each v In d.Items",
-            "Debug.Print v",
-            "Next"));
-
-    [TestMethod]
-    public async Task ADictionary_IsCreatedByNew_AndAnItemIsAssigned()
-        => CollectionAssert.AreEqual(new[] { "7" }, await Run(
-            "Dim d As Scripting.Dictionary",
-            "Set d = New Scripting.Dictionary",
-            "d.Item(\"k\") = 7",
-            "Debug.Print d(\"k\")"));
-
+    // ADO's error for a field it has not: 0x800A0CC1, of the control facility, whose number is the error's (MS-VBA's 3265).
     [TestMethod]
     public async Task TheErrorOfAServer_IsAnErrorTheProgramCanHandle()
-        => CollectionAssert.AreEqual(new[] { "457" }, await Run(
-            "Dim d As New Scripting.Dictionary",
-            "d.Add \"a\", 1",
+        => CollectionAssert.AreEqual(new[] { (0x800A0CC1 & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture) }, await Run(
+            "Dim r As New ADODB.Recordset",
+            "Dim f As ADODB.Field",
             "On Error Resume Next",
-            "d.Add \"a\", 2",
+            "Set f = r.Fields(\"missing\")",
             "Debug.Print Err.Number"));
-
-    // a Let of an object to the Item of a Dictionary passes the object, and the Dictionary reads its default member itself: Nothing has none (91), and the
-    // value of a class's default member is what the Dictionary holds (MS-VBA, observed in Excel).
-    [TestMethod]
-    [DataRow("d(\"k\") = Nothing", "error 91", DisplayName = "Nothing")]
-    [DataRow("d.Item(\"k\") = New Defaulted ;; Debug.Print TypeName(d(\"k\")) & \" \" & IsObject(d(\"k\"))", "Long False", DisplayName = "an object with a default member")]
-    public async Task AnObjectLetToTheItemOfADictionary_IsReadByTheDictionary(string body, string expected)
-        => CollectionAssert.AreEqual(new[] { expected }, await RunInDictionaryProgram(body));
-
-    // a Collection's default member takes an argument: MS-VBA's Collection answers the Dictionary's read of its value with DISP_E_BADPARAMCOUNT, which
-    // is error 450 (observed in Excel).
-    [TestMethod]
-    [Ignore("A Collection read through IDispatch with no argument answers with the HRESULT of error 449, and the Dictionary reports E_FAIL; MS-VBA's answers DISP_E_BADPARAMCOUNT, which is error 450.")]
-    public async Task ACollectionLetToTheItemOfADictionary_IsError450()
-        => CollectionAssert.AreEqual(new[] { "error 450" }, await RunInDictionaryProgram("d(\"k\") = New Collection"));
-
-    private static Task<string[]> RunInDictionaryProgram(string body)
-        => RunAsync([("Defaulted", ClassModule("Defaulted",
-                "Option Explicit",
-                "Public Property Get Value() As Long",
-                "Attribute Value.VB_UserMemId = 0",
-                "    Value = 42",
-                "End Property"))],
-            StandardModule("Program",
-                "Option Explicit",
-                "Public Sub Main()",
-                "    On Error GoTo Failed",
-                "    Dim d As Object",
-                "    Set d = CreateObject(\"Scripting.Dictionary\")",
-                string.Join("\r\n", body.Split(" ;; ").Select(line => "    " + line)),
-                "    Exit Sub",
-                "Failed:",
-                "    Debug.Print \"error \" & Err.Number",
-                "End Sub"), Scripting);
 
     /// <summary>
     /// A Let of an object to the <c>Value</c> of an Excel range passes the object, early bound and late bound, and Excel decides: <c>Nothing</c> is its error

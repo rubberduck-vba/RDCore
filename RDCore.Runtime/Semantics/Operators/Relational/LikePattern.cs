@@ -32,8 +32,10 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// </remarks>
 internal sealed class LikePattern
 {
-    // a program matches against a handful of patterns; one that builds patterns as it goes must not grow this without bound.
+    // a program matches against a handful of patterns; one that builds patterns as it goes must not grow this without bound, in their number or their size:
+    // a pattern longer than LongestCachedPattern is parsed for each match.
     private const int CacheCapacity = 256;
+    internal const int LongestCachedPattern = 1024;
     private static readonly ConcurrentDictionary<string, LikePattern> Cache = new(StringComparer.Ordinal);
 
     private readonly Element[] _binary;
@@ -61,6 +63,11 @@ internal sealed class LikePattern
         }
 
         parsed = new LikePattern(pattern);
+        if (pattern.Length > LongestCachedPattern)
+        {
+            return parsed;
+        }
+
         if (Cache.Count >= CacheCapacity)
         {
             Cache.Clear();

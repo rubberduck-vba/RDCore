@@ -4,7 +4,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <c>CreateObject</c> and <c>GetObject</c> against the servers of the machine, in a project that references no library: the objects are late-bound, as MS-VBA
-/// has them (observed in Excel). The servers are a Windows machine's; elsewhere there are none, and a program that asks for one is told so.
+/// has them (observed in Excel). The servers are a Windows machine's; elsewhere there are none, and a program that asks for one is told so. The classes are
+/// ADO's and WMI's, which every Windows machine has.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.8.1.4 CreateObject")]
@@ -16,54 +17,52 @@ public sealed class CreateObjectEndToEndTests
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public async Task ADictionaryNoLibraryDeclares_IsCreated_AndCalledByName()
-        => CollectionAssert.AreEqual(new[] { "Dictionary", "9", "2", "10", "True", "False" }, await Run(
-            "Dim d As Object",
-            "Set d = CreateObject(\"scripting.dictionary\")",
-            "Debug.Print TypeName(d)",
-            "Debug.Print VarType(d)",
-            "d.Add \"a\", 10",
-            "d.Item(\"b\") = 20",
-            "Debug.Print d.Count",
-            "Debug.Print d(\"a\")",
-            "Debug.Print d.Exists(\"b\")",
-            "Debug.Print d.Exists(\"c\")"));
+    public async Task AnObjectNoLibraryDeclares_IsCreated_AndCalledByName()
+        => CollectionAssert.AreEqual(new[] { "Connection", "True", "0", "20" }, await Run(
+            "Dim c As Object",
+            "Set c = CreateObject(\"adodb.connection\")",
+            "Debug.Print TypeName(c)",
+            "Debug.Print IsObject(c)",
+            "Debug.Print c.State",
+            "c.ConnectionTimeout = 20",
+            "Debug.Print c.ConnectionTimeout"));
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public async Task ForEach_OverALateBoundDictionary_IsOverItsKeys()
+    public async Task ForEach_OverALateBoundCollection_IsOverWhatItEnumerates()
         => CollectionAssert.AreEqual(new[] { "a", "b" }, await Run(
-            "Dim d As Object",
-            "Dim key As Variant",
-            "Set d = CreateObject(\"Scripting.Dictionary\")",
-            "d.Add \"a\", 1",
-            "d.Add \"b\", 2",
-            "For Each key In d",
-            "Debug.Print key",
+            "Dim r As Object",
+            "Dim f As Variant",
+            "Set r = CreateObject(\"ADODB.Recordset\")",
+            "r.Fields.Append \"a\", 200, 10",
+            "r.Fields.Append \"b\", 200, 10",
+            "For Each f In r.Fields",
+            "Debug.Print f.Name",
             "Next"));
 
-    // the error numbers MS-VBA raises (observed in Excel): a class there is no server of, a member the object has not, an object assigned without Set.
+    // the error numbers MS-VBA raises (observed in Excel): a class there is no server of, a member the object has not, an object assigned without Set whose
+    // default member (WMI's Item) takes an argument.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public async Task WhatCannotBeCreatedOrCalled_IsTheErrorMSVBARaises()
         => CollectionAssert.AreEqual(new[] { "429", "429", "429", "438", "450" }, await Run(
-            "Dim d As Object",
+            "Dim o As Object",
             "Dim v As Variant",
             "On Error Resume Next",
-            "Set d = CreateObject(\"No.Such\")",
+            "Set o = CreateObject(\"No.Such\")",
             "Debug.Print Err.Number",
             "Err.Clear",
-            "Set d = CreateObject(\"\")",
+            "Set o = CreateObject(\"\")",
             "Debug.Print Err.Number",
             "Err.Clear",
-            "Set d = CreateObject(\"Dictionary\")",
+            "Set o = CreateObject(\"Dictionary\")",
             "Debug.Print Err.Number",
             "Err.Clear",
-            "Set d = CreateObject(\"Scripting.Dictionary\")",
-            "d.Nope",
+            "Set o = CreateObject(\"ADODB.Recordset\")",
+            "o.Nope",
             "Debug.Print Err.Number",
             "Err.Clear",
-            "v = CreateObject(\"Scripting.Dictionary\")",
+            "v = CreateObject(\"WbemScripting.SWbemNamedValueSet\")",
             "Debug.Print Err.Number"));
 
     [TestMethod]
@@ -80,7 +79,7 @@ public sealed class CreateObjectEndToEndTests
         CollectionAssert.AreEqual(new[] { "429", "432" }, await Run(
             "Dim o As Object",
             "On Error Resume Next",
-            "Set o = GetObject(, \"Scripting.Dictionary\")",
+            "Set o = GetObject(, \"ADODB.Connection\")",
             "Debug.Print Err.Number",
             "Err.Clear",
             $"Set o = GetObject(\"{missing}\")",
@@ -91,8 +90,8 @@ public sealed class CreateObjectEndToEndTests
     [OSCondition(OperatingSystems.Linux)]
     public async Task OnAPlatformWithNoAutomationServers_CreateObjectCannotCreateTheObject()
         => CollectionAssert.AreEqual(new[] { "429" }, await Run(
-            "Dim d As Object",
+            "Dim o As Object",
             "On Error Resume Next",
-            "Set d = CreateObject(\"Scripting.Dictionary\")",
+            "Set o = CreateObject(\"ADODB.Connection\")",
             "Debug.Print Err.Number"));
 }
