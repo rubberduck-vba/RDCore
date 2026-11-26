@@ -130,9 +130,9 @@ public sealed class CompiledForEachTests
             "    Walked = Walked + V + 100",
             "End Function"), "Walked", recoveries: 2, expected: "100"));
 
-    // a For Each of Nothing raises error 91 at its statement, which the procedure's handler is given, as the interpreter gives it.
+    // a For Each of Nothing raises error 424 at its statement, which the procedure's handler is given, as the interpreter gives it.
     [TestMethod]
-    public async Task AForEachOfNothing_RaisesError91_ToTheProceduresHandler()
+    public async Task AForEachOfNothing_RaisesError424_ToTheProceduresHandler()
         => AssertForEachNotStepped(await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Caught()",
@@ -146,7 +146,7 @@ public sealed class CompiledForEachTests
             "    Exit Function",
             "Handler:",
             "    Caught = Err.Number",
-            "End Function"), "Caught", recoveries: 1, expected: "91"));
+            "End Function"), "Caught", recoveries: 1, expected: "424"));
 
     // with no handler, the error of the For Each statement goes to the caller's handler, after what compiled code did before it.
     [TestMethod]

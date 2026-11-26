@@ -146,8 +146,8 @@ public sealed class ForEachObjectTests
     }
 
     [TestMethod]
-    public async Task ANothing_IsError91()
-        => CollectionAssert.AreEqual(new[] { "91" },
+    public async Task ANothing_IsError424()
+        => CollectionAssert.AreEqual(new[] { "424" },
             await RunAsync("Dim c As Collection", "Dim v As Variant", "On Error GoTo Failed", "For Each v In c", "Next", "Exit Sub", "Failed:", "Debug.Print Err.Number"));
 
     // ---- the pieces this rests on ----

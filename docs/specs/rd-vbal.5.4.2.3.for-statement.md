@@ -151,6 +151,9 @@ MS-VBAL does not say what a loop is when its start, end or step raises an error 
   activation. With none, the end is 0, and so is the step, except that a loop that writes no `Step` clause steps an
   `Integer`, a `Long` or a `LongLong` counter by 1.
 - Its `Next` steps the counter and tests it with that end and that step, as it does any other loop's.
+- A `Variant` counter's loop has no end and no step with no earlier pass: its `Next` raises error 92, as after a jump
+  into the loop.
+- An error that a procedure called in the header raises leaves the loop the same way.
 
 `For i = 1 To 10 \ n`, with `n` 0 on a first pass, runs its body with `i` as it was, and steps it by 1 until it exceeds
 0: once, for an `i` of 0 or more. A faulted

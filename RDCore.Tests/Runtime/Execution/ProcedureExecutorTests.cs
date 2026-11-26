@@ -548,9 +548,8 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
-    public void ForEachLoop_OverNothing_ReportsObjectVariableNotSet()
-        // enumerating an object collection means invoking its _NewEnum member - on Nothing, that
-        // invocation itself is MS-VBAL error 91.
+    public void ForEachLoop_OverNothing_ReportsObjectRequired()
+        // MS-VBA, observed in Excel: a For Each of Nothing is error 424.
     {
         var list = Lower("For Each item In coll", "s = 999", "Next");
         var item = Local("item", VBObjectType.TypeInfo);
@@ -562,7 +561,7 @@ public sealed class ProcedureExecutorTests
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual((int)VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual((int)VBRuntimeErrorId.ObjectRequired, outcome.ErrorInfo!.ErrorId);
     }
 
     [TestMethod]

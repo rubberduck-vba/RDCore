@@ -190,6 +190,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return Run(session, frame, list, context, once: true, held);
         }
 
+        // a For statement whose start, end or step called a procedure that raised the error leaves its loop what one this executor ran leaves it.
+        if (list.Items[frame.Pc] is
+            {
+                Kind: InstructionKind.ForOpener,
+                Node: ForStatementNode { ControlExpression: SimpleNameExpressionNode simpleName } forStatement,
+            } opener
+            && session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol is { } counterSymbol)
+        {
+            _ = Unevaluated(session, opener, frame, forStatement, counterSymbol,
+                counterSymbol is ITypedSymbol typed ? typed.ResolvedType : VBVariantType.TypeInfo, outcome);
+        }
+
         if (InterceptError(session, frame, list, frame.Pc, outcome) is { } unhandled)
         {
             var propagated = unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
@@ -1223,11 +1235,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // MS-VBAL §5.4.4.1: a For statement whose start, end or step raised an error, or whose counter could not be given the start, keeps nothing of what it
     // evaluated - the counter is not assigned, and its loop has the end and the step it had before. Under Resume Next its body runs, untested, and its Next
     // steps the counter with them: what an earlier pass through the statement left, or, when there was none, the loop state of a For never given its
-    // operands (MS-VBA, observed in Excel).
+    // operands. A Variant counter's loop is given none, and its Next raises error 92 (MS-VBA, observed in Excel).
     private RuntimeExecutionOutcome Unevaluated(IRuntimeSession session, Instruction instruction, CallStackFrame activation, ForStatementNode forStatement,
         Symbol counterSymbol, VBType counterType, RuntimeExecutionOutcome failure)
     {
-        if (!activation.TryGetForLoopState(instruction.Offset, out _))
+        if (counterType is not VBVariantType && !activation.TryGetForLoopState(instruction.Offset, out _))
         {
             _ = TrySetUnsetState(session, instruction.Offset, activation, forStatement, counterSymbol, counterType, out _);
         }
@@ -1467,9 +1479,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return null;
 
             case VBObjectValue objectValue when objectValue.IsNothing():
-                // enumerating an object collection means invoking its _NewEnum member; on Nothing that
-                // invocation itself would raise error 91.
-                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet,
+                // a collection that is Nothing, an object variable or a Variant that holds it, is error 424 (MS-VBA, observed in Excel).
+                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired,
                     forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
 
             case VBObjectValue objectValue when RuntimeExpressionEvaluator.HasEnumerationMember(session, objectValue):
@@ -1925,7 +1936,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// Gives <paramref name="outcome"/>, the error the instruction at <paramref name="faultOffset"/> raised, to the activation's <c>On Error Resume Next</c>,
     /// as <see cref="InterceptError"/> gives it, where nothing waits at it: Err is given the error, and the activation goes on at the next instruction
     /// (MS-VBAL §5.4.4.1). It gives nothing when the activation's handler is another, when the program is to stop, when a debugger is to wait at an error
-    /// the program handles, when an error is untrappable, and at a <c>Select Case</c>, whose next statement is past its <c>End Select</c>.
+    /// the program handles, when an error is untrappable, and where the next statement is not the next instruction: at a <c>Select Case</c>, whose next
+    /// statement is past its <c>End Select</c>, and at a <c>For Each</c> whose <c>Next</c> follows it on its line, past that <c>Next</c>.
     /// </summary>
     /// <returns>Whether the error was given: the activation goes on at the instruction after the one at <paramref name="faultOffset"/>.</returns>
     internal static bool TryResumeNext(IRuntimeSession session, CallStackFrame activation, InstructionList list, int faultOffset,
@@ -1934,7 +1946,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // a debugger that breaks on unhandled errors does not wait at this one, which the activation's handler catches (RuntimeSession.TrySuspendOnError).
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.Error || activation.ErrorHandler.Mode is not ErrorHandlingMode.ResumeNext
             || session.Halt.Pending is not null || session.Halt.BreakOnErrors is not (ErrorBreakMode.None or ErrorBreakMode.Unhandled)
-            || session.Errors.Untrappable is not null || list.Items[faultOffset].Kind is InstructionKind.Select)
+            || session.Errors.Untrappable is not null || NextStatementAfter(list, faultOffset) != faultOffset + 1)
         {
             return false;
         }
@@ -1974,9 +1986,17 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // MS-VBAL §5.4.4.1, §5.4.4.2: execution goes on at the statement "immediately following the <statement> which caused the error". A Select Case is
-    // one statement up to its End Select: an error in its selector goes on past the whole construct, no Case matched (MS-VBA, observed in Excel).
+    // one statement up to its End Select: an error in its selector goes on past the whole construct, no Case matched. So is a For Each whose Next follows
+    // its header on the header's line (For Each v In w: Next): an error in the header goes on past the Next, which does not run (MS-VBA, observed in Excel).
     private static int NextStatementAfter(InstructionList list, int faultOffset)
-        => list.Items[faultOffset] is { Kind: InstructionKind.Select, End: { } end } ? end : faultOffset + 1;
+        => list.Items[faultOffset] switch
+        {
+            { Kind: InstructionKind.Select, End: { } end } => end,
+            { Kind: InstructionKind.ForEachOpener, End: { } past, Node.SourceLocation: var block }
+                when list.Items.ElementAtOrDefault(faultOffset + 1) is { Kind: InstructionKind.ForEachNext, Closes: { } next } closer
+                    && closer.Matching == faultOffset && next.Range.Start.Line == block.Range.Start.Line => past,
+            _ => faultOffset + 1,
+        };
 
     // MS-VBAL §5.4.4.3: "the effect is as if the Err.Raise method were invoked" - always produces an
     // Error outcome (or InternalError on a lowering bug/a number expression that fails to evaluate), for
