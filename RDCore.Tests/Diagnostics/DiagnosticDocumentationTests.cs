@@ -145,6 +145,8 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.FunctionReturnValueDiscarded, 216),
         (RDCoreDiagnosticId.IsMissingOfAVariantThatIsNotOptional, 218),
         (RDCoreDiagnosticId.UnreachableCase, 219),
+        (RDCoreDiagnosticId.ParamArrayIgnoresOptionBase, 220),
+        (RDCoreDiagnosticId.QualifiedArrayIgnoresOptionBase, 221),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
         (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),
         (RDCoreDiagnosticId.ObsoleteErrorSyntax, 304),
