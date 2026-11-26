@@ -10,6 +10,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
@@ -398,8 +399,8 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
 
         Assert.IsTrue(workspace.TryGetFile(_file, out var file));
         CollectionAssert.AreEqual(new[] { "Prog", "Helpers" }, file.Modules.ToArray());
-        Assert.AreEqual("Prog", file.ModuleAt(1), "a line of the file's own module");
-        Assert.AreEqual("Helpers", file.ModuleAt(4), "a line of the block");
+        Assert.AreEqual("Prog", file.NameOf(file.Document.ModuleAt(new SourcePosition(1, 0))), "a line of the file's own module");
+        Assert.AreEqual("Helpers", file.NameOf(file.Document.ModuleAt(new SourcePosition(4, 0))), "a line of the block");
         Assert.IsTrue(workspace.TryGetPath("Helpers", out var path), "the block's module has a file");
         Assert.IsTrue(workspace.TryGetPath("Prog", out var own));
         Assert.AreEqual(own, path, "the file that holds the block");

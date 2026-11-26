@@ -13,6 +13,7 @@ using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Components;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.LanguageServer.Debugging;
 
@@ -114,8 +115,7 @@ internal sealed class PlatformDebugWorkspace(
             }
 
             var path = Path.GetFullPath(document.Id.Uri.GetFileSystemPath());
-            var file = new DebugFile(parse.SyntaxTree.GetDeclaredName() ?? document.Name,
-                [.. parse.BlockModules.Select(block => (block.Name, block.Range.Start.Line, block.Range.End.Line))]);
+            var file = new DebugFile(parse.SyntaxTree.GetDeclaredName() ?? document.Name, new RDCoreDocument(uri, parse));
             byPath[path] = (file, uri);
             byModule[file.Module] = (path, uri);
             foreach (var block in parse.BlockModules)
@@ -180,11 +180,11 @@ internal sealed class PlatformDebugWorkspace(
             names ?? maps.ByPath.ToDictionary(entry => entry.Key, entry => entry.Value.File, PathComparer));
     }
 
-    public bool TryGetFile(string path, out DebugFile file)
+    public bool TryGetFile(string path, [MaybeNullWhen(false)] out DebugFile file)
     {
         // a client writes a path as its platform does, and the workspace has them as the file system does.
         var found = Volatile.Read(ref _maps).ByPath.TryGetValue(Path.GetFullPath(path), out var entry);
-        file = entry.File ?? DebugFile.Of(string.Empty);
+        file = entry.File;
         return found;
     }
 
@@ -381,9 +381,11 @@ internal sealed class PlatformDebugWorkspace(
             return (was.Module, now.Module);
         }
 
-        var gone = was.Blocks.Select(block => block.Name).Except(now.Blocks.Select(block => block.Name), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
-        var come = now.Blocks.Select(block => block.Name).Except(was.Blocks.Select(block => block.Name), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        var gone = Blocks(was).Except(Blocks(now), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        var come = Blocks(now).Except(Blocks(was), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
         return gone is not null && come is not null ? (gone, come) : (null, null);
+
+        static IEnumerable<string> Blocks(DebugFile file) => file.Document.Parse.BlockModules.Select(block => block.Name);
     }
 
     public async Task CloseAsync()
