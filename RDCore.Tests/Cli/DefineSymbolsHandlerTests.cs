@@ -89,20 +89,13 @@ public sealed class DefineSymbolsHandlerTests
     {
         var document = new Uri("file:///c:/ws/src/Mod1.bas");
         var parse = new RDCore.Parsing.ModuleParser().Parse(document,
-            $"Option Explicit
-#If {condition} Then
-Public Sub A()
-End Sub
-#Else
-Public Sub A()
-End Sub
-#End If
-");
+            $"Option Explicit\r\n#If {condition} Then\r\nPublic Sub A()\r\nEnd Sub\r\n#Else\r\nPublic Sub A()\r\nEnd Sub\r\n#End If\r\n");
         var declarations = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
         Assert.HasCount(2, declarations, "the parse holds the declaration of each branch");
 
         var result = await NewHandler().Handle(
-            Request(Procedure("A")) with { ModuleUri = document, PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse) }, CancellationToken.None);
+            Request(Procedure("A")) with { ModuleUri = document, PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse) },
+            CancellationToken.None);
 
         var branch = result.DeadBranches.Single();
         Assert.AreEqual(document, branch.Uri);
@@ -111,23 +104,16 @@ End Sub
     }
 
     [TestMethod]
-    [DataRow("Option Explicit
-#If 1 Then
-Public Sub A()
-End Sub
-#End If
-", DisplayName = "a block whose one branch is live")]
-    [DataRow("Option Explicit
-Public Sub A()
-End Sub
-", DisplayName = "no directive")]
+    [DataRow("Option Explicit\r\n#If 1 Then\r\nPublic Sub A()\r\nEnd Sub\r\n#End If\r\n", DisplayName = "a block whose one branch is live")]
+    [DataRow("Option Explicit\r\nPublic Sub A()\r\nEnd Sub\r\n", DisplayName = "no directive")]
     public async Task AModuleWhoseDirectivesMakeNoBranchDead_HasNoneOnTheReply(string text)
     {
         var document = new Uri("file:///c:/ws/src/Mod1.bas");
         var parse = new RDCore.Parsing.ModuleParser().Parse(document, text);
 
         var result = await NewHandler().Handle(
-            Request(Procedure("A")) with { ModuleUri = document, PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse) }, CancellationToken.None);
+            Request(Procedure("A")) with { ModuleUri = document, PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse) },
+            CancellationToken.None);
 
         Assert.AreEqual(1, result.Defined, "the module was defined");
         Assert.IsEmpty(result.DeadBranches);

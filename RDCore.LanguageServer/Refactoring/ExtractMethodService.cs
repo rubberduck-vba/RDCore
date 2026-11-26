@@ -301,7 +301,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var accessibility = AccessibilityOf(answers) ?? ExtractionAccessibility.Private;
         return new RefactorIdentifierCheckResult
         {
-            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility).Select(problem => new RefactorNotice
+            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility,
+                extraction.Part.Context.DeadTestOf(extraction.Module.Parse)).Select(problem => new RefactorNotice
             {
                 Code = Code($"Name{problem.Kind}"),
                 Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
@@ -398,7 +399,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var routeExits = !bool.TryParse(Answer(RouteExitsChoice), out var route) || route;
 
         // a name that cannot be declared there is refused; one that hides another declaration is the user's to choose.
-        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility)
+        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility,
+                extraction.Part.Context.DeadTestOf(extraction.Module.Parse))
             .FirstOrDefault(problem => !problem.IsWarning) is { } problem)
         {
             return (null, problem.ToMessage(RenameWorkspace.Locator(extraction.Part)));

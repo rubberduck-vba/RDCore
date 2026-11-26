@@ -123,7 +123,7 @@ internal static partial class InterfaceImplementation
         }
 
         var text = TextLines.Of(module.Source);
-        var writer = new Writer(context, text.NewLine, todo, handlerTodo);
+        var writer = new Writer(context, text.NewLine, todo, handlerTodo, context.DeadTestOf(parse));
         ImplementationTarget target;
         IReadOnlyList<ImplementationStub> stubs;
         if (DirectiveAt(tree, range) is { } directive)
@@ -219,8 +219,13 @@ internal static partial class InterfaceImplementation
             ? member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
             : member.Kind == SymbolKindExt.Field && member.AccessModifier is AccessModifier.Public;
 
-    private sealed partial class Writer(RenameContext context, string newLine, string todo, string handlerTodo)
+    private sealed partial class Writer(RenameContext context, string newLine, string todo, string handlerTodo, Func<SourceLocation, bool>? isDead)
     {
+        // the members of the class as it compiles: one declared only in branches of #If blocks that are not live is none of them (MS-VBAL §3.4), and one
+        // declared in several is the declaration of its live branch. Every member is, when which branches are live is not known.
+        private IReadOnlyList<VBTypeMemberSymbol> MembersOf(VBClassModuleSymbol type)
+            => isDead is null ? type.Members : [.. type.Members.Select(member => member.LiveDeclaration(isDead)).OfType<VBTypeMemberSymbol>()];
+
         // the procedures the class needs to implement the interface, or why they are not written.
         public (IReadOnlyList<ImplementationStub> Stubs, ImplementationRefusal? Refusal) Implementations(VBClassModuleSymbol type, VBClassModuleSymbol implemented)
         {
@@ -228,7 +233,7 @@ internal static partial class InterfaceImplementation
             foreach (var member in ImplementsSemantics.InterfaceMembersOf(implemented))
             {
                 var name = $"{implemented.Name}_{member.Name}";
-                var named = type.Members.Where(candidate => string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                var named = MembersOf(type).Where(candidate => string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
                 var isVariable = member.Kind == SymbolKindExt.Field;
 
                 // a name the class has for something no accessor of this member is (a variable, a Sub for a Function) is one its compile error reports: the
@@ -255,7 +260,7 @@ internal static partial class InterfaceImplementation
                         return ([], new(ImplementationRefusalKind.NotWritable, $"{implemented.Name}.{member.Name}"));
                     }
 
-                    var forwarded = Forwarded(type, member, kind, name, signature);
+                    var forwarded = Forwarded(MembersOf(type), member, kind, name, signature);
                     var body = forwarded ?? [$"    Err.Raise 5 '{todo}"];
                     stubs.Add(new ImplementationStub(name, kind, Procedure(kind, name, signature, body), forwarded is not null));
                 }
@@ -271,7 +276,8 @@ internal static partial class InterfaceImplementation
             foreach (var handled in source.Events.Where(handled => type.FindEventHandler(variable, handled) is null))
             {
                 var name = $"{variable.Name}_{handled.Name}";
-                if (type.Members.Any(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)) || SignatureOf(handled, MemberKind.Procedure) is not { } signature)
+                if (MembersOf(type).Any(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase))
+                    || SignatureOf(handled, MemberKind.Procedure) is not { } signature)
                 {
                     continue;
                 }
@@ -433,14 +439,16 @@ internal static partial class InterfaceImplementation
 
         // the body of a procedure that implements an interface member by calling the class's own public member of its name: of the same kind, the same
         // parameters and the same type; null when the class has no such member, or when a call cannot stand for it.
-        private static IReadOnlyList<string>? Forwarded(VBClassModuleSymbol type, VBTypeMemberSymbol member, MemberKind kind, string name, Signature signature)
+        private static IReadOnlyList<string>? Forwarded(
+            IReadOnlyList<VBTypeMemberSymbol> members, VBTypeMemberSymbol member, MemberKind kind, string name, Signature signature)
         {
             if (signature.Parameters.Any(parameter => parameter.IsParamArray || string.Equals(parameter.Name, member.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 return null;
             }
 
-            var own = type.Members.Where(candidate => IsPublic(candidate) && string.Equals(candidate.Name, member.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var own = members.Where(candidate => IsPublic(candidate) && string.Equals(candidate.Name, member.Name, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
             var arguments = signature.Parameters.Select(parameter => parameter.Name).ToArray();
             if (member.Kind == SymbolKindExt.Field)
             {

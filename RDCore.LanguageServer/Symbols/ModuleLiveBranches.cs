@@ -20,7 +20,8 @@ namespace RDCore.LanguageServer.Symbols;
 internal sealed class ModuleLiveBranches(IWorkspaceDocumentService documents, IParsingClientService parsing)
 {
     // by document: the version of the text the host was sent, its blocks, and the ordinals of the branches that are dead of them.
-    private readonly ConcurrentDictionary<Uri, (int Version, ConditionalCompilationBlocks Blocks, IReadOnlyList<(int Block, int Branch)> Dead)> _modules = new();
+    private readonly ConcurrentDictionary<Uri, (int Version, ConditionalCompilationBlocks Blocks, IReadOnlyList<(int Block, int Branch)> Dead)> _modules
+        = new();
 
     /// <summary>
     /// Records what the host said is dead of a parse of a module it was sent, when that parse is of the document as it reads now; forgets what it knew of the
