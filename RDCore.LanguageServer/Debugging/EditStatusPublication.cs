@@ -2,10 +2,9 @@ using Microsoft.Extensions.Logging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace.Services;
-using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Debugging;
 
@@ -58,8 +57,8 @@ internal sealed class EditStatusPublication(
                 continue;
             }
 
-            var name = parsing.TryGetCached(uri, out var parse) ? parse.SyntaxTree?.GetDeclaredName() ?? document.Name : document.Name;
-            if (named.Contains(name))
+            // a document is the text of each of its modules: a file of blocks, of several.
+            if (ParsedModules.NamesOf(parsing.TryGetCached(uri, out var parse) ? parse : null, document.Name).Any(named.Contains))
             {
                 _ = RepublishAsync(uri);
             }
