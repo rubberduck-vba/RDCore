@@ -440,6 +440,13 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         var loaded = FormHandlers.Raise(session, bindings, identity, "Load");
         if (!loaded.IsSuccess)
         {
+            // an error Form_Load leaves unhandled stops the run, whatever handler the code that loaded the form has (measured in VB6): it is recorded as one
+            // no handler of the program catches, as a Class_Terminate's is. An error in Form_Initialize stays the caller's.
+            if (loaded is { IsError: true, ErrorInfo: { } unhandled })
+            {
+                session.Errors.RaiseUntrappable(unhandled);
+            }
+
             return loaded;
         }
 
