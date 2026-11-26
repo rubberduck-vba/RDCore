@@ -44,12 +44,13 @@ internal sealed class FoldingRangeHandler(
         // Deliberately not gated on IsSuccess. A module with syntax errors is when an outline is worth
         // most, and the members that did recover carry usable spans; those that did not are dropped by
         // the span test in the projector.
-        if (parseResult.SyntaxTree is not { } module)
+        if (parseResult.SyntaxTree is null)
         {
             return new Container<FoldingRange>();
         }
 
-        var ranges = FoldingRangeProjector.Project(module);
+        // each module of the file folds: its own, and each block's with the block itself.
+        var ranges = FoldingRangeProjector.Project(parseResult);
 
         // a program of the platform's BASIC is parsed as the body of a procedure it does not write: its folds are moved to its lines, and that procedure,
         // which begins on the header, has none.

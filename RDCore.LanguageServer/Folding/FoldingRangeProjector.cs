@@ -47,6 +47,19 @@ internal static class FoldingRangeProjector
     /// </para>
     /// </remarks>
     public static IEnumerable<FoldingRange> Project(ModuleNode module)
+        => Members(module);
+
+    // the ranges of a file: those of each of its modules, its own and each block's, and one for each block, from its header to its end, a Region as a
+    // member's is. None for a file with no syntax tree.
+    public static IEnumerable<FoldingRange> Project(ModuleParseResult parse)
+        => parse.SyntaxTree is not { } own ? [] : Members(own).Concat(parse.BlockModules.SelectMany(block => Members(block.SyntaxTree).Prepend(new FoldingRange
+        {
+            StartLine = block.Range.Start.Line,
+            EndLine = block.Range.End.Line,
+            Kind = FoldingRangeKind.Region,
+        })));
+
+    private static IEnumerable<FoldingRange> Members(ModuleNode module)
     {
         foreach (var member in module.Children.OfType<MemberDeclarationNode>())
         {
