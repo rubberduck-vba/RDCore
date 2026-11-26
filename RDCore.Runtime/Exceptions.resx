@@ -201,8 +201,8 @@
   <data name="VBForEach_ObjectRequired_Verbose" xml:space="preserve">
     <value>This For Each loop's collection is Nothing. A For Each loop enumerates an array or an object, and Nothing is neither.</value>
   </data>
-  <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
-    <value>The enumeration member (_NewEnum) of this For Each loop's collection returned Nothing: there is no enumerator to give the loop its elements.</value>
+  <data name="VBForEach_PropertyGetDidNotReturnObject_Verbose" xml:space="preserve">
+    <value>The enumeration member (_NewEnum) of this For Each loop's collection returned no object: there is no enumerator to give the loop its elements.</value>
   </data>
   <data name="VBMemberAssignment_NotAssignable_Verbose" xml:space="preserve">
     <value>The object has no public variable, and no Property Let or Property Set, of this name for the assignment to write to.</value>

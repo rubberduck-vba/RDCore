@@ -1521,9 +1521,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         if (returned is not VBObjectValue { } enumerator || enumerator.IsNothing())
         {
-            // an enumeration member that returns no enumerator has nothing to enumerate with.
-            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet,
-                forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
+            // an enumeration member that returns no enumerator has nothing to enumerate with: error 451 (MS-VBA, observed in Excel).
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_PropertyGetDidNotReturnObject_Verbose));
         }
 
         HoldForBlock(session, activation, instruction, enumerator);

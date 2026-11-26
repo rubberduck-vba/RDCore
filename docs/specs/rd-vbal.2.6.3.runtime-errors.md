@@ -30,10 +30,10 @@ what the statement is there to do.
 |Error|`VBRuntimeErrorId`|Raised when|See|
 |---|---|---|---|
 |13|`TypeMismatch`|`For Each` over anything other than an array or an object (a scalar)|[**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
-|91|`ObjectVariableOrWithBlockVariableNotSet`|`For Each` over an object whose `VB_UserMemId = -4` member returns `Nothing`|[**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
 |92, "For loop not initialized"|`ForLoopNotInitialized`|a `ForNext` or `ForEachNext` with no stored loop state (a `GoTo` landing directly on the closer), or a `For Each` over an array that was never dimensioned|[**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md), [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
 |424|`ObjectRequired`|`For Each` over `Nothing`|[**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
 |438|`ObjectDoesntSupportThisPropertyOrMethod`|`For Each` over a live object with no `VB_UserMemId = -4` member|[**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
+|451|`PropertyLetNotDefinedPropertyGetDidNotReturnObject`|`For Each` over an object whose `VB_UserMemId = -4` member returns `Nothing`|[**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
 
 The verbose message for `ForLoopNotInitialized` is the resx entry `VBForLoopNotInitialized_Verbose` when a `Next` closer runs without its opener, and `VBForEach_ArrayNotInitialized_Verbose` when a `For Each` enumerates a never-dimensioned array; both are provided in both languages.
 

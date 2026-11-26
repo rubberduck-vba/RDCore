@@ -314,12 +314,12 @@ namespace RDCore.Runtime {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to The enumeration member (_NewEnum) of this For Each loop&apos;s collection returned Nothing: there is
+        ///   Looks up a localized string similar to The enumeration member (_NewEnum) of this For Each loop&apos;s collection returned no object: there is
         /// no enumerator to give the loop its elements..
         /// </summary>
-        internal static string VBForEach_ObjectVariableNotSet_Verbose {
+        internal static string VBForEach_PropertyGetDidNotReturnObject_Verbose {
             get {
-                return ResourceManager.GetString("VBForEach_ObjectVariableNotSet_Verbose", resourceCulture);
+                return ResourceManager.GetString("VBForEach_PropertyGetDidNotReturnObject_Verbose", resourceCulture);
             }
         }
 
