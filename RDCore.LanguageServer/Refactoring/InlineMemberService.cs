@@ -441,7 +441,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             if (!analyses.TryGetValue(module.AbsoluteUri, out var analysis))
             {
                 analysis = texts.TryGetValue(module.AbsoluteUri, out var text)
-                    ? ExtractionModuleAnalysis.Of(module, text.Text, text.Parse, context.Resolver, context.ScopeTree)
+                    ? ExtractionModuleAnalysis.Of(module, text.Text, text.Parse, context.Resolver, context.ScopeTree, context.DeadTestOf(text.Parse))
                     : null;
                 analyses[module.AbsoluteUri] = analysis;
             }

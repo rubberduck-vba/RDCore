@@ -130,9 +130,9 @@ public sealed class CompiledForEachTests
             "    Walked = Walked + V + 100",
             "End Function"), "Walked", recoveries: 2, expected: "100"));
 
-    // a For Each of Nothing raises error 91 at its statement, which the procedure's handler is given, as the interpreter gives it.
+    // a For Each of Nothing raises error 424 at its statement, which the procedure's handler is given, as the interpreter gives it.
     [TestMethod]
-    public async Task AForEachOfNothing_RaisesError91_ToTheProceduresHandler()
+    public async Task AForEachOfNothing_RaisesError424_ToTheProceduresHandler()
         => AssertForEachNotStepped(await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Caught()",
@@ -146,7 +146,28 @@ public sealed class CompiledForEachTests
             "    Exit Function",
             "Handler:",
             "    Caught = Err.Number",
-            "End Function"), "Caught", recoveries: 1, expected: "91"));
+            "End Function"), "Caught", recoveries: 1, expected: "424"));
+
+    // so does one whose enumeration member returns Nothing, error 451.
+    [TestMethod]
+    public async Task AForEachOfAnObjectWhoseEnumerationMemberReturnsNothing_RaisesError451_ToTheProceduresHandler()
+        => AssertForEachNotStepped(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Caught()",
+            "End Sub",
+            "Private Function Caught() As Long",
+            "    Dim C As New Hollow, V As Variant",
+            "    On Error GoTo Handler",
+            "    For Each V In C",
+            "        Caught = Caught + 10",
+            "    Next",
+            "    Exit Function",
+            "Handler:",
+            "    Caught = Err.Number",
+            "End Function"), "Caught", recoveries: 1,
+            classes: [("Hollow", ModuleWorkspace.ClassModule("Hollow",
+                "Public Property Get NewEnum() As IUnknown", "Attribute NewEnum.VB_UserMemId = -4", "Set NewEnum = Nothing", "End Property"))],
+            expected: "451"));
 
     // with no handler, the error of the For Each statement goes to the caller's handler, after what compiled code did before it.
     [TestMethod]

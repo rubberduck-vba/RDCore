@@ -1,4 +1,6 @@
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace.Forms;
@@ -12,4 +14,9 @@ public sealed record class RenameModule(Uri Module, ModuleNode Syntax, string So
 
 public sealed record class RenameContext(
     ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyList<RenameModule> Modules, StaticEnvironment? Environment = null,
-    IReadOnlyList<IPossibleClassesSource>? ClassSources = null);
+    IReadOnlyList<IPossibleClassesSource>? ClassSources = null)
+{
+    // whether a location of a parse of a module is in a branch of an #If block that is not live (MS-VBAL §3.4), as the environment host evaluated the
+    // module: null when that is not known, and a check reads every branch as an alternative of the others.
+    public Func<ModuleParseResult, Func<SourceLocation, bool>?> DeadTestOf { get; init; } = static _ => null;
+}

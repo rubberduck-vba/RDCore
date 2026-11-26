@@ -99,6 +99,7 @@ public static class CompileErrors
         [VBCompileErrorId.HashIfWithoutEndIf] = Exceptions.VBCompileError_HashIfWithoutEndIf,
         [VBCompileErrorId.ExpressionNestedTooDeeply] = Exceptions.VBCompileError_ExpressionNestedTooDeeply,
         [VBCompileErrorId.OutputItemsNotSeparated] = Exceptions.VBCompileError_OutputItemsNotSeparated,
+        [VBCompileErrorId.InvalidInABlock] = Exceptions.VBCompileError_InvalidInABlock,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,
         [VBCompileErrorId.InvalidUseOfObject] = Exceptions.VBCompileError_InvalidUseOfObject,

@@ -210,7 +210,6 @@ public sealed class VisualBasicFormGraphicsTests
     }
 
     [TestMethod]
-    [Ignore("not implemented: RDForms gives a form its drawing surface when it is shown, so a form that is loaded and not shown keeps nothing drawn on it, whatever its AutoRedraw")]
     [DataRow("Form4", DisplayName = "on the form")]
     [DataRow("Form4.Picture1", DisplayName = "on its PictureBox")]
     public async Task WhatIsDrawnOnAFormThatIsNotShown_IsKept_WithAutoRedraw(string target)

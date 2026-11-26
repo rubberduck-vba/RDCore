@@ -161,7 +161,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
 
         // an error is new when there are more of its kind than there were.
         var errorsBefore = ErrorsOf(before, module.Parse, part.Context).CountBy(error => error.ErrorId).ToDictionary();
-        var analysis = ExtractionModuleAnalysis.Of(module.Module, text, parse, after.Resolver, after.ScopeTree);
+        var analysis = ExtractionModuleAnalysis.Of(module.Module, text, parse, after.Resolver, after.ScopeTree, after.DeadTestOf(parse));
         var errorsAfter = ErrorsOf(edited, parse, after)
             .Concat(plan.Stubs.SelectMany(stub => analysis.Procedure(stub.Name, stub.Kind)?.Model.CompileErrors ?? []))
             .ToArray();
@@ -197,7 +197,8 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
     {
         var blocks = ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia);
         return parse.SyntaxTree is { } tree
-            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, blocks), .. ReservedNameStaticSemantics.CheckSyntax(tree),
+            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, blocks, new StaticSemanticsOptions(DeadAt: context.DeadTestOf(parse))),
+                .. ReservedNameStaticSemantics.CheckSyntax(tree),
                 .. DeclarationStaticSemanticsEvaluator.Evaluate(type, [.. type.Members], context.Resolver)]
             : [];
     }
@@ -206,7 +207,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
     private static bool IsAtDirective(VBClassModuleSymbol type, string implemented, VBCompileErrorInfo error)
     {
         var index = type.ImplementedInterfaceNames.ToList().FindIndex(name => string.Equals(name[(name.LastIndexOf('.') + 1)..], implemented, StringComparison.OrdinalIgnoreCase));
-        return index >= 0 && index < type.ImplementedInterfaceRanges.Length && error.Location.Range ==type.ImplementedInterfaceRanges[index];
+        return index >= 0 && index < type.ImplementedInterfaceLocations.Length && error.Location == type.ImplementedInterfaceLocations[index];
     }
 
     private async Task<ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)

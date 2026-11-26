@@ -8,15 +8,18 @@ using Microsoft.Extensions.Options;
 using RDCore.Parsing.AST;
 using RDCore.Parsing.Syntax;
 using RDCore.SDK.Logging;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -51,10 +54,16 @@ public interface IModuleParser
 
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/>; optional, the default suits tests.</param>
 /// <param name="logger">Records the exceptions the resilience guards swallow; optional, no-op by default.</param>
+/// <param name="workspaceOptions">
+/// Says which documents may have statements outside their procedures (<see cref="SdkWorkspaceOptions.AllowsFileLevelStatements"/>); optional, the
+/// default allows them in a document of a language that has them (a script).
+/// </param>
 public partial class ModuleParser(
     IOptions<SdkServerOptions>? serverOptions = null,
-    ILogger<ModuleParser>? logger = null) : IModuleParser
+    ILogger<ModuleParser>? logger = null,
+    IOptions<SdkWorkspaceOptions>? workspaceOptions = null) : IModuleParser
 {
+    private readonly SdkWorkspaceOptions _workspace = workspaceOptions?.Value ?? new();
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
@@ -80,10 +89,11 @@ public partial class ModuleParser(
     {
         // the looks are counted on the thread that parses, which is not the caller's when the parse moves to a large stack: they are told to the caller's.
         var looks = 0L;
+        var blocks = FileBlocks.Find(content);
         var result = LargeStackThread.Run(() =>
         {
             t_directiveLooks = 0;
-            var parsed = Parse(uri, content, anchorOffset, [], Statistics, token);
+            var parsed = blocks.Count == 0 ? ParseModule(uri, uri, content, anchorOffset, token) : ParseFile(uri, content, blocks, anchorOffset, token);
             looks = t_directiveLooks;
             return parsed;
         });
@@ -91,6 +101,148 @@ public partial class ModuleParser(
         t_directiveLooks = looks;
         return result with { LineEnding = LineEndingOf(content) };
     }
+
+    // one module of the file: the file's own (module is the file's URI), or a block's (module is RDCoreDocument.BlockUri), which its nodes' identities are
+    // keyed by; their locations are the file's. Whether it may have statements outside its procedures is decided by the module's address: a block's module
+    // is not a script, whatever its file is.
+    private ModuleParseResult ParseModule(Uri uri, Uri module, string content, SourcePosition anchorOffset, CancellationToken token)
+    {
+        t_fileStatements = _workspace.AllowsFileLevelStatements(module.AbsolutePath);
+        return Parse(uri, module, content, anchorOffset, [], Statistics, token);
+    }
+
+    // a file of several modules (FileBlocks): its own module is the file with the lines of its blocks blank, so that every position is the file's, and each
+    // block's module is the lines between its header and its end, anchored where they are. The header and the end lines are in no module's tree: each is
+    // the file's trivia (BlockBoundaryTriviaNode), and a comment on either is the file's own module's. What the parses found outside every
+    // module's tree (trivia, directives, errors) is the file's, in the order it is written.
+    private ModuleParseResult ParseFile(Uri uri, string content, IReadOnlyList<FileBlock> blocks, SourcePosition anchorOffset, CancellationToken token)
+    {
+        var starts = BlockLineStarts(content);
+        var own = ParseModule(uri, uri, WithoutBlocks(content, starts, blocks), anchorOffset, token);
+        var trivia = own.Trivia.ToBuilder();
+        var directives = own.PrecompilerTrivia.ToBuilder();
+        var errors = own.SyntaxErrors.ToBuilder();
+        var modules = ImmutableArray.CreateBuilder<BlockModule>(blocks.Count);
+        foreach (var block in blocks)
+        {
+            var module = RDCoreDocument.BlockUri(uri, block.Name);
+            var first = block.HeaderLine + 1;
+            var from = starts[first];
+            var text = first < block.EndLine ? content[from..LineEnd(content, starts, block.EndLine - 1)] : string.Empty;
+            var anchor = new SourcePosition(first, 0).AnchoredAt(anchorOffset);
+            var parsed = ParseModule(uri, module, text, anchor, token);
+            trivia.AddRange(parsed.Trivia);
+            directives.AddRange(parsed.PrecompilerTrivia);
+            errors.AddRange(parsed.SyntaxErrors);
+
+            var range = new SourceRange(new SourcePosition(block.HeaderLine, 0).AnchoredAt(anchorOffset),
+                new SourcePosition(block.EndLine, LineEnd(content, starts, block.EndLine) - starts[block.EndLine]).AnchoredAt(anchorOffset));
+            var tree = parsed.SyntaxTree ?? EmptyModule(uri, module, WholeTextOf(NormalizeSource(text), anchor));
+            errors.AddRange(HeaderLinesIn(tree, parsed.Trivia));
+            // what the header writes before the block's kind; what each makes of the module is the language's.
+            modules.Add(new BlockModule(block.Name, ModuleKinds.Of(block.Kind), module, range, tree)
+            {
+                IsPartial = block.IsPartial,
+                IsCreatable = block.IsCreatable,
+                Visibility = block.Visibility,
+            });
+            trivia.Add(Boundary(module, block, block.HeaderLine, isEnd: false));
+            trivia.Add(Boundary(module, block, block.EndLine, isEnd: true));
+        }
+
+        return own with
+        {
+            Trivia = [.. trivia.OrderBy(node => node.SourceLocation.Range.Start)],
+            PrecompilerTrivia = [.. directives.OrderBy(node => node.SourceLocation.Range.Start)],
+            SyntaxErrors = [.. errors.OrderBy(error => error.Location.Range.Start)],
+            BlockModules = modules.MoveToImmutable(),
+        };
+
+        // a header or an end line, before its comment. Its identity is the block's module's, with a lineage of its own that no node of the module's tree
+        // has: those count up from 0, and a header alternative's root is -1 and down.
+        BlockBoundaryTriviaNode Boundary(Uri module, FileBlock block, int line, bool isEnd)
+        {
+            var from = starts[line];
+            var source = content[from..BeforeComment(content, starts, line)];
+            var location = new SourceLocation(uri,
+                new SourceRange(new SourcePosition(line, 0).AnchoredAt(anchorOffset), new SourcePosition(line, source.Length).AnchoredAt(anchorOffset)));
+            return new BlockBoundaryTriviaNode(new SyntaxNodeId(module.AbsolutePath, [isEnd ? int.MinValue + 1 : int.MinValue]), location, block.Kind, isEnd,
+                source);
+        }
+    }
+
+    // a block's header states what a module file's header and attributes state (Public Creatable Class, Private Module), and a block's module has no other
+    // attributes: an Attribute, VERSION or BEGIN line, or Option Private Module, written in a block is a syntax error where it is written.
+    private static IEnumerable<VBSyntaxErrorInfo> HeaderLinesIn(ModuleNode tree, ImmutableArray<SyntaxNode> trivia)
+    {
+        foreach (var node in tree.Descendants().Concat(trivia))
+        {
+            var verbose = node switch
+            {
+                AttributeDirectiveNode => Exceptions.VBCompileError_AttributeInABlock_Verbose,
+                ModuleOptionDirectiveNode { ModuleOption: ModuleOptions.OptionPrivateModule } => Exceptions.VBCompileError_OptionPrivateModuleInABlock_Verbose,
+                ModuleHeaderTriviaNode => Exceptions.VBCompileError_FileHeaderInABlock_Verbose,
+                _ => null,
+            };
+            if (verbose is not null)
+            {
+                yield return VBSyntaxErrorInfo.For(VBCompileErrorId.InvalidInABlock, node.SourceLocation, verbose);
+            }
+        }
+    }
+
+    // where the text of a block's header or end line ends before its comment, at its ' (no name of a module has one), or at the end of the line.
+    private static int BeforeComment(string content, List<int> starts, int line)
+    {
+        var to = LineEnd(content, starts, line);
+        var comment = content.IndexOf('\'', starts[line], to - starts[line]);
+        return comment < 0 ? to : comment;
+    }
+
+    // where each line of the text starts, a line ending at a CR, a LF or a CRLF, as FileBlocks counts them.
+    private static List<int> BlockLineStarts(string content)
+    {
+        var starts = new List<int> { 0 };
+        for (var index = 0; index < content.Length; index++)
+        {
+            if (content[index] == '\n' || content[index] == '\r' && (index + 1 == content.Length || content[index + 1] != '\n'))
+            {
+                starts.Add(index + 1);
+            }
+        }
+
+        return starts;
+    }
+
+    // where the text of a line ends, before its line ending.
+    private static int LineEnd(string content, List<int> starts, int line)
+    {
+        var end = line + 1 < starts.Count ? starts[line + 1] : content.Length;
+        while (end > starts[line] && content[end - 1] is '\r' or '\n')
+        {
+            end--;
+        }
+
+        return end;
+    }
+
+    // the text with each line of a block blank, from its header to its end, every line ending kept. A comment on its header or its end line is kept: it is
+    // the file's own module's trivia, read as any comment is (trivia, not silence).
+    private static string WithoutBlocks(string content, List<int> starts, IReadOnlyList<FileBlock> blocks)
+        => string.Create(content.Length, (content, starts, blocks), static (text, state) =>
+        {
+            state.content.CopyTo(text);
+            foreach (var block in state.blocks)
+            {
+                for (var line = block.HeaderLine; line <= block.EndLine; line++)
+                {
+                    var to = line == block.HeaderLine || line == block.EndLine
+                        ? BeforeComment(state.content, state.starts, line)
+                        : LineEnd(state.content, state.starts, line);
+                    text[state.starts[line]..to].Fill(' ');
+                }
+            }
+        });
 
     // the parse reads every line ending as a \n (NormalizeSource): the module's own is the one its first line ends with, in the text as it was given.
     private static string LineEndingOf(string content)
@@ -111,11 +263,11 @@ public partial class ModuleParser(
         return new SourceRange(anchorOffset, end.AnchoredAt(anchorOffset));
     }
 
-    // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
-    // of its own, so that no identity of its nodes is one of the module's. statistics: where how the module was read is counted; none for such a part, which
-    // is no module of its own.
-    private ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage, SegmentationStatistics? statistics,
-        CancellationToken token)
+    // module: the address the identities of the module's nodes are keyed by (ParseModule). rootLineage: the lineage of the module node, which every node's
+    // identity extends; a part of the module parsed on its own (a header alternative) has one of its own, so that no identity of its nodes is one of the
+    // module's. statistics: where how the module was read is counted; none for such a part, which is not a module of its own.
+    private ModuleParseResult Parse(Uri uri, Uri module, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage,
+        SegmentationStatistics? statistics, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var errorListener = new ErrorListener(uri, anchorOffset);
@@ -129,7 +281,7 @@ public partial class ModuleParser(
             if (string.IsNullOrWhiteSpace(content))
             {
                 // an empty module is valid VBA, not a parse failure.
-                return ModuleParseResult.Success(EmptyModule(uri, WholeTextOf(content, anchorOffset)));
+                return ModuleParseResult.Success(EmptyModule(uri, module, WholeTextOf(content, anchorOffset)));
             }
 
             // a module with no directive has nothing for the directive pass to find, which reads the whole module (a third of a parse, measured on a
@@ -139,7 +291,7 @@ public partial class ModuleParser(
             var sanitized = content;
             if (hasDirectives)
             {
-                precompilerTrivia = ParsePrecompilerNodes(content, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset, token);
+                precompilerTrivia = ParsePrecompilerNodes(content, [new PrecompilerDirectiveListener(uri, errorListener, module)], anchorOffset, token);
 
                 // the directive pass reads a directive it cannot place as text: what is wrong with the directives is found on their own lines. The main pass
                 // reads the module with each directive's lines blank.
@@ -148,7 +300,7 @@ public partial class ModuleParser(
                 sanitized = WithoutDirectives(content, directives);
             }
 
-            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, rootLineage), new(uri, WholeTextOf(content, anchorOffset)), precompilerTrivia);
+            var node = new ModuleNode(new SyntaxNodeId(module.AbsolutePath, rootLineage), new(uri, WholeTextOf(content, anchorOffset)), precompilerTrivia);
 
             // a procedure header written once in each branch of a #If block is one procedure: the main pass reads one of its headers, and the branches of the
             // others are parsed on their own, as its alternatives (SplitHeaderScanner).
@@ -164,8 +316,13 @@ public partial class ModuleParser(
             // and its alternatives are read the same way after either.
             ModuleNode ast;
             ImmutableArray<SyntaxNode> trivia;
-            if (!ForceSegments && TryParseFast(sanitized, errorListener, errors => declarations = new DeclarationsParseTreeListener(uri, node, errors) { Anchor = anchorOffset },
-                anchorOffset, token) is { } fast)
+            if (t_fileStatements)
+            {
+                (ast, trivia) = ParseScript(uri, node, sanitized, anchorOffset, errorListener, token);
+            }
+            else if (!ForceSegments
+                && TryParseFast(sanitized, errorListener,
+                    errors => declarations = new DeclarationsParseTreeListener(uri, node, errors) { Anchor = anchorOffset }, anchorOffset, token) is { } fast)
             {
                 (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
                 statistics?.Count(SegmentationStatistics.Path.Whole);
@@ -192,12 +349,12 @@ public partial class ModuleParser(
             read = (ast, trivia);
             if (alternatives.Count > 0)
             {
-                ast = WithHeaderAlternatives(uri, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia, token);
+                ast = WithHeaderAlternatives(uri, module, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia, token);
             }
 
             // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
-            // the source, which a module that has one would have read as one block too many.
-            if (errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
+            // the source, which a module that has one would have read as one block too many. A script's parts have had theirs (ParseScript).
+            if (!t_fileStatements && errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
             {
                 errorListener.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, sanitized, anchorOffset));
             }
@@ -326,6 +483,64 @@ public partial class ModuleParser(
         return null;
     }
 
+    // a script (SdkWorkspaceOptions.AllowsFileLevelStatements) read in three parts of its source, each with the others blank (ScriptSource): what it
+    // declares outside its procedures and its procedures, each read as a module is, and its code, read as the body of a procedure whose header is on the
+    // line before the first. The grammar is the one every module is read with, so a module that is no script is read as it always was. The module is what
+    // the first two declare, in the order they are written, and its code is its ProgramEntryPoint.ScriptName procedure, which it has even when it has no
+    // code. What is wrong in a part is reported as a module's is, in MS-VBA's words where its blocks do not match.
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia) ParseScript(Uri uri, ModuleNode node, string sanitized, SourcePosition anchorOffset,
+        ErrorListener errorListener, CancellationToken token)
+    {
+        var parts = ScriptSource.Split(sanitized);
+        var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
+        var next = 0;
+        var children = new List<SyntaxNode>();
+        children.AddRange(Part(parts.Declarations, anchorOffset).Children);
+        children.AddRange(Part(parts.Procedures, anchorOffset).Children);
+        children.Sort((left, right) => left.SourceLocation.Range.Start.CompareTo(right.SourceLocation.Range.Start));
+
+        // each line of the code is the line it is on in the script: the procedure's header is on the line before the first.
+        var body = Part($"Sub {ScriptProcedure}()\n{parts.Code}\nEnd Sub\n", new SourcePosition(anchorOffset.Line - 1, 0));
+        var range = parts.CodeRange is { } code
+            ? new SourceRange(code.Start.AnchoredAt(anchorOffset), code.End.AnchoredAt(anchorOffset))
+            : new SourceRange(anchorOffset, anchorOffset);
+        var location = new SourceLocation(uri, range);
+        var script = body.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.Name == ScriptProcedure);
+        children.Add(script is null
+            ? new MemberDeclarationNode(node.Identity.Add(next++), location, [], ProgramEntryPoint.ScriptName, MemberKind.Procedure, AccessModifier.Public)
+            : script with
+            {
+                SourceLocation = location,
+                Name = ProgramEntryPoint.ScriptName,
+                AccessModifier = AccessModifier.Public,
+                NameRange = null,
+                ParameterListRange = null,
+                EndRange = null,
+            });
+
+        return (node with { Children = [.. children] }, trivia.ToImmutable());
+
+        ModuleNode Part(string text, SourcePosition anchor)
+        {
+            var errors = new ErrorListener(uri, anchor);
+            var first = next;
+            var listener = ParseWithFallback(text, errors,
+                partErrors => new DeclarationsParseTreeListener(uri, node, partErrors) { NextModuleChildId = first, Anchor = anchor }, anchor, token);
+            next = listener.NextModuleChildId;
+            if (errors.HasGrammarErrors)
+            {
+                errors.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, text, anchor));
+            }
+
+            errorListener.AddFrom(errors);
+            trivia.AddRange(listener.Trivia);
+            return listener.BuildModuleNode();
+        }
+    }
+
+    // the name a script's code is read under, as the body of a procedure, before the procedure is named ProgramEntryPoint.ScriptName.
+    private const string ScriptProcedure = "Script";
+
     // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
     // stitched: the tree, the trivia and the errors a parse of the whole module gives. A member's syntax errors bound to its statements are kept with it
     // (KeepsItsErrors), and only the member is read slowly. None when a segment has another syntax error - what the grammar says is wrong, and what the
@@ -452,7 +667,7 @@ public partial class ModuleParser(
     // follows the header in the branch is of that procedure's body, in source order. Whatever else the branch holds before its header (a Declare, a variable,
     // a whole procedure) is the module's, where it is written, as a declaration written in a branch of any #If block is. What the branch's parse says is
     // wrong is the module's.
-    private ModuleNode WithHeaderAlternatives(Uri uri, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
+    private ModuleNode WithHeaderAlternatives(Uri uri, Uri module, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
         SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia, CancellationToken token)
     {
         // the scanner counts physical lines, which a U+2028 or a U+2029 ends too: a branch starts where its physical line does, on the line a position counts.
@@ -467,7 +682,7 @@ public partial class ModuleParser(
             var to = alternative.EndLine > alternative.StartLine ? PhysicalLineEnd(content, starts, Math.Min(alternative.EndLine, starts.Count) - 1) : from;
             var branch = content[from..Math.Max(from, to)];
             var start = LineStart(alternative.StartLine);
-            var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), statistics: null, token);
+            var parsed = Parse(uri, module, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), statistics: null, token);
             errorListener.AddRange(parsed.SyntaxErrors);
             trivia = trivia.AddRange(parsed.Trivia);
 
@@ -517,8 +732,8 @@ public partial class ModuleParser(
         MemberKind: MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet,
     };
 
-    private static ModuleNode EmptyModule(Uri uri, SourceRange wholeText)
-        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, wholeText), []);
+    private static ModuleNode EmptyModule(Uri uri, Uri module, SourceRange wholeText)
+        => new(new SyntaxNodeId(module.AbsolutePath, []), new(uri, wholeText), []);
 
     // a line ends where LSP 3.17 ends one, at a CR, a LF or a CRLF, and the parse reads each as a \n: ANTLR counts a line only at a \n, so the positions of
     // the tree are the ones a client counts. A U+2028 or a U+2029 ends a physical line too (MS-VBAL §3.2.1) and is left as it is: the lexer reads it as a
@@ -609,6 +824,11 @@ public partial class ModuleParser(
 
     [ThreadStatic]
     private static long t_directiveLooks;
+
+    // whether the module the thread parses may have statements outside its procedures (SdkWorkspaceOptions.AllowsFileLevelStatements), which are the
+    // code of its (Script) procedure: set as the public Parse starts, and read by every parse of the module and of its parts.
+    [ThreadStatic]
+    private static bool t_fileStatements;
 
     /// <summary>
     /// The work the directive passes of this thread's last <see cref="Parse(Uri, string, SourcePosition, CancellationToken)"/> did, the module's and its

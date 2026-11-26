@@ -492,6 +492,9 @@
   <data name="VBCompileError_OutputItemsNotSeparated" xml:space="preserve">
     <value>Éléments de sortie non séparés</value>
   </data>
+  <data name="VBCompileError_InvalidInABlock" xml:space="preserve">
+    <value>Incorrect dans un bloc Class ou Module</value>
+  </data>
   <data name="VBCompileError_ReservedNameArguments_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; s&apos;écrit avec le(s) {1} argument(s) qu&apos;il prend, entre parenthèses.</value>
   </data>

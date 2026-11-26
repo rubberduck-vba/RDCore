@@ -460,9 +460,10 @@ internal static class ModuleWorkspace
         return running.Task;
     }
 
-    // how long a program that was cancelled has to answer the cancel, which it does at its next instruction: the bound past which a program that never
-    // answers fails its test, so that it does not leave the test waiting. A program that answers takes a fraction of it.
-    private static readonly TimeSpan AnswerGuard = TimeSpan.FromMinutes(5);
+    // how long a program that was cancelled has to answer the cancel, which it does at its next instruction, or a program that must end has to end: the
+    // bound past which a program that never answers or never ends fails its test, so that it does not leave the test waiting. A program that does takes a
+    // fraction of it.
+    internal static readonly TimeSpan AnswerGuard = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
@@ -716,7 +717,7 @@ internal static class ModuleWorkspace
                         Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
                         Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree!.GetModuleDirectives()),
                         ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                        ImplementedInterfaceLocations = module.Parse.SyntaxTree!.GetImplementedInterfaceLocations(),
                         PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
                         Replace = true,
                         DeclareTypesOnly = declareTypesOnly,
@@ -735,7 +736,7 @@ internal static class ModuleWorkspace
                     ModuleName = module.Module.Name,
                     Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree.GetModuleDirectives()),
                     ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    ImplementedInterfaceLocations = module.Parse.SyntaxTree!.GetImplementedInterfaceLocations(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),
                     CodeOnly = true,
                 }, CancellationToken.None);

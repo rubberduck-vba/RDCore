@@ -69,6 +69,12 @@ public static class RuntimeSessionComposer
     }
 
     /// <summary>
+    /// A new, empty file system in memory, whose current directory is the root of the platform's paths (<c>C:\</c> on Windows, <c>/</c> elsewhere): what a
+    /// session that analyzes code and is never run acts on, so that no file statement of the code reaches a disk.
+    /// </summary>
+    public static IFileSystem NoFiles() => new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/");
+
+    /// <summary>
     /// Composes a session to <em>analyze</em> code in: it has the declared symbols of <paramref name="staticContext"/> as they are now and holds the run-time
     /// state of its own.
     /// </summary>
@@ -98,7 +104,7 @@ public static class RuntimeSessionComposer
 
         return Compose(
             staticContext.Environment, staticContext.References, declared.Table.Snapshot(), NullRuntimeOutput.Instance,
-            fileSystem ?? new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/"), staticContext.Libraries,
+            fileSystem ?? NoFiles(), staticContext.Libraries,
             staticContext.Build);
     }
 

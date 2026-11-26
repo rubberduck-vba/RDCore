@@ -48,11 +48,13 @@ public sealed class SyntaxTreeSymbolProvider(
     // on a thread whose stack has room for the deepest expression a parse has (LargeStackThread): the names of an expression are found by recursion, once or
     // more for each level of it, and a module whose expression is nested too deeply to run (VBC00060) still declares what it declares.
     public IEnumerable<Symbol> ProvideSymbols()
-        => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription).ToList());
+        => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription)
+            .Select(symbol => symbol.InDocument(parseResult.SyntaxTree?.SourceLocation.Uri)).ToList());
 
-    // what a member's own module says it does (`Attribute Item.VB_Description = "..."`): what a completion list and a signature help show of it.
+    // what a member's or a module variable's own module says it is (its VB_Description or VB_VarDescription attribute, else its '@Description or
+    // '@VariableDescription annotation): what a hover, a completion list and a signature help show of it.
     private Symbol WithDescription(Symbol member)
-        => member is VBTypeMemberSymbol typeMember && parseResult.SyntaxTree?.GetMemberDescription(typeMember.Name) is { } description
+        => member is VBTypeMemberSymbol typeMember && parseResult.GetMemberDescription(typeMember.Name) is { } description
             ? typeMember.With(SymbolProperties.DocString, description)
             : member;
 
@@ -107,17 +109,21 @@ public sealed class SyntaxTreeSymbolProvider(
         }
     }
 
+    // what is written at a position of the file the module is parsed from: a symbol says its range, and the #If blocks are keyed by file and range.
+    private SourceLocation InTheFile(SourcePosition position)
+        => new(parseResult.SyntaxTree?.SourceLocation.Uri ?? moduleUri, new SourceRange(position, position));
+
     // The sites of one declaration, in source order, in groups of sites that are each alternatives of every other site in the group: a site joins the first group
     // whose every site is in another branch than it, and begins a group of its own when none is - which is what a second declaration in the same branch is.
     // A name that every procedure of a module declares by mentioning it (the implicit variable of a module-scoped environment) is declared by none of
     // them in particular, and is the one variable however many sites there are.
-    private static List<List<WorkspaceSymbol>> ClusterAlternatives(List<WorkspaceSymbol> sites, ConditionalCompilationBlocks blocks)
+    private List<List<WorkspaceSymbol>> ClusterAlternatives(List<WorkspaceSymbol> sites, ConditionalCompilationBlocks blocks)
     {
         var groups = new List<List<WorkspaceSymbol>>();
         foreach (var site in sites)
         {
             var group = groups.FirstOrDefault(candidate => candidate.All(other
-                => (IsImplicit(other) && IsImplicit(site)) || blocks.AreAlternatives(other.Range.Start, site.Range.Start)));
+                => (IsImplicit(other) && IsImplicit(site)) || blocks.AreAlternatives(InTheFile(other.Range.Start), InTheFile(site.Range.Start))));
             if (group is null)
             {
                 groups.Add([site]);
@@ -153,7 +159,7 @@ public sealed class SyntaxTreeSymbolProvider(
         // module-level names are order-independent, so collect them before walking the members — a
         // ReDim in one procedure may re-dimension a field declared further down the module.
         var moduleScopeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var sites = new Dictionary<string, List<SourcePosition>>(StringComparer.OrdinalIgnoreCase);
+        var sites = new Dictionary<string, List<SourceLocation>>(StringComparer.OrdinalIgnoreCase);
         foreach (var child in module.Children)
         {
             var name = child switch
@@ -166,7 +172,7 @@ public sealed class SyntaxTreeSymbolProvider(
             if (name is not null)
             {
                 moduleScopeNames.Add(name);
-                (sites.TryGetValue(name, out var positions) ? positions : sites[name] = []).Add(child.SourceLocation.Range.Start);
+                (sites.TryGetValue(name, out var locations) ? locations : sites[name] = []).Add(child.SourceLocation);
             }
         }
 
@@ -183,10 +189,28 @@ public sealed class SyntaxTreeSymbolProvider(
             conditional.Remove(control.Name);
         }
 
+        // a script's code (ProgramEntryPoint.ScriptName) is the file's own: what it declares (by a Dim or a Const anywhere in it, a ReDim, or a name it
+        // uses) is the module's, as a VBScript global is, and every procedure of the module sees it. It is read first, so the procedures know those names.
+        var script = module.Children.OfType<MemberDeclarationNode>().FirstOrDefault(IsScript);
+        var scriptSymbols = script is null
+            ? []
+            : FromMember(builder, script, moduleScopeNames, conditional, blocks.IsConditional, directives, withImplicitDeclarations, implicitScope,
+                ofTheModule: true)
+                .ToList();
+        moduleScopeNames.UnionWith(scriptSymbols.Where(symbol => symbol is VBModuleFieldVariableMemberSymbol or VBConstantMemberSymbol)
+            .Select(symbol => symbol.Name));
+
         foreach (var child in module.Children)
         {
             switch (child)
             {
+                case MemberDeclarationNode member when ReferenceEquals(member, script):
+                    foreach (var symbol in scriptSymbols)
+                    {
+                        yield return symbol;
+                    }
+                    break;
+
                 case ExternalMemberDeclarationNode external:
                     yield return builder.BuildExternal(external);
                     break;
@@ -197,7 +221,8 @@ public sealed class SyntaxTreeSymbolProvider(
                 case MemberDeclarationNode member:
                     foreach (var declared in member.WithEachHeader())
                     {
-                        var symbols = FromMember(builder, declared, moduleScopeNames, conditional, blocks, directives, withImplicitDeclarations, implicitScope);
+                        var symbols = FromMember(
+                            builder, declared, moduleScopeNames, conditional, blocks.IsConditional, directives, withImplicitDeclarations, implicitScope);
                         var isRepeat = !ReferenceEquals(declared, member) && string.Equals(declared.Name, member.Name, StringComparison.OrdinalIgnoreCase);
                         foreach (var symbol in isRepeat ? symbols.Take(1) : symbols)
                         {
@@ -250,10 +275,13 @@ public sealed class SyntaxTreeSymbolProvider(
             _ => string.Empty,
         }).Where(name => name.Length > 0), StringComparer.OrdinalIgnoreCase);
 
+    private static bool IsScript(MemberDeclarationNode member)
+        => member.MemberKind == MemberKind.Procedure && member.Name == ProgramEntryPoint.ScriptName;
+
     private static IEnumerable<Symbol> FromMember(
         SymbolBuilder builder, MemberDeclarationNode member, IReadOnlySet<string> moduleScopeNames,
-        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>> conditional, ConditionalCompilationBlocks blocks,
-        ModuleDirectives directives, bool withImplicitDeclarations, ImplicitDeclarationScope implicitScope)
+        IReadOnlyDictionary<string, ImmutableArray<SourceLocation>> conditional, Func<SourceLocation, bool> isConditional,
+        ModuleDirectives directives, bool withImplicitDeclarations, ImplicitDeclarationScope implicitScope, bool ofTheModule = false)
     {
         switch (member.MemberKind)
         {
@@ -287,7 +315,9 @@ public sealed class SyntaxTreeSymbolProvider(
                 var conditionalOuter = conditional.Where(site => !member.Children.OfType<ParameterDeclarationNode>()
                     .Any(parameter => string.Equals(parameter.Name, site.Key, StringComparison.OrdinalIgnoreCase)))
                     .ToDictionary(site => site.Key, site => site.Value, StringComparer.OrdinalIgnoreCase);
-                foreach (var local in builder.BuildLocals(member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter, blocks.IsConditional))
+                var locals = builder.BuildLocals(
+                    member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter, isConditional, ofTheModule);
+                foreach (var local in locals)
                 {
                     yield return local;
                 }

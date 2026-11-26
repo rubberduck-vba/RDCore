@@ -146,9 +146,24 @@ public sealed class ForEachObjectTests
     }
 
     [TestMethod]
-    public async Task ANothing_IsError91()
-        => CollectionAssert.AreEqual(new[] { "91" },
+    public async Task ANothing_IsError424()
+        => CollectionAssert.AreEqual(new[] { "424" },
             await RunAsync("Dim c As Collection", "Dim v As Variant", "On Error GoTo Failed", "For Each v In c", "Next", "Exit Sub", "Failed:", "Debug.Print Err.Number"));
+
+    // MS-VBA, observed in Excel: 451, for a member declared As IUnknown or As Object.
+    [TestMethod]
+    [DataRow("IUnknown", DisplayName = "As IUnknown")]
+    [DataRow("Object", DisplayName = "As Object")]
+    public async Task AnEnumerationMember_ThatReturnsNothing_IsError451(string newEnumType)
+    {
+        var hollow = ("Hollow", ModuleWorkspace.ClassModule("Hollow",
+            $"Public Property Get NewEnum() As {newEnumType}", "Attribute NewEnum.VB_UserMemId = -4", "Set NewEnum = Nothing", "End Property"));
+
+        CollectionAssert.AreEqual(new[] { "451" },
+            await ModuleWorkspace.RunAsync([hollow], Program(
+                "Dim h As New Hollow", "Dim v As Variant", "On Error GoTo Failed", "For Each v In h", "Next",
+                "Exit Sub", "Failed:", "Debug.Print Err.Number")));
+    }
 
     // ---- the pieces this rests on ----
 

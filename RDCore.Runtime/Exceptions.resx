@@ -195,11 +195,17 @@
   <data name="VBRuntimeError_NobodyToAnswer_Verbose" xml:space="preserve">
     <value>{0} in a program run unattended (--unattended): nobody is there to answer it, and the run fails.</value>
   </data>
+  <data name="VBRuntimeError_NobodyToUnload_Verbose" xml:space="preserve">
+    <value>{0} is still loaded when the program run unattended (--unattended) returns from its entry point: nobody is there to unload it, and the run fails.</value>
+  </data>
   <data name="VBForLoopOperandNotOfLoopType_Verbose" xml:space="preserve">
     <value>This For loop counts in {0}, and its start, end or step is not a value of that type.</value>
   </data>
-  <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
-    <value>This For Each loop's collection expression is Nothing. Enumerating it requires invoking its _NewEnum member, which cannot be done on an object reference that isn't set.</value>
+  <data name="VBForEach_ObjectRequired_Verbose" xml:space="preserve">
+    <value>This For Each loop's collection is Nothing. A For Each loop enumerates an array or an object, and Nothing is neither.</value>
+  </data>
+  <data name="VBForEach_PropertyGetDidNotReturnObject_Verbose" xml:space="preserve">
+    <value>The enumeration member (_NewEnum) of this For Each loop's collection returned no object: there is no enumerator to give the loop its elements.</value>
   </data>
   <data name="VBMemberAssignment_NotAssignable_Verbose" xml:space="preserve">
     <value>The object has no public variable, and no Property Let or Property Set, of this name for the assignment to write to.</value>

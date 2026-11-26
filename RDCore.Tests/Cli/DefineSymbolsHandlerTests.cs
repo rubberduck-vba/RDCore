@@ -81,6 +81,47 @@ public sealed class DefineSymbolsHandlerTests
         CollectionAssert.AreEqual(new[] { "DoWork" }, second.Skipped.ToArray());
     }
 
+    // MS-VBAL §3.4: the reply names the branches the request's directives make dead, each by where its body is in the module's document.
+    [TestMethod]
+    [DataRow("0", 0, DisplayName = "#If 0: the If branch is dead")]
+    [DataRow("1", 1, DisplayName = "#If 1: the Else branch is dead")]
+    public async Task TheBranchTheDirectivesMakeDead_IsOnTheReply_AndHoldsItsDeclarationOnly(string condition, int dead)
+    {
+        var document = new Uri("file:///c:/ws/src/Mod1.bas");
+        var parse = new RDCore.Parsing.ModuleParser().Parse(document,
+            $"Option Explicit\r\n#If {condition} Then\r\nPublic Sub A()\r\nEnd Sub\r\n#Else\r\nPublic Sub A()\r\nEnd Sub\r\n#End If\r\n");
+        var declarations = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, declarations, "the parse holds the declaration of each branch");
+
+        var result = await NewHandler().Handle(
+            Request(Procedure("A")) with { ModuleUri = document, PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse) },
+            CancellationToken.None);
+
+        var branch = result.DeadBranches.Single();
+        Assert.AreEqual(document, branch.Uri);
+        Assert.IsTrue(Holds(branch, declarations[dead]), $"{branch.Range} holds the declaration of the dead branch");
+        Assert.IsFalse(Holds(branch, declarations[1 - dead]), $"{branch.Range} does not hold the declaration of the live branch");
+    }
+
+    [TestMethod]
+    [DataRow("Option Explicit\r\n#If 1 Then\r\nPublic Sub A()\r\nEnd Sub\r\n#End If\r\n", DisplayName = "a block whose one branch is live")]
+    [DataRow("Option Explicit\r\nPublic Sub A()\r\nEnd Sub\r\n", DisplayName = "no directive")]
+    public async Task AModuleWhoseDirectivesMakeNoBranchDead_HasNoneOnTheReply(string text)
+    {
+        var document = new Uri("file:///c:/ws/src/Mod1.bas");
+        var parse = new RDCore.Parsing.ModuleParser().Parse(document, text);
+
+        var result = await NewHandler().Handle(
+            Request(Procedure("A")) with { ModuleUri = document, PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse) },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, result.Defined, "the module was defined");
+        Assert.IsEmpty(result.DeadBranches);
+    }
+
+    private static bool Holds(RDCore.SDK.Model.Source.SourceLocation branch, MemberDeclarationNode declaration)
+        => branch.Range.Start <= declaration.SourceLocation.Range.Start && declaration.SourceLocation.Range.End <= branch.Range.End;
+
     [TestMethod]
     public async Task DuplicateDescriptors_MergeIntoOneSymbol_AndAreCounted()
     {
@@ -267,7 +308,8 @@ public sealed class DefineSymbolsHandlerTests
         provider.Compose(
             new RDCoreProject { Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module.File })] },
             WorkspaceRoot,
-            modules.ToDictionary(module => module.File, module => (module.Name, module.Kind)));
+            modules.ToDictionary(module => module.File,
+                IReadOnlyList<DeclaredModule> (module) => [new DeclaredModule(module.Name, module.Kind, IsBlock: false)]));
         var handler = new DefineSymbolsHandler(provider, Substitute.For<IProjectAnalysisSessions>(), Substitute.For<IErrorDetailsRecorder>(),
             NullLogger<DefineSymbolsHandler>.Instance);
         return (provider, handler);

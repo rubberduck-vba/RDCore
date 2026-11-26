@@ -22,35 +22,33 @@ internal static class ProjectModules
         Collect(IWorkspaceDocumentService documents, IParsingClientService parsing, string projectRoot, Uri? workspaceRoot, CancellationToken token)
     {
         var parsed = Parsed(documents, parsing, projectRoot, token);
-        var taken = ModuleNameStaticSemantics.NamesTakenTwice(parsed.Select(module => module.Name));
+        var taken = ModuleNameStaticSemantics.NamesTakenTwice(NamesOf(parsed));
         var modules = new List<ParsedModule>();
         var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (document, moduleName, parseResult) in parsed)
+        foreach (var (document, _, parseResult) in parsed)
         {
             workspaceRoot ??= SymbolUri.Root(document.WorkspaceRoot);
-            if (taken.Contains(moduleName))
+            // the document's modules: its own, named by its Attribute VB_Name or else its file, of the kind its raw source says (never a parser input, as the
+            // parsing pass reads it), then each of its blocks', each left out when another module has its name. A host document is the code of the file's own
+            // module.
+            var its = ParsedModules.Of(workspaceRoot, document.Id.Uri.ToUri(), parseResult, document.Name, ParsingClientService.ModuleTypeOf(document));
+            modules.AddRange(its.Where(module => !taken.Contains(module.Name)));
+            if (document.Super is { } super && !taken.Contains(its[0].Name))
             {
-                continue;
-            }
-
-            // module kind is never a parser input: it is read off the raw source, as the parsing pass reads it.
-            var moduleKind = ParsingClientService.ModuleTypeOf(document);
-            modules.Add(new ParsedModule(SymbolUri.Module(workspaceRoot, moduleName), moduleName, moduleKind, parseResult));
-            if (document.Super is { } super)
-            {
-                hosts.TryAdd(moduleName, super);
+                hosts.TryAdd(its[0].Name, super);
             }
         }
 
         return (workspaceRoot, modules, hosts);
     }
 
-    // the modules of a project whose name another module of it has, by their document, and the error each is in (MS-VBAL §4.2).
+    // the modules of a project whose name another module of it has, a block's included, by their document, and the error each is in (MS-VBAL §4.2): a
+    // file's own module only, which the error is said in.
     public static IReadOnlyDictionary<string, (string ModuleName, VBCompileErrorInfo Error)> NameConflicts(
         IWorkspaceDocumentService documents, IParsingClientService parsing, string projectRoot, CancellationToken token)
     {
         var parsed = Parsed(documents, parsing, projectRoot, token);
-        var taken = ModuleNameStaticSemantics.NamesTakenTwice(parsed.Select(module => module.Name));
+        var taken = ModuleNameStaticSemantics.NamesTakenTwice(NamesOf(parsed));
         return parsed.Where(module => taken.Contains(module.Name)).ToDictionary(
             module => module.Document.Id.Uri.ToUri().AbsoluteUri,
             module => (module.Name, ModuleNameStaticSemantics.NameTaken(module.Parse.SyntaxTree!, module.Name)));
@@ -76,4 +74,8 @@ internal static class ProjectModules
 
         return parsed;
     }
+
+    // the name of each module of the parsed documents: each one's own, then its blocks'.
+    private static IEnumerable<string> NamesOf(List<(WorkspaceDocument Document, string Name, ModuleParseResult Parse)> parsed)
+        => parsed.SelectMany(module => module.Parse.BlockModules.Select(block => block.Name).Prepend(module.Name));
 }

@@ -80,6 +80,18 @@ public sealed class DuplicateOptionStatementTests
         => CollectionAssert.AreEqual(Array.Empty<string>(), await ModuleWorkspace.LoadErrorsAsync([], Program(
             "#If NothingDefinesThis Then", "Option Base 1", "#Else", "Option Base 0", "#End If", "Option Explicit")));
 
+    // MS-VBAL §3.4: a branch that is not live is not part of the module, and neither is an option it states.
+    // AnOptionStatedInABranch_AndOutsideTheBlock_IsStatedTwice is the twin of the first, with the branch live.
+    [TestMethod]
+    public async Task AnOptionStatedInADeadBranch_AndOutsideTheBlock_IsStatedOnce()
+        => CollectionAssert.AreEqual(Array.Empty<string>(), await ModuleWorkspace.LoadErrorsAsync([], Program(
+            "Option Explicit", "#If 0 Then", "Option Explicit", "#End If")));
+
+    [TestMethod]
+    public async Task AnOptionStatedTwiceInADeadBranch_IsNoStatementOfIt()
+        => CollectionAssert.AreEqual(Array.Empty<string>(), await ModuleWorkspace.LoadErrorsAsync([], Program(
+            "#If 0 Then", "Option Base 1", "Option Base 1", "#End If", "Option Explicit")));
+
     [TestMethod]
     public async Task AnOptionStatedInABranch_AndOutsideTheBlock_IsStatedTwice()
     {

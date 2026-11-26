@@ -930,6 +930,21 @@ public sealed class DocumentLifecycleServiceTests
         _refresh.Received(1).Changed();
     }
 
+    // a document of blocks is the text of each of its modules, and takes each out of the host: its own, then each block's.
+    [TestMethod]
+    public async Task ADocumentOfBlocksThatIsNotAFile_TakesEachOfItsModulesOutOfTheHost_OnceClosed()
+    {
+        _sut.Opened(Mod1, "a", 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        TheParseOfTheDocumentIs(Mod1, "Public Sub Foo()\r\nEnd Sub\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n");
+
+        await _sut.ClosedAsync(Mod1);
+
+        CollectionAssert.AreEqual(new[] { "Mod1", "Account", "Helpers" }, _symbols.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(ISymbolSyncService.DiscardModuleAsync))
+            .Select(call => (string)call.GetArguments()[0]!).ToArray());
+    }
+
     [TestMethod]
     public async Task ADocumentThatWasNeverParsed_HasNoModuleInTheHostToTakeOut()
     {

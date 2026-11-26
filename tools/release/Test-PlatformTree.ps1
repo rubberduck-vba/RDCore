@@ -156,9 +156,9 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
 }
 
 # (c) every first-party assembly carries the same informational version, <platformVersion>+<commit>. The assemblies of the
-# RDCore.SDK package (RDCore.SDK, RDCore.SDK.Protocol) and of the RDCore.Forms package (RDCore.Forms, RDCore.Forms.Avalonia)
+# RDCore.SDK and RDCore.SDK.Protocols packages and of the RDCore.Forms package (RDCore.Forms, RDCore.Forms.Avalonia)
 # come from NuGet and carry their package's version instead: the same one in every folder.
-$PackageAssemblyNames = @("RDCore.SDK.dll", "RDCore.SDK.Protocol.dll", "RDCore.Forms.dll", "RDCore.Forms.Avalonia.dll")
+$PackageAssemblyNames = @("RDCore.SDK.dll", "RDCore.SDK.Protocols.dll", "RDCore.Forms.dll", "RDCore.Forms.Avalonia.dll")
 $Assemblies = @(Get-ChildItem -LiteralPath $Root -Recurse -File |
     Where-Object { ($_.Name -like "RDCore.*.dll" -or $_.Name -eq "rdc.dll") -and $_.Name -notlike "*.resources.dll" -and $_.Name -notin $PackageAssemblyNames })
 if ($Assemblies.Count -eq 0) {

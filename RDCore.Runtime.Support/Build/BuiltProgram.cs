@@ -43,8 +43,12 @@ internal sealed record class BuiltEnvironment(
         SourceLanguage: SupportedLanguages.TryGet(Language, out var language) ? language : null);
 }
 
-// a module of the project as the build read it: its name and its kind, which its source says and which the program cannot read where it runs.
-internal sealed record class BuiltModule(string RelativeUri, string Name, ModuleType Kind);
+// a module of the project as the build read it: its name and its kind, which its source says and which the program cannot read where it runs. A file of
+// several modules has one for each, in the order ModuleKinds.ModulesOf gives them: its own, then each block's (IsBlock).
+internal sealed record class BuiltModule(string RelativeUri, string Name, ModuleType Kind)
+{
+    public bool IsBlock { get; init; }
+}
 
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
 // runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
@@ -148,7 +152,9 @@ public static class BuiltProgram
             ProgramDialogs.DialogsOf(image.Project.Build, image.NativeDialogs, () => ConsoleDialogsOf(keys, output)) is { } dialogs
                 ? MachineExternal.World with { Interaction = dialogs }
                 : null);
-        provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
+        provider.Compose(image.Project, image.Root, image.Modules.GroupBy(module => module.RelativeUri, StringComparer.Ordinal).ToDictionary(
+            file => file.Key, IReadOnlyList<DeclaredModule> (file) => [.. file.Select(module => new DeclaredModule(module.Name, module.Kind, module.IsBlock))],
+            StringComparer.Ordinal));
         // App is the program's executable, or its assembly when it runs with dotnet; it is another instance when one of the same executable holds its name.
         var executable = ExecutableOf(program) ?? Path.Combine(AppContext.BaseDirectory, program.GetName().Name!);
         using var instance = new Mutex(initiallyOwned: false, InstanceName(executable), out var first);

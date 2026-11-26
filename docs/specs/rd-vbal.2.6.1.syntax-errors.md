@@ -234,6 +234,7 @@ The host evaluates the directives with the session's constants (`PrecompilerLive
 |[`VBC00059`](../diagnostics/vbc00059.md)|You must terminate the #If block with an #EndIf|a `#If` block is not ended|
 |[`VBC00060`](../diagnostics/vbc00060.md)|Expression nested too deeply|an expression is nested in more than 2,500 others|
 |[`VBC00061`](../diagnostics/vbc00061.md)|Output items not separated|an output item is written right after another, with nothing between them ([**RD-VBAL §5.4.5.8.1**](rd-vbal.5.4.5.8.print-statement.md#54581-output-lists))|
+|[`VBC00062`](../diagnostics/vbc00062.md)|Invalid in a Class or Module block|an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line is written inside a block ([**RD-VBAL §5.1**](rd-vbal.5.1.module-body-structure.md#several-modules-in-one-file))|
 
 ## Directives That Are Wrong
 

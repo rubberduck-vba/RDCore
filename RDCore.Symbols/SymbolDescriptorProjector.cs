@@ -73,6 +73,7 @@ public static class SymbolDescriptorProjector
             Array = ArrayOf(accessible?.ResolvedType, symbol),
             FixedLength = FixedLengthOf(accessible?.ResolvedType),
             FixedLengthName = symbol.GetProperty(SymbolProperties.FixedLengthName),
+            DocumentUri = (symbol as WorkspaceSymbol)?.DocumentUri,
             Range = accessible?.Range ?? default,
             SelectionRange = accessible?.SelectionRange ?? default,
             Definitions = DefinitionsOf(symbol),

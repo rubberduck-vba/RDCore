@@ -3,12 +3,12 @@
   <PropertyGroup>
     <!-- the single version source for every project; a release tag must equal v<VersionPrefix>[-suffix], the suffix passed as -p:VersionSuffix. -->
     <VersionPrefix>0.2.8</VersionPrefix>
-    <!-- the RDCore.SDK package every project builds on (the RDCore.SDK.Protocol assembly is inside it): one version for all of them. -->
-    <RDCoreSdkVersion>0.1.18-alpha</RDCoreSdkVersion>
+    <!-- the RDCore.SDK package every project builds on, which brings the RDCore.SDK.Protocols package it depends on: one version for all of them. -->
+    <RDCoreSdkVersion>0.2.1-alpha</RDCoreSdkVersion>
     <!-- the RDCore.Forms package the RDForms form host builds on (the RDCore.Forms and RDCore.Forms.Avalonia assemblies are inside it), and the Avalonia it is
          built with: the host starts Avalonia itself. A build on packages that are not published passes their version and feed, as -p:RDCoreSdkVersion,
          -p:RDCoreFormsVersion and -p:RestoreConfigFile. -->
-    <RDCoreFormsVersion>0.1.6-alpha</RDCoreFormsVersion>
+    <RDCoreFormsVersion>0.1.7-alpha</RDCoreFormsVersion>
     <AvaloniaVersion>12.0.5</AvaloniaVersion>
     <!-- the runtimes the platform is published for (release.yml builds a tree of each), and that rdc build can make a program for wherever it runs: the
          published rdc ships the .NET application host of each (RDCore.CLI.csproj), which tools/release/Test-PlatformTree.ps1 checks. -->

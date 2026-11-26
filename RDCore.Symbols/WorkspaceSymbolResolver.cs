@@ -145,12 +145,18 @@ public static class WorkspaceSymbolResolver
                         BaseClass = parseResult.Designer?.BaseClass,
                         Directives = directives,
                         ImplementedInterfaceNames = implementedInterfaceNames,
-                        ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
+                        ImplementedInterfaceLocations = parseResult.SyntaxTree?.GetImplementedInterfaceLocations() ?? [],
                     }
                     .With(SymbolProperties.Creatable, directives.Creatable)
                     .With(SymbolProperties.PredeclaredId, directives.PredeclaredId)
                     .With(SymbolProperties.Extensible, directives.Extensible)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
+            // what the module says it is (its VB_Description attribute, else its '@ModuleDescription annotation): what a hover and a completion list show.
+            if (parseResult.GetModuleDescription() is { } description)
+            {
+                module = (VBModuleSymbol)module.With(SymbolProperties.DocString, description);
+            }
+
             // members can't ride on the module symbol the way a Type's fields ride on it (built from
             // one AST node's own children) - a module's members are separate top-level declarations,
             // so they're only known once the member provider below has run.

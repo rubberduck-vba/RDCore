@@ -2,6 +2,7 @@ using RDCore.Runtime.LanguageCore.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
@@ -10,8 +11,15 @@ using RDCore.SDK.Workspace;
 
 namespace RDCore.Symbols;
 
-// a module of a project that has a parse, addressed under the project's root.
-public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse);
+// a module of a project that has a parse, addressed under the project's root (ParsedModules.Of gives a document's).
+public sealed record class ParsedModule(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)
+{
+    // the file the module is written in; none for a module the client supplied itself.
+    public Uri? Document { get; init; }
+
+    // where in its file a block's module is, from its header to its end; none for the file's own module.
+    public SourceRange? Range { get; init; }
+}
 
 // a project the session's project references (MS-VBAL §4.1), as its modules are defined in the session: addressed under its own root, bound among its own
 // project's names (Resolver), and named as the project at the precedence of the reference (DefineSymbolsParams.Library, LibraryPriority).
@@ -55,7 +63,7 @@ public sealed record class SessionDefinition(
             ModuleName = Module.Name,
             Directives = ModuleKinds.DirectivesOf(Module.Kind, tree.GetModuleDirectives()),
             ImplementedInterfaceNames = tree?.GetImplementedInterfaceNames() ?? [],
-            ImplementedInterfaceRanges = tree?.GetImplementedInterfaceRanges() ?? [],
+            ImplementedInterfaceLocations = tree?.GetImplementedInterfaceLocations() ?? [],
             Library = Referenced?.Name,
             LibraryPriority = Referenced?.Priority ?? 0,
             ModuleType = Module.Kind,
