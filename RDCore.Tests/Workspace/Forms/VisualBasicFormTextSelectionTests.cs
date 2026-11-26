@@ -9,7 +9,6 @@ namespace RDCore.Tests.Workspace.Forms;
 /// setting each does to the others. Each row is what Visual Basic 6.0 does (observed, native and p-code).
 /// </summary>
 [TestClass]
-[Ignore("not implemented: RDForms keeps a TextBox's selection in its view, which the form host cannot reach, and its class has no SelStart, SelLength or SelText (438)")]
 public sealed class VisualBasicFormTextSelectionTests
 {
     private static string Form1() => string.Join("\r\n", [
