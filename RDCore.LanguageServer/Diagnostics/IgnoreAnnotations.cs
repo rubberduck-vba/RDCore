@@ -30,7 +30,8 @@ internal static class IgnoreAnnotations
     public static IReadOnlyList<Diagnostic> Apply(
         Uri file, ModuleParseResult parse, IReadOnlyList<Diagnostic> found, AnalysisPhase phase, IReadOnlySet<RDCoreDiagnosticCode> disabled)
     {
-        var annotations = parse.Trivia.OfType<AnnotationTriviaNode>().Where(annotation => Is(annotation, Ignore) || Is(annotation, IgnoreModule)).ToArray();
+        var annotations = parse.Trivia.OfType<AnnotationTriviaNode>()
+            .Where(annotation => annotation.IsNamed(Ignore) || annotation.IsNamed(IgnoreModule)).ToArray();
         if (annotations.Length == 0)
         {
             return found;
@@ -41,8 +42,6 @@ internal static class IgnoreAnnotations
         var scopes = ScopesOf(file, parse);
         return scopes.Count == 0 ? all : [.. all.Where(diagnostic => !scopes.Any(scope => scope.Suppresses(diagnostic)))];
     }
-
-    private static bool Is(AnnotationTriviaNode annotation, string name) => string.Equals(annotation.Name, name, StringComparison.OrdinalIgnoreCase);
 
     // the module an annotation suppresses findings in (none: the whole file), and the codes it suppresses (none: every code that can be disabled).
     private sealed record Scope(RDCoreDocument? Document, Uri? Module, IReadOnlySet<RDCoreDiagnosticCode>? Codes)
@@ -60,7 +59,7 @@ internal static class IgnoreAnnotations
         if (!parse.BlockModules.Any())
         {
             return [.. parse.Trivia.OfType<AnnotationTriviaNode>()
-                .Where(annotation => Is(annotation, Ignore) || Is(annotation, IgnoreModule))
+                .Where(annotation => annotation.IsNamed(Ignore) || annotation.IsNamed(IgnoreModule))
                 .Select(annotation => new Scope(null, null, CodesOf(annotation)))];
         }
 
@@ -73,8 +72,8 @@ internal static class IgnoreAnnotations
     // '@IgnoreModule anywhere in the module's parse, and '@Ignore above a block's header.
     private static IEnumerable<AnnotationTriviaNode> SuppressionsOf(ModuleParseResult? module)
         => module is null ? []
-            : [.. module.Trivia.OfType<AnnotationTriviaNode>().Where(annotation => Is(annotation, IgnoreModule)),
-                .. module.GetHeaderAnnotations().Where(annotation => Is(annotation, Ignore))];
+            : [.. module.Trivia.OfType<AnnotationTriviaNode>().Where(annotation => annotation.IsNamed(IgnoreModule)),
+                .. module.GetHeaderAnnotations().Where(annotation => annotation.IsNamed(Ignore))];
 
     // every code that can be disabled when the annotation names none; the codes its arguments name otherwise, which are none when no argument names any.
     private static HashSet<RDCoreDiagnosticCode>? CodesOf(AnnotationTriviaNode annotation)
