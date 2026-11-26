@@ -43,6 +43,15 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>DebuggerMessages.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <Compile Update="Diagnostics\SuppressionMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>SuppressionMessages.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Diagnostics\SuppressionMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>SuppressionMessages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <Compile Update="Progress\ProgressMessages.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

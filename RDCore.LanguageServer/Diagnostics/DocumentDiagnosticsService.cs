@@ -129,7 +129,7 @@ internal sealed class DocumentDiagnosticsService(
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
-        return (Aggregate(reports), providers.Length);
+        return (IgnoreAnnotations.Apply(documentUri, parseResult, Aggregate(reports), phase, Disabled), providers.Length);
     }
 
     // how much of an analysis is done once the module is parsed, and once the semantic model is there: the providers take the rest of it, each their share.
@@ -210,8 +210,10 @@ internal sealed class DocumentDiagnosticsService(
         var providers = DiagnosticsProviders();
         if (providers.Length == 0)
         {
-            var named = parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() ?? document.Name : document.Name;
+            var isCached = parsing.TryGetCached(documentUri, out var cached);
+            var named = isCached ? cached.SyntaxTree?.GetDeclaredName() ?? document.Name : document.Name;
             IReadOnlyList<Diagnostic> own = [.. tellsEdits ? EditsNotApplied(document, named) : [], .. NameTaken(NameConflictOf(document, token), phase)];
+            own = isCached ? IgnoreAnnotations.Apply(documentUri, cached, own, phase, Disabled) : own;
             return DocumentDiagnosticsResult.Fresh(version, own.Count == 0 ? [] : InTheTextOf(document, own), generation);
         }
 
@@ -244,7 +246,9 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        IReadOnlyList<Diagnostic> found = [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, moduleName) : [], .. NameTaken(conflict, phase)];
+        // what the annotations suppress is dropped once every provider has answered: the analyzers ran, and their findings are not published.
+        var found = IgnoreAnnotations.Apply(documentUri, parseResult,
+            [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, moduleName) : [], .. NameTaken(conflict, phase)], phase, Disabled);
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 

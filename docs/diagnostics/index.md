@@ -314,6 +314,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
 |[RDC00411](rdc00411.md)|Code in a class implemented as an interface|A class that another class implements, with a statement in a member|
 |[RDC00413](rdc00413.md)|Module variable used in one procedure|A variable of the module that only one procedure uses|
+|[RDC00418](rdc00418.md)|Ignore annotation names no diagnostic|An argument of `'@Ignore` or `'@IgnoreModule` that suppresses nothing|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
 |[RDC01003](rdc01003.md)|Empty If block|An `If` or `ElseIf` branch with no statement|
