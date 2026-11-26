@@ -505,7 +505,8 @@ public sealed class SyntaxErrorRunRefusalTests
             Assert.AreEqual(ExecutionOutcome.Completed, ran.Outcome, ran.ErrorMessage);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, program), BadOther);
             whileThere = await runAgain();
-            _ = await new HostDiscardHandler(provider, NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
+            _ = await new HostDiscardHandler(provider, NSubstitute.Substitute.For<IProjectAnalysisSessions>(),
+                NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
             {
                 ModuleUri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Other" }.Uri,
                 ModuleName = "Other",
