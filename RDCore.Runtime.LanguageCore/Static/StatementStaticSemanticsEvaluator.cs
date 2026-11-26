@@ -86,7 +86,7 @@ public static class StatementStaticSemanticsEvaluator
         foreach (var child in block.Children)
         {
             // MS-VBAL §3.4.2: an excluded branch is logically removed, so what is in it is not analyzed and defines no label.
-            if (walk.Options.IsDead(child.SourceLocation.Range))
+            if (walk.Options.IsDead(child.SourceLocation))
             {
                 continue;
             }
@@ -180,8 +180,8 @@ public static class StatementStaticSemanticsEvaluator
             return null;
         }
 
-        var range = node.SourceLocation.Range;
-        (VBCompileErrorId Id, SourcePosition At)? error = (options.DeadRangeAt(range.Start), options.DeadRangeAt(range.End)) switch
+        var (document, range) = node.SourceLocation;
+        (VBCompileErrorId Id, SourcePosition At)? error = (options.DeadRangeAt(document, range.Start), options.DeadRangeAt(document, range.End)) switch
         {
             (null, null) => null,
             (null, not null) => (opened, range.Start),

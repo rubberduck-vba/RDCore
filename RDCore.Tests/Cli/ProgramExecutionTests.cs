@@ -36,7 +36,8 @@ public sealed class ProgramExecutionTests
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams { Wipe = wipe }, CancellationToken.None).WaitAsync(Patience);
 
     private static Task<DiscardResult> Discard(EnvironmentSessionProvider provider, bool endProgram)
-        => new HostDiscardHandler(provider, NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
+        => new HostDiscardHandler(provider, NSubstitute.Substitute.For<IProjectAnalysisSessions>(),
+            NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
         {
             ModuleUri = new Uri(provider.Image.Fingerprints().Keys.Single(), UriKind.Absolute),
             ModuleName = "Program",

@@ -61,7 +61,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         try
         {
             workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
-                ansiCodePage: runner.Environment.AnsiCodePage);
+                ansiCodePage: runner.Environment.AnsiCodePage, inItsProject: true);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
@@ -97,7 +97,8 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
             return 1;
         }
 
-        if (ProgramRunner.EntryPointOf(built.Provider.Session, built.Modules, workspace.Project.Build, out var refusal) is not { } entryPoint)
+        if (ProgramRunner.EntryPointOf(built.Provider.Session, built.Modules, workspace.Project.Build, out var refusal, workspace.Given?.Name)
+            is not { } entryPoint)
         {
             return Error(refusal!);
         }
@@ -108,6 +109,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
             [.. workspace.Modules.SelectMany(module => module.Declared.Select(declared => new BuiltModule(module.RelativePath, declared.Name, declared.Kind)
             {
                 IsBlock = declared.IsBlock,
+                IsPartial = declared.IsPartial,
             }))],
             NativeDialogs: settings?.Value.NativeDialogs ?? false);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));

@@ -10,7 +10,7 @@ namespace RDCore.Runtime.LanguageCore.Static;
 // the branch can be its only use.
 public static class ExcludedBranchNames
 {
-    public static IReadOnlySet<string> Of(SyntaxNode module, IReadOnlyCollection<SourceRange> deadRanges)
+    public static IReadOnlySet<string> Of(SyntaxNode module, IReadOnlyCollection<SourceLocation> deadRanges)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (deadRanges.Count == 0)
@@ -21,7 +21,8 @@ public static class ExcludedBranchNames
         // the member of an access is a simple name too, so `a.b` gives both.
         foreach (var (node, _) in NameOccurrences.Walk(module))
         {
-            if (node is SimpleNameExpressionNode name && deadRanges.Any(dead => dead.Start <= name.Location.Range.Start && name.Location.Range.End <= dead.End))
+            if (node is SimpleNameExpressionNode name && deadRanges.Any(dead
+                => dead.Uri == name.Location.Uri && dead.Range.Start <= name.Location.Range.Start && name.Location.Range.End <= dead.Range.End))
             {
                 names.Add(name.IdentifierName);
             }

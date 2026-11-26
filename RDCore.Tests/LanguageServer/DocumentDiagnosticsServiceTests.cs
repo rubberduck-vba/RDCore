@@ -983,6 +983,41 @@ public sealed class DocumentDiagnosticsServiceTests
             Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Dup"), Arg.Any<CancellationToken>());
     }
 
+    // a block's module is named in its header: of a block and another module of one name, each is in conflict, the block at the name its header writes.
+    // The file's own module is not, and what the host has of it is asked for.
+    [TestMethod]
+    public async Task ABlockAndAModuleOfOneName_AreEachInConflict_TheBlockAtTheNameItsHeaderWrites()
+    {
+        var backup = Backup("Class Dup\r\nEnd Class\r\n");
+        var other = StandardModule("B", "Dup");
+        ModulesAre(backup, other);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        var conflict = Assert.ContainsSingle(ConflictsIn(await Sut().GetAsync(backup.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        Assert.AreEqual(new Range(3, 6, 3, 9), conflict.Range);
+        Assert.ContainsSingle(ConflictsIn(await Sut().GetAsync(other.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Backup"), Arg.Any<CancellationToken>());
+    }
+
+    // two blocks of one file are two modules of the project, as two files are.
+    [TestMethod]
+    public async Task TwoBlocksOfOneName_AreEachInConflict_InTheirFile()
+    {
+        var backup = Backup("Module Dup\r\nEnd Module\r\nClass Dup\r\nEnd Class\r\n");
+        ModulesAre(backup, StandardModule("B", "Other"));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        var conflicts = ConflictsIn(await Sut().GetAsync(backup.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None));
+
+        CollectionAssert.AreEquivalent(new[] { new Range(3, 7, 3, 10), new Range(5, 6, 5, 9) }, conflicts.Select(conflict => conflict.Range).ToArray());
+    }
+
+    // a standard module named Backup, of the blocks given after its own code.
+    private static WorkspaceDocument Backup(string blocks)
+        => new("src/Backup.bas", Root, "Attribute VB_Name = \"Backup\"\r\nPublic Sub Work()\r\nEnd Sub\r\n" + blocks);
+
     // a module that says no VB_Name is named by its file, by the same rule; case does not tell two names apart.
     [TestMethod]
     [DataRow(null, "Helpers", DisplayName = "a file named as another module's VB_Name")]
@@ -1019,12 +1054,12 @@ public sealed class DocumentDiagnosticsServiceTests
     private const string FileOfBlocks = "Public Sub Main()\r\nEnd Sub\r\nClass Account\r\nPublic Sub Deposit()\r\nEnd Sub\r\nEnd Class\r\nModule Helpers\r\n"
         + "Public Sub Run()\r\n    x = (\r\nEnd Sub\r\nEnd Module\r\n";
 
-    private static readonly WorkspaceDocument Backup = new("src/Backup.bas", Root, FileOfBlocks, 1);
+    private static readonly WorkspaceDocument BackupFile = new("src/Backup.bas", Root, FileOfBlocks, 1);
 
     private void BackupParses()
     {
-        WorkspaceHas(Backup);
-        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(new ModuleParser().Parse(Backup.Id.Uri.ToUri(), FileOfBlocks));
+        WorkspaceHas(BackupFile);
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(new ModuleParser().Parse(BackupFile.Id.Uri.ToUri(), FileOfBlocks));
     }
 
     private static DiagnoseDocumentPayload PayloadOf(DiagnoseDocumentParams request) => PlatformJson.Deserialize<DiagnoseDocumentPayload>(request.Json);
@@ -1049,7 +1084,7 @@ public sealed class DocumentDiagnosticsServiceTests
                 SourceVersion = 1,
             });
         ProvidersAre(provider);
-        var file = Backup.Id.Uri.ToUri();
+        var file = BackupFile.Id.Uri.ToUri();
         var (account, helpers) = (RDCoreDocument.BlockUri(file, "Account"), RDCoreDocument.BlockUri(file, "Helpers"));
 
         var result = await Sut().GetAsync(file, previousResultId: null, CancellationToken.None);
@@ -1090,7 +1125,7 @@ public sealed class DocumentDiagnosticsServiceTests
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
         Assert.IsTrue(await editStatus.CheckAsync(CancellationToken.None));
 
-        var result = await Sut(editStatus).GetAsync(Backup.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var result = await Sut(editStatus).GetAsync(BackupFile.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
         var told = Assert.ContainsSingle(result.Diagnostics.Where(diagnostic => diagnostic.Code?.String == "RDC20001"));
         Assert.AreEqual(new Range(new Position(2, 0), new Position(2, 13)), told.Range);

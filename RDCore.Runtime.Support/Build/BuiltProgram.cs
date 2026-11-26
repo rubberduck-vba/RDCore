@@ -44,10 +44,13 @@ internal sealed record class BuiltEnvironment(
 }
 
 // a module of the project as the build read it: its name and its kind, which its source says and which the program cannot read where it runs. A file of
-// several modules has one for each, in the order ModuleKinds.ModulesOf gives them: its own, then each block's (IsBlock).
+// several modules has one for each, in the order ModuleKinds.ModulesOf gives them: its own, then each block's (IsBlock), which may be a part of a module
+// (IsPartial).
 internal sealed record class BuiltModule(string RelativeUri, string Name, ModuleType Kind)
 {
     public bool IsBlock { get; init; }
+
+    public bool IsPartial { get; init; }
 }
 
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
@@ -153,7 +156,8 @@ public static class BuiltProgram
                 ? MachineExternal.World with { Interaction = dialogs }
                 : null);
         provider.Compose(image.Project, image.Root, image.Modules.GroupBy(module => module.RelativeUri, StringComparer.Ordinal).ToDictionary(
-            file => file.Key, IReadOnlyList<DeclaredModule> (file) => [.. file.Select(module => new DeclaredModule(module.Name, module.Kind, module.IsBlock))],
+            file => file.Key, IReadOnlyList<DeclaredModule> (file) =>
+                [.. file.Select(module => new DeclaredModule(module.Name, module.Kind, module.IsBlock) { IsPartial = module.IsPartial })],
             StringComparer.Ordinal));
         // App is the program's executable, or its assembly when it runs with dotnet; it is another instance when one of the same executable holds its name.
         var executable = ExecutableOf(program) ?? Path.Combine(AppContext.BaseDirectory, program.GetName().Name!);
