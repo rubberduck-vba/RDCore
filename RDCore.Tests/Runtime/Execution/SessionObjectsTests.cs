@@ -104,7 +104,7 @@ public sealed class SessionObjectsTests
         Assert.IsFalse(sut.TryRemoveObject(id));
     }
 
-    // an object held by a few cells, by as many as a list keeps, and by more, which the holders count by identity instead: each cell is a holder until it
+    // an object held by a few cells, by as many as a list keeps, and by more, which the holders index: each cell is a holder until it
     // lets go, in whatever order the cells let go, and the count is how many hold the object.
     [TestMethod]
     [DataRow(3)]

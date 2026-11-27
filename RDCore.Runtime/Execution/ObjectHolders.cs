@@ -11,7 +11,7 @@ namespace RDCore.Runtime.Execution;
 /// A list of few cells is searched from its last: the cell that lets go of an object is most often the last that took it. A list of more cells is given
 /// an index beside it, which finds each cell's places in the list, so that adding, finding and removing a cell take the same time however many hold the
 /// object: an array of a hundred thousand elements set to one object, or the children of an object model that each hold their parent. A cell removed from
-/// an indexed list leaves its place to the last cell of the list.
+/// an indexed list leaves its place to the last cell of the list. A list keeps its index once it has one, however few cells it holds after.
 /// </remarks>
 internal sealed class ObjectHolders
 {
@@ -157,7 +157,7 @@ internal sealed class ObjectHolders
             return true;
         }
 
-        // the cell at place from now at place to, which its links follow.
+        // the cell at place from moves to place to, and its links move with it.
         public void Move(IBindingHandle cell, int from, int to)
         {
             var (next, previous) = (_next[from], _previous[from]);
