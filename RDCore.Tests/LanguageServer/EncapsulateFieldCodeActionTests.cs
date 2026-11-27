@@ -12,6 +12,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
@@ -119,7 +120,7 @@ public sealed class EncapsulateFieldCodeActionTests
     }
 
     [TestMethod]
-    public async Task AFieldPassedByRefOutsideItsModule_IsOfferedDisabled_WithTheChange_ToAClientThatShowsIt()
+    public async Task AFieldPassedByRefOutsideItsModule_IsOfferedDisabled_WithTheChange_ToAClientThatShowsIt_AndTakesNoChangeAnnotations()
     {
         Assert.IsEmpty(await ActionsAsync(Handler(), At(2, 8)));
 
@@ -131,6 +132,80 @@ public sealed class EncapsulateFieldCodeActionTests
         var all = actions.Single(each => each.Title == EncapsulateFieldService.AllTitle());
         StringAssert.Contains(all.Disabled!.Reason, "'count'");
     }
+
+    // the changes of what the code does an encapsulation makes, of the field at a position alone or of every Public field with it: count, passed ByRef
+    // outside its module, makes one. The test's premise.
+    private async Task<IReadOnlyList<RefactorNotice>> ChangesAsync(int line, bool allFields = false)
+    {
+        var changes = (await Sut().PrepareAsync(Document.ToUri(), new SourcePosition(line, 8), CancellationToken.None)).Notices
+            .Where(notice => notice.Kind is RefactorNoticeKind.Change && (allFields || notice.Item is null)).ToArray();
+        Assert.IsNotEmpty(changes, "the encapsulation changes what the code does: the test needs another field if it does not");
+        return changes;
+    }
+
+    [TestMethod]
+    public async Task AFieldPassedByRefOutsideItsModule_IsSentItsEncapsulation_ForTheUserToConfirm_ToAClientThatTakesChangeAnnotations()
+    {
+        var changes = await ChangesAsync(2);
+
+        var actions = await ActionsAsync(Handler(showsDisabled: true, annotations: true), At(2, 8));
+        var action = actions.Single(each => each.Title == EncapsulateFieldService.Title());
+
+        Assert.IsNull(action.Disabled, action.Disabled?.Reason);
+        AssertConfirmed(action.Edit!, EncapsulateFieldService.Title(), changes);
+        var accepted = await Sut().ApplyAsync(
+            Document.ToUri(), new SourcePosition(2, 8), [], [.. changes.Select(change => change.Code)], CancellationToken.None);
+        CollectionAssert.AreEqual(
+            accepted.Edit!.Documents.SelectMany(document => document.Edits)
+                .Select(each => (each.Range.Start.Line, each.Range.Start.Character, each.NewText)).ToArray(),
+            EditsOf(action.Edit!).Select(each => (each.Range.Start.Line, each.Range.Start.Character, each.NewText)).ToArray(),
+            "the edit is the encapsulation with the defaults, its changes accepted");
+    }
+
+    [TestMethod]
+    public async Task AllTheFields_AreSentTheirEncapsulation_ForTheUserToConfirm_ToAClientThatTakesChangeAnnotations()
+    {
+        var changes = await ChangesAsync(1, allFields: true);
+
+        var actions = await ActionsAsync(Handler(showsDisabled: true, annotations: true), At(1, 8));
+        var all = actions.Single(each => each.Title == EncapsulateFieldService.AllTitle());
+
+        Assert.IsNull(all.Disabled, all.Disabled?.Reason);
+        AssertConfirmed(all.Edit!, EncapsulateFieldService.AllTitle(), changes);
+    }
+
+    [TestMethod]
+    public async Task AnEncapsulationThatChangesWhatTheCodeDoes_IsSentConfirmed_WhenTheClientResolvesIt()
+    {
+        var changes = await ChangesAsync(2);
+        var handler = Handler(resolvesEdits: true, annotations: true);
+
+        var offered = (await ActionsAsync(handler, At(2, 8))).Single(each => each.Title == EncapsulateFieldService.Title());
+        var resolved = await handler.Handle(offered, CancellationToken.None);
+
+        Assert.IsNull(offered.Edit);
+        AssertConfirmed(resolved.Edit!, EncapsulateFieldService.Title(), changes);
+    }
+
+    // every text edit carries the one annotation of the changes, which the user confirms: labeled with the refactoring, described with each change.
+    private static void AssertConfirmed(WorkspaceEdit edit, string title, IReadOnlyList<RefactorNotice> changes)
+    {
+        var annotation = edit.ChangeAnnotations!.Single();
+        Assert.AreEqual(title, annotation.Value.Label);
+        Assert.IsTrue(annotation.Value.NeedsConfirmation);
+        foreach (var change in changes)
+        {
+            StringAssert.Contains(annotation.Value.Description, change.Message);
+        }
+
+        var edits = EditsOf(edit).ToArray();
+        Assert.IsNotEmpty(edits);
+        Assert.IsTrue(
+            edits.All(each => each is AnnotatedTextEdit annotated && annotated.AnnotationId.Identifier == annotation.Key.Identifier),
+            "every edit is annotated");
+    }
+
+    private static IEnumerable<TextEdit> EditsOf(WorkspaceEdit edit) => edit.DocumentChanges!.SelectMany(document => document.TextDocumentEdit!.Edits);
 
     [TestMethod]
     public async Task AllTheFields_AreOfferedTheirEncapsulation_WhichIsDisabledWhenOneOfThemChangesWhatTheCodeDoes_AndRefusedWhenResolved()
@@ -247,13 +322,19 @@ public sealed class EncapsulateFieldCodeActionTests
 
     private static Range At(int line, int character) => new(line, character, line, character);
 
-    private CodeActionHandler Handler(bool showsDisabled = false, bool resolvesEdits = false)
+    private CodeActionHandler Handler(bool showsDisabled = false, bool resolvesEdits = false, bool annotations = false)
     {
         var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(_rename, _parsing, _options),
             new MoveMemberService(_rename, _parsing), _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer(), encapsulateField: Sut());
         ((IRegistration<CodeActionRegistrationOptions, CodeActionCapability>)handler).GetRegistrationOptions(new(), new ClientCapabilities
         {
-            Workspace = new() { WorkspaceEdit = new WorkspaceEditCapability { DocumentChanges = true } },
+            Workspace = new()
+            {
+                WorkspaceEdit = new WorkspaceEditCapability
+                {
+                    DocumentChanges = true, ChangeAnnotationSupport = annotations ? new WorkspaceEditSupportCapabilitiesChangeAnnotationSupport() : null,
+                },
+            },
             TextDocument = new()
             {
                 CodeAction = new CodeActionCapability
