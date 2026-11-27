@@ -81,8 +81,8 @@ internal sealed partial class JsonValues
     private readonly record struct Setter(string Name, VBType Type, VBCallType? Call);
 
     // the member a key names, which it can give a value to: a public variable, or a Property Let or Set that takes nothing but its value, of that value's
-    // type. With both a Let and a Set, a JSON object or null is given through the Set. A key that names no such member - none at all, a Friend or a
-    // Private one, a method, a Property Get with no Let or Set - has none.
+    // type. With both a Let and a Set, a JSON object or null is given through the Set. A key that names no such member (none at all, a Friend or a
+    // Private one, a method, a Property Get with no Let or Set) has none.
     private static Setter? SetterOf(VBClassModuleSymbol classModule, string key, JsonNode? json)
     {
         var named = classModule.DefaultInterfaceMembers
