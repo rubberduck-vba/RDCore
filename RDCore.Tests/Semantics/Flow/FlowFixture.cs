@@ -137,16 +137,23 @@ internal static class FlowFixture
         return ExtractionModuleAnalysis.Of(ModuleUri("Main"), text, parse, composition.Resolver, composition.ScopeTree);
     }
 
-    // the class modules, then the standard modules, beside the module, each parsed.
+    // the class modules, then the standard modules, beside the module, each parsed. A file with blocks is read as the language server reads it
+    // (ParsedModules.Of): its own module, then the module of each block under the block's name, each with its part of the parse and the file's text.
     private static (Uri Module, ModuleType Type, ModuleParseResult Parse, string Source)[] OthersOf(
         IReadOnlyList<(string Name, string Source)>? classes, IReadOnlyList<(string Name, string Source)>? modules)
         => [.. (classes ?? []).Select(module => (module.Name, module.Source, Type: ModuleType.ClassModule, Extension: "cls"))
             .Concat((modules ?? []).Select(module => (module.Name, module.Source, Type: ModuleType.StdModule, Extension: "bas")))
-            .Select(other =>
+            .SelectMany(other =>
             {
-                var parse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{other.Name}.{other.Extension}"), other.Source);
+                var file = new Uri($"file:///c:/ws/{other.Name}.{other.Extension}");
+                var parse = new ModuleParser().Parse(file, other.Source);
                 Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
-                return (ModuleUri(other.Name), other.Type, parse, other.Source);
+                var document = new RDCoreDocument(file, parse);
+                (Uri, ModuleType, ModuleParseResult, string)[] parts = parse.BlockModules.IsEmpty
+                    ? [(ModuleUri(other.Name), other.Type, parse, other.Source)]
+                    : [(ModuleUri(other.Name), other.Type, document.ParseOf(file)!, other.Source),
+                        .. parse.BlockModules.Select(block => (ModuleUri(block.Name), block.Kind, document.ParseOf(block.Uri)!, other.Source))];
+                return parts;
             })];
 
     /// <summary>

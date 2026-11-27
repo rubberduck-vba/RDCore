@@ -894,7 +894,7 @@ internal static class InlineCall
             _before.Add($"Dim {local}() As Variant");
             if (elements.IsEmpty)
             {
-                if (syntax.Syntax.GetOptionBase() != 0)
+                if (context.OptionBaseOf(syntax.Module) != 0)
                 {
                     return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, call.SourceLocation);
                 }
