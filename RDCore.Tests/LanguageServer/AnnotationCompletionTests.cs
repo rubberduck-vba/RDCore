@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO.Abstractions.TestingHelpers;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -7,15 +9,24 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Completion;
+using RDCore.LanguageServer.Debugging;
+using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
+using RDCore.SDK.Extensibility;
 using RDCore.SDK.Extensibility.Annotations;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.Progress;
+using RDCore.SDK.Server.Services;
+using RDCore.SDK.Server.Services.States;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
 
@@ -67,12 +78,14 @@ public sealed class AnnotationCompletionTests
         _annotations.Add(Web);
     }
 
-    private CompletionService Sut()
+    private CompletionService Sut() => Sut(_annotations);
+
+    private CompletionService Sut(IPlatformAnnotations annotations)
     {
         var source = new InMemoryLibrarySource();
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), Substitute.For<IReferencedLibraryService>(), source,
-            new ClientVerbRegistry(), options, NullLogger<CompletionService>.Instance, OneProject.Registry(), annotations: _annotations);
+            new ClientVerbRegistry(), options, NullLogger<CompletionService>.Instance, OneProject.Registry(), annotations: annotations);
     }
 
     // the module with the cursor where the `|` is, which is taken out of the source.
@@ -128,6 +141,67 @@ public sealed class AnnotationCompletionTests
         CollectionAssert.DoesNotContain(labels, "PredeclaredId", "a class module's");
         CollectionAssert.DoesNotContain(labels, "Route", "a member's");
         CollectionAssert.DoesNotContain(labels, "Folder", "deprecated");
+    }
+
+    // the core extension as the platform has it: its manifest is what describe-ext writes of its assembly, the language server finds it in the extensions
+    // folder and starts, and the language server does not reference the extension's assembly.
+    [TestMethod]
+    public async Task TheCoreAnnotations_AreOffered_FromTheManifestTheDiagnosticsExtensionIsDescribedBy()
+    {
+        Assert.IsFalse(typeof(CoreLanguageServerApp).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "RDCore.Diagnostics"),
+            "the language server knows the extension by its manifest only");
+        var extensionFolder = Path.GetDirectoryName(typeof(CoreAnnotations).Assembly.Location)!;
+        var extensionsRoot = Path.GetDirectoryName(extensionFolder)!;
+        var executable = Path.Combine(extensionFolder, "RDCore.Diagnostics.exe");
+        var environment = Substitute.For<IPlatformEnvironment>();
+        environment.Resolve("Extensions").Returns(extensionsRoot);
+        var built = new MockFileSystem(new Dictionary<string, MockFileData> { [executable] = new([1, 2, 3]) }, extensionFolder);
+        var described = new ExtensionsClient(Options.Create(new SdkAppOptions()), Substitute.For<IExtensionManifestValidationService>(), built, environment,
+            NullLogger<ExtensionsClient>.Instance).Describe("RDCore.Diagnostics.exe", "desc");
+        Assert.IsNotNull(described);
+        // the platform's extensions folder, with no platform manifest: the extension in the folder of the one the platform bundles is its core extension.
+        var platformExtensions = Path.Combine(Root, "Extensions");
+        var manifest = Path.Combine(platformExtensions, PlatformManifest.DefaultCoreExtension, "extension.manifest.json");
+        var platform = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [manifest] = new(JsonSerializer.Serialize(described, new JsonSerializerOptions { WriteIndented = true })),
+        });
+        var platformEnvironment = Substitute.For<IPlatformEnvironment>();
+        platformEnvironment.Resolve("Extensions").Returns(platformExtensions);
+        var extensions = new ExtensionsClient(Options.Create(new SdkAppOptions()), Substitute.For<IExtensionManifestValidationService>(), platform,
+            platformEnvironment, NullLogger<ExtensionsClient>.Instance);
+        Assert.IsTrue(Assert.ContainsSingle(extensions.Discover().ToArray()).IsCoreExtension, "the described manifest is found, and is the core extension's");
+        var annotations = new PlatformAnnotations();
+
+        await StartedUpToItsPipeAsync(extensions, annotations);
+        var (source, position) = At(string.Format(Standard, "'@|", string.Empty));
+        var labels = (await Sut(annotations).CompleteFragmentAsync("Main", source, position, CancellationToken.None, "@")).Items.Select(item => item.Label);
+
+        CollectionAssert.IsSubsetOf(new[] { "ModuleDescription", "IgnoreModule", "Description" }, labels.ToArray());
+    }
+
+    // the language server as it starts: it finds the extensions, then stops before a client connects to its pipe.
+    private static async Task StartedUpToItsPipeAsync(IExtensionsProvider extensions, IPlatformAnnotations annotations)
+    {
+        var state = Substitute.For<IServerStateProvider>();
+        using var stopped = new CancellationTokenSource();
+        await stopped.CancelAsync();
+        state.ProcessTokenSource.Returns(stopped);
+        var transport = Substitute.For<ILanguageServerProtocolTransportLayer>();
+        transport.ConfigureServer().Returns(_ => throw new OperationCanceledException(stopped.Token));
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        var parsing = Substitute.For<IParsingClientService>();
+        var diagnostics = Substitute.For<IDocumentDiagnosticsService>();
+        var publisher = Substitute.For<IDiagnosticsPublisher>();
+        var app = new CoreLanguageServerApp(Options.Create(new SdkAppOptions()), state, Substitute.For<IPlatformCompositionService>(),
+            Substitute.For<IPlatformOrchestrationService>(), extensions, Substitute.For<IHealthCheckService<CoreLanguageServerApp>>(), transport,
+            Substitute.For<IWorkspaceService>(), documents, Substitute.For<IWorkspaceProjects>(), parsing, Substitute.For<ISymbolSyncService>(), diagnostics,
+            publisher, new EditStatusPublication(Substitute.For<IEditStatusMonitor>(), documents, parsing, diagnostics, publisher,
+                NullLogger<EditStatusPublication>.Instance),
+            Substitute.For<IClientInteractionRelay>(), Substitute.For<ISessionStopRelay>(), Substitute.For<IWorkProgressReporter>(),
+            Substitute.For<IWorkspaceRefresh>(), NullLogger<CoreLanguageServerApp>.Instance, annotations: annotations);
+
+        await app.RunAsync(Substitute.For<IServiceProvider>(), []);
     }
 
     [TestMethod]
