@@ -133,7 +133,7 @@ internal sealed class DefineSymbolsHandler(
 
         // a module that declares a function of a native library can call it as soon as it runs, and what makes the call is got ready now - in an environment that
         // lets a program make one at all.
-        if (target.IsRun && session.Environment.AllowDllImports && !request.DeclareTypesOnly
+        if (target.IsRun && !session.Environment.ExecutionPolicy.LibraryImports.Refuses && !request.DeclareTypesOnly
             && request.Symbols.Any(symbol => symbol.Kind is SymbolDescriptorKind.ExternalProcedure or SymbolDescriptorKind.ExternalFunction))
         {
             sessionProvider.Outside.Libraries.Prepare();

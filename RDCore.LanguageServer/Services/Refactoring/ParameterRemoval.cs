@@ -57,7 +57,8 @@ public sealed record class ParameterRemovalRefusal(ParameterRemovalRefusalKind K
 {
     private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Refactoring.ParameterRemovalMessages", typeof(ParameterRemovalRefusal).Assembly);
 
-    // the document of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document), which a locator names it by; null where it is not known.
+    // the document of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document), which a locator names it by; null where it is not
+    // known.
     public Uri? Document { get; init; }
 
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)

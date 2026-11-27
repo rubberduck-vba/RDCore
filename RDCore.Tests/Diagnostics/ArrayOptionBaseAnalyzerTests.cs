@@ -35,6 +35,20 @@ public sealed class ArrayOptionBaseAnalyzerTests
         return [.. new QualifiedArrayOptionBaseAnalyzer().Analyze(new ModuleAnalysisContext(Document, new ModuleParser().Parse(Document, program), model))];
     }
 
+    // the host's model of a module of parts has the Option Base that any part states (ModuleAssembly), which the file's own tree may not state: here the
+    // model of a file that states none is given the Option Base of another part.
+    private static async Task<AnalyzerFinding[]> PartsFindingsAsync(int optionBaseOfTheParts)
+    {
+        var program = Lines("Attribute VB_Name = \"Program\"", "Public Sub Probe(ParamArray values())", "Debug.Print LBound(VBA.Array(1, 2))", "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        Assert.AreEqual(0, model.Directives?.Base, "the host states the Option Base of the file's tree");
+
+        var parts = model with { Directives = model.Directives!.Value with { Base = optionBaseOfTheParts } };
+        var context = new ModuleAnalysisContext(Document, new ModuleParser().Parse(Document, program), parts);
+        return [.. new ParamArrayOptionBaseAnalyzer().Analyze(context), .. new QualifiedArrayOptionBaseAnalyzer().Analyze(context)];
+    }
+
     private static string Lines(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
     [TestMethod]
@@ -93,4 +107,19 @@ public sealed class ArrayOptionBaseAnalyzerTests
     [DataRow("Option Base 1", "Debug.Print VBA.Len(\"ab\")", DisplayName = "another member of the library")]
     public async Task ArrayThatFollowsOptionBase_OrNoOptionBase1_IsNotReported(string options, string body)
         => Assert.IsEmpty(await QualifiedArrayFindingsAsync(options, body));
+
+    // RD-VBAL §5.1: a module of parts has one set of options (MS-VBAL §5.2.1), which any of its parts states, in whichever file.
+    [TestMethod]
+    public async Task UnderAnOptionBase1ThatAnotherPartStates_TheParamArrayAndTheCallOfVBAArray_AreHints()
+    {
+        var findings = await PartsFindingsAsync(optionBaseOfTheParts: 1);
+
+        CollectionAssert.AreEquivalent(
+            new[] { RDCoreDiagnosticId.ParamArrayIgnoresOptionBase, RDCoreDiagnosticId.QualifiedArrayIgnoresOptionBase },
+            findings.Select(finding => finding.Id).ToArray());
+    }
+
+    [TestMethod]
+    public async Task WhenNoPartStatesOptionBase1_TheParamArrayAndTheCallOfVBAArray_AreNotReported()
+        => Assert.IsEmpty(await PartsFindingsAsync(optionBaseOfTheParts: 0));
 }

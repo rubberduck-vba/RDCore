@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.Runtime.Execution;
@@ -13,6 +14,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -157,8 +159,11 @@ public sealed class EnvironmentSessionProvider(
     ILibrarySource? librarySource = null,
     ExternalWorld? outside = null,
     // what the session's file statements act on, its current directory included; omitted, the file system the modules are read from.
-    IFileSystem? sessionFileSystem = null) : IEnvironmentSessionProvider, IDisposable
+    IFileSystem? sessionFileSystem = null,
+    // the workspace's settings, which say the files that declare modules in blocks; omitted, the defaults.
+    IOptions<SdkAppOptions>? options = null) : IEnvironmentSessionProvider, IDisposable
 {
+    private readonly SdkWorkspaceOptions _workspace = options?.Value.Workspace ?? new();
     private IRuntimeSession? _session;
     private ExternalWorld? _world;
 
@@ -262,7 +267,7 @@ public sealed class EnvironmentSessionProvider(
     public ProgramExecution Execution { get; private set; } = default!;
 
     public IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot)
-        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem, ansiCodePage: _environment.AnsiCodePage)
+        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem, ansiCodePage: _environment.AnsiCodePage, workspace: _workspace)
             .ProvideSymbols().OfType<VBModuleSymbol>()];
 
     /// <inheritdoc/>
@@ -287,7 +292,8 @@ public sealed class EnvironmentSessionProvider(
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
     /// <param name="known">
-    /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
+    /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf(RDCoreModule, string?, SdkWorkspaceOptions)"/>), by its
+    /// <c>RelativeUri</c> in the project.
     /// </param>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known)
     {
@@ -296,7 +302,7 @@ public sealed class EnvironmentSessionProvider(
 
         _world = ComposeWorld(project, workspaceRoot);
         var (session, referenced, constants, moduleCount) = ComposeSession(
-            _environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known, sessionFileSystem ?? fileSystem);
+            _environment, fileSystem, librarySource, logger, project, workspaceRoot, Output, known, sessionFileSystem ?? fileSystem, _workspace);
         _session = session;
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
@@ -320,7 +326,8 @@ public sealed class EnvironmentSessionProvider(
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
         // makes no such call, and nothing is started for it. A console application's user interface is its console: what makes the call, which hosts its forms
         // too, is started when the program first makes one.
-        if (_environment.AllowAutomation && !referenced.Libraries.IsEmpty && !RDCore.Runtime.Support.Build.ProgramDialogs.IsConsole(project.Build))
+        if (!_environment.ExecutionPolicy.Automation.Refuses && !referenced.Libraries.IsEmpty
+            && !RDCore.Runtime.Support.Build.ProgramDialogs.IsConsole(project.Build))
         {
             Outside.Automation.Prepare();
         }
@@ -347,19 +354,22 @@ public sealed class EnvironmentSessionProvider(
     /// <param name="workspaceRoot">The root the project's modules are relative to, and addressed under.</param>
     /// <param name="output">The session's output channel.</param>
     /// <param name="known">
-    /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
+    /// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf(RDCoreModule, string?, SdkWorkspaceOptions)"/>), by its
+    /// <c>RelativeUri</c> in the project.
     /// </param>
     /// <param name="sessionFileSystem">What the session's file statements act on; omitted, the real file system.</param>
+    /// <param name="workspace">The workspace's settings, which say the files that declare modules in blocks; omitted, the defaults.</param>
     /// <returns>
     /// The session, the libraries it references, how many precompiler constants it has (built-ins included), and how many modules the project's files
     /// declare (a block of a file is one).
     /// </returns>
     internal static (IRuntimeSession Session, ReferencedLibraries Referenced, int Constants, int Modules) ComposeSession(
         IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILibrarySource? librarySource, ILogger logger, RDCoreProject project, Uri workspaceRoot,
-        RuntimeOutputRouter output, IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null, IFileSystem? sessionFileSystem = null)
+        RuntimeOutputRouter output, IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null, IFileSystem? sessionFileSystem = null,
+        SdkWorkspaceOptions? workspace = null)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
-        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known, environment.AnsiCodePage);
+        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known, environment.AnsiCodePage, workspace);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);

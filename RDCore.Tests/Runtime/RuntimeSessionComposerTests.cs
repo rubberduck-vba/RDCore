@@ -216,7 +216,8 @@ public sealed class RuntimeSessionComposerTests
                 "Attribute VB_Name = \"Sheet1\"", "Class Account", "End Class", "Module Helpers", "End Module") + "\r\n"),
         });
 
-        var modules = new ProjectSymbolProvider(new Uri(root), project, fs).ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
+        var modules = new ProjectSymbolProvider(new Uri(root), project, fs, workspace: FileLevelStatementsOn.Options())
+            .ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
 
         CollectionAssert.AreEqual(new[] { "Sheet1", "Account", "Helpers" }, modules.Select(module => module.Name).ToArray());
         var sheet = (VBClassModuleSymbol)modules[0];
@@ -246,10 +247,30 @@ public sealed class RuntimeSessionComposerTests
                 "Attribute VB_Name = \"Helpers\"", "Partial Module ACCOUNT", "End Module") + "\r\n"),
         });
 
-        var modules = new ProjectSymbolProvider(new Uri(root), project, fs).ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
+        var modules = new ProjectSymbolProvider(new Uri(root), project, fs, workspace: FileLevelStatementsOn.Options())
+            .ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
 
         CollectionAssert.AreEqual(new[] { "Blocks", "Account", "Helpers" }, modules.Select(module => module.Name).ToArray());
         Assert.IsInstanceOfType<VBClassModuleSymbol>(modules[1], "the first part's kind");
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(modules[2], "the plain part's kind");
+    }
+
+    // a VBA module's blocks are modules only in a workspace that allows statements outside procedures: elsewhere they are lines of the file's own module.
+    [TestMethod]
+    [DataRow(false, DisplayName = "the setting off")]
+    [DataRow(true, DisplayName = "the setting on")]
+    public void AVBAModulesBlocks_AreModulesOfTheSession_OnlyWithTheSettingOn(bool setting)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-composer-setting");
+        var project = new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "Backup.bas" }] };
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(root, "Backup.bas")] = new("Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n"),
+        });
+
+        var modules = new ProjectSymbolProvider(new Uri(root), project, fs, workspace: new() { FileLevelStatements = setting })
+            .ProvideSymbols().OfType<VBModuleSymbol>().ToArray();
+
+        CollectionAssert.AreEqual(setting ? new[] { "Backup", "Account", "Helpers" } : new[] { "Backup" }, modules.Select(module => module.Name).ToArray());
     }
 }

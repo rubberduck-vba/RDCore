@@ -69,16 +69,17 @@ public sealed class DuplicateOptionStatementTests
         Assert.AreEqual(3, error.Location.Range.Start.Line);
     }
 
-    // RD-VBAL §5.1: the parts of one name are one module, which states every part's options: an option that two parts state is stated twice.
+    // RD-VBAL §5.1: the parts of one name are one module, which states every part's options: an option that two parts state is stated twice. The block is
+    // a part in a workspace that allows blocks in a module file.
     [TestMethod]
     public void AnOptionThatTwoPartsOfAModuleState_IsADuplicateOptionStatement_AtTheSecondPart()
     {
         var file = new Uri("file:///C:/Helpers.bas");
         var other = new Uri("file:///C:/More.bas");
         var parts = ModulePart.PartsOf(file, "Helpers", ModuleType.StdModule,
-                new ModuleParser().Parse(file, "Attribute VB_Name = \"Helpers\"\r\nOption Explicit\r\nPublic Total As Long\r\n"))
+                FileLevelStatementsOn.Parser().Parse(file, "Attribute VB_Name = \"Helpers\"\r\nOption Explicit\r\nPublic Total As Long\r\n"))
             .Concat(ModulePart.PartsOf(other, "More", ModuleType.StdModule,
-                new ModuleParser().Parse(other, "Attribute VB_Name = \"More\"\r\nPartial Module Helpers\r\nOption Explicit\r\nEnd Module\r\n")));
+                FileLevelStatementsOn.Parser().Parse(other, "Attribute VB_Name = \"More\"\r\nPartial Module Helpers\r\nOption Explicit\r\nEnd Module\r\n")));
         var (modules, refused) = ModuleAssembly.Of(parts);
         Assert.IsEmpty(refused);
         var helpers = modules.Single(module => module.Name == "Helpers");

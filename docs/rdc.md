@@ -96,7 +96,7 @@ without a `.rdproj` is read as an editor reads it: every module file under it, a
 |`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, what keeps it in the interpreter, and what the interpreter runs for it when it is compiled.|
 |`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine, with what each case allocates.|
 |`rdc bench-msvba`|`bm`|Writes the MS-VBA reference figures of the benchmark (`msvba.json`, or the file `--out` names). It runs the built-in corpus and the Excel automation cases in MS-VBA, in a hidden Excel, and in RD-VBA, in alternated rounds on this machine (`--rounds`, 5; the first `--excel-rounds`, 3, with the Excel automation cases), runs each case `--runs` times a round (7; `--excel-runs`, 5, for an Excel automation case), and keeps the fastest run of each case on each side. It needs Windows, Excel, and Excel's "Trust access to the VBA project object model" setting.|
-|`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
+|`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
 |`rdc splash`|`s`|Writes the platform's splash as plain text, whether its output is a console or not. It takes no workspace.|
 
@@ -136,7 +136,7 @@ The exit code says how the run went:
 |Exit code|Meaning|
 |---|---|
 |`0`|The program ended: its entry point returned, it ran an `End`, or it ran a `Stop` in `Release`.|
-|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description.|
+|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description, and under them what else the error says, such as the form a run nobody attends left loaded.|
 |`2`|It could not start: no entry point, or a module that does not load.|
 
 ### Building a program

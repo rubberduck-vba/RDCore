@@ -349,7 +349,8 @@ public sealed class FoldingRangeProjectorTests
     [TestMethod]
     public void AFileOfBlocks_FoldsEachModule_AndEachBlock()
     {
-        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), string.Join("\r\n",
+        // a .bas has blocks in a workspace that allows statements outside procedures.
+        var parse = FileLevelStatementsOn.Parser().Parse(TestUri.TestModuleUri(), string.Join("\r\n",
             "Attribute VB_Name = \"Backup\"",
             "Public Sub Run()",
             "End Sub",

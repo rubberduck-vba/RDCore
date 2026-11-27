@@ -157,12 +157,12 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // a file of the project that holds a Class block and a Module block is three modules to the language server, as to rdc run: it defines each of them in the
-    // host, its own and each block's, and a program calls into all three.
+    // host, its own and each block's, and a program calls into all three. The workspace allows blocks in a module file.
     [TestMethod]
     public async Task TheBlocksOfAFileOfTheWorkspace_AreDefinedInTheHost_AsModulesAProgramUses()
     {
         await using var platform = await Platform.StartAsync(projectFile: AProjectOfBlocks,
-            files: new Dictionary<string, string> { ["Backup.bas"] = ABackupOfBlocks });
+            files: new Dictionary<string, string> { ["Backup.bas"] = ABackupOfBlocks }, fileLevelStatements: true);
         var executed = await RunAsync(platform, "Script", sessionModule: true,
             source: "Public Sub Main()\r\n    Dim a As Account\r\n    Set a = New Account\r\n    a.Deposit 40\r\n"
                 + "    Debug.Print Helpers.Twice(a.Balance) + Backup.Total\r\nEnd Sub\r\n");
@@ -794,7 +794,8 @@ public sealed class ClientWithoutOmniSharpTests
         // the workspace has `others` modules besides Program, which the language server parses and composes the session of before it runs anything, and the
         // project file given, if one is; and the language of the user interface the user set, if one is.
         public static async Task<Platform> StartAsync(
-            int others = 0, string? projectFile = null, string? language = null, IReadOnlyDictionary<string, string>? files = null)
+            int others = 0, string? projectFile = null, string? language = null, IReadOnlyDictionary<string, string>? files = null,
+            bool fileLevelStatements = false)
         {
             var root = Path.Combine(Path.GetTempPath(), "RDCore", "raw-client", Guid.NewGuid().ToString("N"));
             var workspace = Path.Combine(root, "Workspace");
@@ -819,6 +820,12 @@ public sealed class ClientWithoutOmniSharpTests
                 Workspace = new Uri(workspace).AbsoluteUri,
             });
             var start = launch.ToProcessStartInfo();
+            if (fileLevelStatements)
+            {
+                // the workspace allows statements outside procedures, and so blocks in a module file: the server tells its children.
+                start.ArgumentList.Add("--file-level-statements");
+            }
+
             start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
             start.Environment[PlatformEnvironment.LogsEnvironmentVariable] = Path.Combine(root, "Logs");
             if (language is not null)

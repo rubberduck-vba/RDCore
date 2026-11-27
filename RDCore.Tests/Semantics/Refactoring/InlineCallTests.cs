@@ -647,6 +647,47 @@ public class InlineCallTests
         Assert.AreEqual(before, after, module);
     }
 
+    // an empty ParamArray is written Array(), which follows the Option Base of the module it is written in, the caller's (MS-VBAL §5.2.1.2), while a
+    // ParamArray is from 0 (MS-VBAL §5.3.1.11).
+    private static readonly string[] Listed = ["Public Sub Listed(ParamArray items())", "    Debug.Print UBound(items)", "End Sub"];
+
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerUnderOptionBase1_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", moduleLevel: "Option Base 1", modules: [Helpers(Listed)]);
+        Assert.AreEqual(InlineRefusalKind.UnsupportedParameter, refusal?.Kind);
+        Assert.AreEqual("items", refusal?.Detail);
+    }
+
+    // a Partial part of the caller's module, in another file.
+    private static (string Name, string Source) PartOfMain(string options)
+        => ("Extra", $"Attribute VB_Name = \"Extra\"\r\nPartial Module Main\r\n{options}\r\nEnd Module\r\n");
+
+    // RD-VBAL §5.1: the caller's module is under the Option Base that any of its parts states.
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerUnderOptionBase1ThatAnotherPartStates_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", modules: [Helpers(Listed), PartOfMain("Option Base 1")]);
+        Assert.AreEqual(InlineRefusalKind.UnsupportedParameter, refusal?.Kind);
+        Assert.AreEqual("items", refusal?.Detail);
+    }
+
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerWhosePartsStateNoOptionBase_IsInlined()
+    {
+        var (_, after, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", modules: [Helpers(Listed), PartOfMain(string.Empty)]);
+        Assert.IsNull(refusal, $"refused: {refusal}");
+        StringAssert.Contains(after, "items = Array()");
+    }
+
+    [TestMethod]
+    public async Task AnEmptyParamArray_OfACalleeUnderOptionBase1_IsInlined_FromZero()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Listed", string.Empty, "Listed\r\n", modules: [Helpers(["Option Base 1", .. Listed])]);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "items = Array()");
+    }
+
     private static readonly string[] Logger =
     [
         "#Const Verbose = True", "Public Sub Log(ByVal x As Long)",

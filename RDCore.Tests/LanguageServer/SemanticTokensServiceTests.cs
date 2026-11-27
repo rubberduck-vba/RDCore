@@ -45,8 +45,10 @@ public sealed class SemanticTokensServiceTests
 
         _parsing.TokenizeAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new SyntaxTokenizer().Tokenize((string)call[1])));
+        // in a workspace that allows blocks and statements outside procedures in a module file.
         _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], _documents.TryGetDocument((Uri)call[0], out var document) ? document.Text : string.Empty)));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser()
+                .Parse((Uri)call[0], _documents.TryGetDocument((Uri)call[0], out var document) ? document.Text : string.Empty)));
 
         _sut = new SemanticTokensService(_documents, _parsing);
     }

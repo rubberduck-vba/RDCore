@@ -89,7 +89,9 @@ public partial class ModuleParser(
     {
         // the looks are counted on the thread that parses, which is not the caller's when the parse moves to a large stack: they are told to the caller's.
         var looks = 0L;
-        var blocks = FileBlocks.Find(content);
+        // a file declares modules in blocks only where it may have statements outside its procedures: elsewhere a header and an end line are the file's
+        // own module's, and syntax errors there.
+        var blocks = ModuleKinds.BlocksOf(uri.AbsolutePath, content, _workspace);
         var result = LargeStackThread.Run(() =>
         {
             t_directiveLooks = 0;
@@ -107,7 +109,11 @@ public partial class ModuleParser(
     // is not a script, whatever its file is.
     private ModuleParseResult ParseModule(Uri uri, Uri module, string content, SourcePosition anchorOffset, CancellationToken token)
     {
-        t_fileStatements = _workspace.AllowsFileLevelStatements(module.AbsolutePath);
+        // a document of a language that always has statements outside its procedures (a .vbs) is a script; a module that the setting alone allows them
+        // (SdkWorkspaceOptions.FileLevelStatements) is one only when it writes one, and a class module never is.
+        var allows = _workspace.AllowsFileLevelStatements(module.AbsolutePath);
+        t_alwaysScript = _workspace.AlwaysHasFileLevelStatements(module.AbsolutePath);
+        t_fileStatements = allows && (t_alwaysScript || !ModuleKinds.Of(super: null, content, module.AbsolutePath).IsClass());
         return Parse(uri, module, content, anchorOffset, [], Statistics, token);
     }
 
@@ -340,9 +346,11 @@ public partial class ModuleParser(
             // and its alternatives are read the same way after either.
             ModuleNode ast;
             ImmutableArray<SyntaxNode> trivia;
-            if (t_fileStatements)
+            var script = t_fileStatements ? ScriptSource.Split(sanitized) : null;
+            var isScript = script is not null && (t_alwaysScript || script.CodeRange is not null);
+            if (isScript)
             {
-                (ast, trivia) = ParseScript(uri, node, sanitized, anchorOffset, errorListener, token);
+                (ast, trivia) = ParseScript(uri, node, script!, anchorOffset, errorListener, token);
             }
             else if (!ForceSegments
                 && TryParseFast(sanitized, errorListener,
@@ -378,7 +386,7 @@ public partial class ModuleParser(
 
             // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
             // the source, which a module that has one would have read as one block too many. A script's parts have had theirs (ParseScript).
-            if (!t_fileStatements && errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
+            if (!isScript && errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
             {
                 errorListener.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, sanitized, anchorOffset));
             }
@@ -510,12 +518,12 @@ public partial class ModuleParser(
     // a script (SdkWorkspaceOptions.AllowsFileLevelStatements) read in three parts of its source, each with the others blank (ScriptSource): what it
     // declares outside its procedures and its procedures, each read as a module is, and its code, read as the body of a procedure whose header is on the
     // line before the first. The grammar is the one every module is read with, so a module that is no script is read as it always was. The module is what
-    // the first two declare, in the order they are written, and its code is its ProgramEntryPoint.ScriptName procedure, which it has even when it has no
-    // code. What is wrong in a part is reported as a module's is, in MS-VBA's words where its blocks do not match.
-    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia) ParseScript(Uri uri, ModuleNode node, string sanitized, SourcePosition anchorOffset,
+    // the first two declare, in the order they are written, and its code is its ProgramEntryPoint.ScriptName procedure, which a document of a language
+    // that always has such code has even when it has none. What is wrong in a part is reported as a module's is, in MS-VBA's words where its blocks do not
+    // match.
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia) ParseScript(Uri uri, ModuleNode node, ScriptSource.Parts parts, SourcePosition anchorOffset,
         ErrorListener errorListener, CancellationToken token)
     {
-        var parts = ScriptSource.Split(sanitized);
         var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
         var next = 0;
         var children = new List<SyntaxNode>();
@@ -525,9 +533,11 @@ public partial class ModuleParser(
 
         // each line of the code is the line it is on in the script: the procedure's header is on the line before the first.
         var body = Part($"Sub {ScriptProcedure}()\n{parts.Code}\nEnd Sub\n", new SourcePosition(anchorOffset.Line - 1, 0));
+        // a script of no code has its procedure where the module ends, after all it writes: what it writes before its procedures (its description) is the
+        // module's, as a module's is.
         var range = parts.CodeRange is { } code
             ? new SourceRange(code.Start.AnchoredAt(anchorOffset), code.End.AnchoredAt(anchorOffset))
-            : new SourceRange(anchorOffset, anchorOffset);
+            : new SourceRange(node.SourceLocation.Range.End, node.SourceLocation.Range.End);
         var location = new SourceLocation(uri, range);
         var script = body.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.Name == ScriptProcedure);
         children.Add(script is null
@@ -850,9 +860,14 @@ public partial class ModuleParser(
     private static long t_directiveLooks;
 
     // whether the module the thread parses may have statements outside its procedures (SdkWorkspaceOptions.AllowsFileLevelStatements), which are the
-    // code of its (Script) procedure: set as the public Parse starts, and read by every parse of the module and of its parts.
+    // code of its (Script) procedure: set as each module of the file is parsed, and read by every parse of the module and of its parts.
     [ThreadStatic]
     private static bool t_fileStatements;
+
+    // whether that module is a script whatever it writes: a document of a language that always has such statements (a .vbs), and not one that the setting
+    // alone allows them.
+    [ThreadStatic]
+    private static bool t_alwaysScript;
 
     /// <summary>
     /// The work the directive passes of this thread's last <see cref="Parse(Uri, string, SourcePosition, CancellationToken)"/> did, the module's and its

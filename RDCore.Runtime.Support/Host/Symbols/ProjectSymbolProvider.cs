@@ -2,6 +2,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using RDCore.SDK.Platform.Components;
@@ -33,14 +34,19 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// <param name="project">The project.</param>
 /// <param name="fileSystem">The file system the sources are read from.</param>
 /// <param name="known">
-/// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf"/>), by its <c>RelativeUri</c> in the project.
+/// The modules of each file whose source is not read (<see cref="ModuleKinds.ModulesOf(RDCoreModule, string?, SdkWorkspaceOptions)"/>), by its
+/// <c>RelativeUri</c> in the project.
 /// </param>
 /// <param name="ansiCodePage">
 /// The code page of a source that has no byte order mark and is not valid UTF-8 (<see cref="ModuleFileText.Decode(byte[], int)"/>): the environment's.
 /// </param>
+/// <param name="workspace">The workspace's settings, which say the files that declare modules in blocks; the defaults when they are not given.</param>
 public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem,
-    IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage) : ISymbolProvider
+    IReadOnlyDictionary<string, IReadOnlyList<DeclaredModule>>? known = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage,
+    SdkWorkspaceOptions? workspace = null) : ISymbolProvider
 {
+    private readonly SdkWorkspaceOptions _workspace = workspace ?? new();
+
     // the modules the project's files declare, a block of a file one of them, as the symbols were last provided: none until they are.
     public int ModuleCount { get; private set; }
 
@@ -53,7 +59,7 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
             // a file of several modules declares each (ModuleKinds.ModulesOf): its own, which the project's word is about, then each block's.
             var declared = known is not null && known.TryGetValue(module.RelativeUri, out var given)
                 ? given
-                : ModuleKinds.ModulesOf(module, ReadSourceOrNull(module.RelativeUri));
+                : ModuleKinds.ModulesOf(module, ReadSourceOrNull(module.RelativeUri), _workspace);
             parts.AddRange(declared.Select(each => (module, each)));
         }
 

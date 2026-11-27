@@ -101,7 +101,7 @@ est un module, et un seul `.vbp` qui s'y trouve en fait un projet VB6 (voir [**R
 |`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, ce qui la garde dans l'interpréteur, et ce que l'interpréteur exécute pour elle lorsqu'elle est compilée.|
 |`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré, avec ce que chaque cas alloue.|
 |`rdc bench-msvba`|`bm`|Écrit les chiffres de référence MS-VBA des bancs d'essai (`msvba.json`, ou le fichier que nomme `--out`). Il exécute le corpus intégré et les cas d'automatisation d'Excel dans MS-VBA, dans un Excel masqué, et dans RD-VBA, en tours alternés sur cette machine (`--rounds`, 5; les `--excel-rounds` premiers, 3, avec les cas d'automatisation d'Excel), exécute chaque cas `--runs` fois par tour (7; `--excel-runs`, 5, pour un cas d'automatisation d'Excel), et retient l'exécution la plus rapide de chaque cas, de chaque côté. Il requiert Windows, Excel, et le paramètre « Accès approuvé au modèle d'objet du projet VBA » d'Excel.|
-|`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
+|`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
 |`rdc splash`|`s`|Écrit l'écran d'accueil de la plateforme en texte brut, que sa sortie soit une console ou non. Elle ne prend pas d'espace de travail.|
 
@@ -141,7 +141,7 @@ Le code de sortie indique comment s'est passée l'exécution :
 |Code de sortie|Signification|
 |---|---|
 |`0`|Le programme s'est terminé : son point d'entrée est revenu, il a exécuté un `End`, ou il a exécuté un `Stop` en `Release`.|
-|`1`|Une erreur d'exécution l'a terminé, ou un `Stop` en `Debug` l'a interrompu, sans débogueur où s'arrêter. La sortie d'erreur indique lequel, avec le numéro et la description de l'erreur.|
+|`1`|Une erreur d'exécution l'a terminé, ou un `Stop` en `Debug` l'a interrompu, sans débogueur où s'arrêter. La sortie d'erreur indique lequel, avec le numéro et la description de l'erreur, et en dessous ce que l'erreur dit de plus, comme le formulaire qu'une exécution sans surveillance a laissé chargé.|
 |`2`|Il n'a pas pu démarrer : aucun point d'entrée, ou un module qui ne se charge pas.|
 
 ### Construire un programme

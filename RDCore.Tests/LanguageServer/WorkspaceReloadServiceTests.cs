@@ -217,13 +217,14 @@ public sealed class WorkspaceReloadServiceTests
         _symbols.DidNotReceive().SessionComposedAnew();
     }
 
-    // a file of blocks is the text of several modules: losing it loses each of them, by the names its parse gave them.
+    // a file of blocks is the text of several modules: losing it loses each of them, by the names its parse gave them. The workspace allows blocks in a
+    // module file.
     [TestMethod]
     public async Task AFileOfBlocksTheProjectLost_HasEachOfItsModulesDiscarded_WhenTheHostKeepsItsSession()
     {
         HostAnswers(new HostProjectReloadResult { IsProgramRunning = true });
         await LoadAsync("A.bas", "B.cls");
-        var parse = new ModuleParser().Parse(UriOf("B.cls"),
+        var parse = FileLevelStatementsOn.Parser().Parse(UriOf("B.cls"),
             "Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n");
         _parsing.TryGetCached(UriOf("B.cls"), out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
         WriteProject("A.bas");

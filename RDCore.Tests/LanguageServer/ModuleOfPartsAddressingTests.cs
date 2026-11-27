@@ -39,7 +39,7 @@ public sealed class ModuleOfPartsAddressingTests
     private const string PartialPart = "Partial Module Program\r\nPublic Sub Bump()\r\n    count = count + 1\r\nEnd Sub\r\n"
         + "\r\nPrivate Sub Add(ByVal n As Long, ByVal unused As Long)\r\n    Debug.Print n\r\nEnd Sub\r\n"
         + "\r\nPublic Sub Note()\r\n    last = 1\r\n    Debug.Print last\r\nEnd Sub\r\nEnd Module\r\n"
-        + "Partial Class Circle\r\nImplements IShape\r\nEnd Class\r\n";
+        + "Partial Class Circle\r\nImplements IShape\r\n\r\nPublic Sub Draw()\r\nEnd Sub\r\nEnd Class\r\n";
 
     private const string ClassHeader = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\n";
 
@@ -69,14 +69,14 @@ public sealed class ModuleOfPartsAddressingTests
         foreach (var document in documents)
         {
             var uri = document.Id.Uri.ToUri();
-            var parse = new ModuleParser().Parse(uri, document.Text);
+            var parse = FileLevelStatementsOn.Parser().Parse(uri, document.Text);
             _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
             _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(parse));
             _parsing.TryGetCached(uri, document.Version, out Arg.Any<ModuleParseResult>()).Returns(call => { call[2] = parse; return true; });
         }
 
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser().Parse(call.Arg<Uri>(), call.Arg<string>())));
     }
 
     private RenameService Sut()
@@ -85,10 +85,16 @@ public sealed class ModuleOfPartsAddressingTests
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(
                 call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var options = WorkspaceOptions();
         return new RenameService(
             _documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
     }
+
+    // a .bas declares blocks, a Partial one among them, only in a workspace that allows file-level statements (RD-VBAL §5.1).
+    private static IOptions<SdkAppOptions> WorkspaceOptions() => Options.Create(new SdkAppOptions
+    {
+        Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba", FileLevelStatements = true },
+    });
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
 
@@ -203,7 +209,7 @@ public sealed class ModuleOfPartsAddressingTests
     [TestMethod]
     public async Task AnImplementsDirectiveOfAPartialPart_IsImplementedInThatPart()
     {
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var options = WorkspaceOptions();
         var answer = await new ImplementInterfaceService(Sut(), _parsing, options).ImplementAsync(
             Document("Extra.bas"), new SourceRange(15, 0, 15, 0), CancellationToken.None);
 
@@ -212,7 +218,6 @@ public sealed class ModuleOfPartsAddressingTests
         var implemented = Applied(PartialPart, answer.Edits!.Select(edit => (edit.Range, edit.NewText)));
         var stub = implemented.IndexOf("Private Function IShape_Area(ByVal factor As Double) As Double", StringComparison.Ordinal);
         Assert.IsTrue(stub > implemented.IndexOf("Implements IShape", StringComparison.Ordinal), implemented);
-        Assert.IsTrue(stub < implemented.LastIndexOf("End Class", StringComparison.Ordinal), "the stub is inside the block: " + implemented);
         Assert.IsTrue(implemented.EndsWith("End Class\r\n", StringComparison.Ordinal), implemented);
     }
 

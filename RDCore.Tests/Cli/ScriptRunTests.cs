@@ -77,6 +77,19 @@ public sealed class ScriptRunTests
         StringAssert.Contains(error, "'13':");
     }
 
+    // what the error says beyond its description is said on the line under it: a For Each over an array that was never given bounds says why there is
+    // nothing to enumerate.
+    [TestMethod]
+    public async Task AnErrorThatSaysMoreThanItsDescription_IsSaidWithItUnderTheDescription()
+    {
+        var (exit, _, error) = await RunAsync([], "Dim items()", "Dim item", "For Each item In items", "Next");
+
+        Assert.AreEqual(ProgramRunner.Failed, exit, error);
+        var lines = error.Split(Environment.NewLine);
+        Assert.Contains("'92':", lines[0], error);
+        Assert.AreEqual($"  {RDCore.Runtime.Exceptions.VBForEach_ArrayNotInitialized_Verbose}", lines[1], error);
+    }
+
     [TestMethod]
     [DataRow("7", 7, DisplayName = "a code")]
     [DataRow("300", 300, DisplayName = "a code larger than a byte")]
@@ -291,6 +304,21 @@ public sealed class ScriptRunTests
         StringAssert.Contains(inProject.Error, ProgramRunner.NoEntryPoint.ToString());
         Assert.AreEqual(onItsOwn.Error, inProject.Error, "the refusal is the one the module's file gets as a project of its own");
         Assert.AreEqual(string.Empty, inProject.Output);
+    }
+
+    // a script names WScript in a project that has modules other than scripts, as it does in a project of scripts (RD-VBAL §2.3.1.3), whichever module
+    // the run starts from; WScript.ScriptName is the file it started from.
+    [TestMethod]
+    [DataRow("Program.bas", DisplayName = "a run started from a module that is no script")]
+    [DataRow("Start.vbs", DisplayName = "a run started from a script")]
+    public async Task AScriptOfAProjectWithOtherModules_NamesWScript_AsTheFileTheRunStartedFrom(string file)
+    {
+        const string program = "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Greet\r\nEnd Sub\r\n";
+        const string greeting = "Sub Greet()\r\nWScript.Echo \"hi from \" & WScript.ScriptName\r\nEnd Sub\r\n";
+        var (exit, output, error) = await RunInProjectAsync(file, [("Program.bas", program), ("Lib.vbs", greeting), ("Start.vbs", "Greet\r\n")]);
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines($"hi from {file}"), output);
     }
 
     // two scripts of a project: each calls a procedure of the other's.

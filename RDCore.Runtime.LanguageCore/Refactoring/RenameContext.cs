@@ -43,4 +43,9 @@ public sealed record class RenameContext(
     // whether a location of a parse of a module is in a branch of an #If block that is not live (MS-VBAL §3.4), as the environment host evaluated the
     // module: null when that is not known, and a check reads every branch as an alternative of the others.
     public Func<ModuleParseResult, Func<SourceLocation, bool>?> DeadTestOf { get; init; } = static _ => null;
+
+    // the lower bound Option Base gives the arrays of a module (MS-VBAL §5.2.1.2): a module of parts has one, which any of its parts states (RD-VBAL §5.1),
+    // and each part is one of the modules of its address here, with its own tree.
+    public int OptionBaseOf(Uri module)
+        => Modules.Any(part => part.Module.AbsoluteUri == module.AbsoluteUri && part.Syntax.GetOptionBase() != 0) ? 1 : 0;
 }

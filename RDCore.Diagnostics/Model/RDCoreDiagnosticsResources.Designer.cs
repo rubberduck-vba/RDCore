@@ -738,6 +738,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Write &apos;@{0}&apos; above the header.
+        /// </summary>
+        public static string ModuleAnnotationHasAShortForm_Fix {
+            get {
+                return ResourceManager.GetString("ModuleAnnotationHasAShortForm_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;@{0}&apos; is written &apos;@{1}&apos; on the lines above the block&apos;s header, where it annotates the block&apos;s module..
+        /// </summary>
+        public static string ModuleAnnotationHasAShortForm_Message {
+            get {
+                return ResourceManager.GetString("ModuleAnnotationHasAShortForm_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Variable &apos;{0}&apos; of the module is used only in &apos;{1}&apos;: it can be declared there..
         /// </summary>
         public static string MoveFieldCloserToUsage_Message {
@@ -2114,6 +2132,42 @@ namespace RDCore.Diagnostics.Model {
         public static string RedundantModuleOption_Message {
             get {
                 return ResourceManager.GetString("RedundantModuleOption_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The file is in the folder &quot;{0}&quot; of its project, which this &apos;@Folder does not name. Rubberduck&apos;s Code Explorer shows the module in the folder the annotation names, once the project is imported into MS-VBA..
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_Message {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The file is at the root of its project, which no &apos;@Folder names. Rubberduck&apos;s Code Explorer shows the module in the folder the annotation names, once the project is imported into MS-VBA..
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_RootMessage {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_RootMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;@Folder(&quot;{0}&quot;).
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_Fix {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_Fix", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove &apos;@Folder.
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_RootFix {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_RootFix", resourceCulture);
             }
         }
 

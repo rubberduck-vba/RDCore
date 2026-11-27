@@ -590,6 +590,19 @@ public sealed class VisualBasicFormLifecycleTests
         Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
     }
 
+    // and the run says which form nobody could unload, under the error's description, which stays the dialog's: Err.Description is not the form's.
+    [TestMethod]
+    public async Task MainEnding_WithAFormLoaded_SaysWhichForm_UnderTheDescription()
+    {
+        var result = await ModuleWorkspace.RunUnattendedAsync(
+            [], Program(["Load Form2", "Debug.Print \"main end\""]), Libraries, Forms(), SupportedLanguages.VB6);
+
+        Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
+        Assert.IsNotNull(result.ErrorVerbose, "what the error says of the form is in ErrorVerbose");
+        StringAssert.Contains(result.ErrorVerbose, "Form2");
+        Assert.DoesNotContain("Form2", result.ErrorMessage, "the description is the error's own, not the form's");
+    }
+
     // the forms of a world whose user closes the first form shown, as its close button does (vbFormControlMenu), once the program runs on after showing it.
     internal sealed class ClosedByItsUser(RDCore.External.Forms.IFormHost forms) : RDCore.External.Forms.IFormHost
     {

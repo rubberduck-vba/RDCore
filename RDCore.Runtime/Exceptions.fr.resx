@@ -252,9 +252,6 @@
   <data name="VBResume_WithoutError_Verbose" xml:space="preserve">
     <value>Cette instruction Resume s'est exécutée sans erreur active - il n'y a rien dont elle puisse reprendre.</value>
   </data>
-  <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
-    <value>Levée explicitement par une instruction Error.</value>
-  </data>
   <data name="VBProcedureCall_OutOfStackSpace_Verbose" xml:space="preserve">
     <value>Cet appel dépasserait la profondeur maximale de la pile d'appels de la session - probablement une récursion non bornée.</value>
   </data>
@@ -311,6 +308,48 @@
   </data>
   <data name="VBDeclare_EntryPointNotFound_Verbose" xml:space="preserve">
     <value>{0} n'a pas pu être appelée : la bibliothèque « {1} » n'a pas de point d'entrée « {2} ».</value>
+  </data>
+  <data name="JsonValues_DateOutOfRange_Verbose" xml:space="preserve">
+    <value>Une Date qui n'est pas un jour du 1er janvier 100 au 31 décembre 9999 n'a aucune valeur JSON.</value>
+  </data>
+  <data name="JsonValues_TypeHasNoJson_Verbose" xml:space="preserve">
+    <value>Une valeur de type '{0}' n'a aucune valeur JSON.</value>
+  </data>
+  <data name="JsonValues_NotFinite_Verbose" xml:space="preserve">
+    <value>Un nombre qui n'est pas fini n'a aucune valeur JSON.</value>
+  </data>
+  <data name="JsonValues_ElementUnreadable_Verbose" xml:space="preserve">
+    <value>Un élément d'un tableau ne peut pas être lu.</value>
+  </data>
+  <data name="JsonValues_HoldsItself_Verbose" xml:space="preserve">
+    <value>Un objet qui se contient lui-même n'a aucune valeur JSON.</value>
+  </data>
+  <data name="JsonValues_NeitherDictionaryNorCollection_Verbose" xml:space="preserve">
+    <value>Un objet qui n'est ni un Dictionary ni une Collection n'a aucune valeur JSON.</value>
+  </data>
+  <data name="JsonValues_KeyNotAName_Verbose" xml:space="preserve">
+    <value>Une clé de Dictionary de type '{0}' n'est pas un nom JSON.</value>
+  </data>
+  <data name="JsonValues_KindNotType_Verbose" xml:space="preserve">
+    <value>Une valeur JSON de type {0} n'est pas un '{1}'.</value>
+  </data>
+  <data name="JsonValues_NullNotType_Verbose" xml:space="preserve">
+    <value>Un null JSON n'est pas un '{0}'.</value>
+  </data>
+  <data name="JsonValues_KindHasNoValue_Verbose" xml:space="preserve">
+    <value>Une valeur JSON de type {0} n'a aucune valeur dans le langage.</value>
+  </data>
+  <data name="JsonValues_NoDouble_Verbose" xml:space="preserve">
+    <value>Le nombre JSON {0} n'a aucune valeur Double.</value>
+  </data>
+  <data name="JsonValues_NoDecimal_Verbose" xml:space="preserve">
+    <value>Le nombre JSON {0} n'a aucune valeur Decimal.</value>
+  </data>
+  <data name="JsonValues_NotIsoDate_Verbose" xml:space="preserve">
+    <value>Le texte '{0}' n'est pas une date et heure ISO 8601 sans décalage.</value>
+  </data>
+  <data name="JsonValues_ValueNotType_Verbose" xml:space="preserve">
+    <value>La valeur JSON n'est pas un '{0}'.</value>
   </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} a arrêté le processus qui l'appelait : la fonction est probablement mal déclarée - ses paramètres, leurs types, ou la façon dont ils sont passés.</value>

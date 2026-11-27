@@ -59,7 +59,8 @@ public sealed class RuntimeEnvironmentProfileTests
         Assert.AreEqual("fr-FR", sut.Culture.Name);
         Assert.AreEqual(VBErlLineNumbering.LineLabel, sut.ErlLineNumbering);
         Assert.AreEqual(VBErlAfterErrClear.Kept, sut.ErlAfterErrClear);
-        Assert.IsFalse(sut.AllowDllImports, "the switch an administrator sets, which nothing else may override");
+        Assert.AreEqual(RDCore.SDK.Runtime.ExecutionPolicyMode.Block, sut.ExecutionPolicy.LibraryImports.Mode,
+            "the switch an administrator sets, which nothing else may override");
     }
 
     [TestMethod]

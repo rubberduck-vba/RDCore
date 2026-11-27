@@ -75,15 +75,16 @@ public sealed class DocumentSymbolHandlerTests
     public async Task AFileOfBlocks_IsARootForEachOfItsModules()
     {
         WorkspaceContains(Document);
+        // a .bas has blocks in a workspace that allows statements outside procedures.
         _parsing.ParseDocumentAsync(DocUri, Arg.Any<CancellationToken>())
-            .Returns(Parse(
+            .Returns(FileLevelStatementsOn.Parser().Parse(DocUri, string.Join("\n",
                 "Attribute VB_Name = \"Mod1\"",
                 "Public Sub Alpha()",
                 "End Sub",
                 "Class Account",
                 "Public Sub Deposit()",
                 "End Sub",
-                "End Class"));
+                "End Class")));
 
         var roots = (await Sut().Handle(Request(), CancellationToken.None))!.Select(AsDocumentSymbol).ToList();
 

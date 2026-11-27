@@ -71,7 +71,11 @@ public sealed class ExtractMethodServiceTests
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly IPlatformClientCapabilitiesService _capabilities = Substitute.For<IPlatformClientCapabilitiesService>();
     private readonly RenameService _rename;
-    private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+    // a .bas declares blocks, a Partial one among them, only in a workspace that allows file-level statements (RD-VBAL §5.1).
+    private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions
+    {
+        Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba", FileLevelStatements = true },
+    });
 
     public ExtractMethodServiceTests() => _rename = RenameOf(new WorkspaceDocument("Main.bas", Root, Module, version: Version));
 
@@ -84,11 +88,11 @@ public sealed class ExtractMethodServiceTests
         {
             var uri = document.Id.Uri.ToUri();
             _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
-            _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, document.Text)));
+            _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(FileLevelStatementsOn.Parser().Parse(uri, document.Text)));
         }
 
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
