@@ -212,7 +212,7 @@ public sealed class ModuleAssemblyTests
         Assert.IsTrue(Single(modules, "Helpers").Directives.PrivateModule);
     }
 
-    // MS-VBAL §5.2.1: a module of parts has one set of options, which one part states for the code of every part, whichever part it is.
+    // RD-VBAL §5.1: a module of parts has one set of options (MS-VBAL §5.2.1), which one part states for the code of every part, whichever part it is.
     [TestMethod]
     [DataRow("Option Base 1", false, DisplayName = "Option Base, stated in the plain part")]
     [DataRow("Option Base 1", true, DisplayName = "Option Base, stated in the Partial part")]
