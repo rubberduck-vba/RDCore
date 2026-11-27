@@ -204,7 +204,8 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
             null => VBObjectValue.Nothing,
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
             JsonObject record when declared is VBClassType { Symbol: var classModule } && IsWorkspaceClass(classModule) => Instance(record, classModule),
-            JsonArray list when declared is VBClassType { Symbol: var classModule } && StdCollection.IsCollection(classModule) => Collection(list, classModule),
+            JsonArray list when declared is VBClassType { Symbol: var classModule } && StdCollection.IsCollection(classModule)
+                => Collection(list, classModule),
             _ => throw Mismatch(Verbose(Exceptions.JsonValues_KindNotType_Verbose, KindOf(json), declared.Name)),
         },
         // MS-VBAL §5.2.3.4: a member of an enumeration is a Long.
@@ -347,7 +348,7 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
             var added = interaction.CallByName(collection, new VBStringValue("Add"), VBCallType.VBMethod, new VBVariantValue(Natural(item)));
             if (!added.IsSuccess)
             {
-                throw Unwound(added.ErrorInfo, Verbose(Exceptions.JsonValues_InitializeEnded_Verbose, classModule.Name));
+                throw Unwound(added.ErrorInfo, Verbose(Exceptions.JsonValues_CollectionAddEnded_Verbose, classModule.Name));
             }
         }
 

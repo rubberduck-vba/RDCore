@@ -785,6 +785,15 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The program ended while an element was added to the new '{0}'..
+        /// </summary>
+        internal static string JsonValues_CollectionAddEnded_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_CollectionAddEnded_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The program ended while an object of the class '{0}' was initialized..
         /// </summary>
         internal static string JsonValues_InitializeEnded_Verbose {
