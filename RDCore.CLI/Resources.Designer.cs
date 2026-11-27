@@ -1478,7 +1478,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to {0} is in {1} as the platform&apos;s or the application&apos;s settings say it: your settings add to that list, and cannot remove it..
+        ///   Looks up a localized string similar to {0} is in {1} because the platform&apos;s or the application&apos;s settings put it there: your settings can add to that list, and cannot remove an item from it..
         /// </summary>
         public static string Config_NotTheUsers {
             get {
@@ -1487,7 +1487,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to {0} is in {1} as the platform&apos;s settings say it: your settings add to that list, and cannot remove it. Platform.Extensions.Blocked keeps an extension from loading..
+        ///   Looks up a localized string similar to {0} is in {1} because the platform&apos;s settings put it there: your settings can add to that list, and cannot remove an item from it. To keep the extension from loading, add it to Platform.Extensions.Blocked..
         /// </summary>
         public static string Config_NotTheUsers_Extension {
             get {
