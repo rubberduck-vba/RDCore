@@ -151,7 +151,6 @@ public sealed class VisualBasicFormGraphicsTests
     }
 
     [TestMethod]
-    [Ignore("not implemented: the parser reads Scale written with no points as a call of the method, whose Flags is not optional")]
     public async Task ScaleWithNoPoints_SetsTwipsBack()
     {
         var printed = await ShownAsync("Form4.Scale (0, 0)-(100, 50)", "Form4.Scale", "Debug.Print Form4.ScaleWidth & \" \" & Form4.ScaleMode");

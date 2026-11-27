@@ -21,9 +21,8 @@ statements, with coordinate pairs, `Step` and `-` in place of an argument list:
 |---|---|---|
 |[GraphicsMethodStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.GraphicsMethodStatementNode.html)|`Simple`|`Token` says which of the four it is. `Target` is the object before the dot; `IsWithRelative` is set for a statement written with a leading dot in a `With` block (`.Line`). An argument left out is `null` in `Arguments`.|
 
-> [!NOTE]
-> **Not implemented.** `Scale` written with no points (`Form1.Scale`, which sets the scale back to twips) is read as a call of the `Scale` method, and
-> fails with _Argument not optional_.
+`Scale` written with no points (`Form1.Scale`) is the statement as well, with no `From` and no `To`, and not a call of the `Scale` method: it sets
+the scale back to twips (`ScaleMode` 1).
 
 ## Static Semantics
 
