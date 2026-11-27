@@ -234,6 +234,8 @@ public sealed class ExtensionManifestValidationServiceTests
         Description = "",
         FileHash = fileHash,
         Capabilities = [],
+        // the platform's own SDK version, so that the file hash is the only thing these rows read.
+        SdkVersion = ExtensionManifestValidationService.SdkVersion,
     };
 
     [TestMethod]
