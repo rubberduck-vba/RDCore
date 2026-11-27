@@ -96,8 +96,8 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         return ValueTask.CompletedTask;
     }
 
-    // a Public (or implicitly public) Sub, Function or Property Get of a standard module: a member of a class needs an object, and a Declare is no code of
-    // the program's.
+    // a Public (or implicitly public) Sub, Function or Property Get of a standard module: a member of a class needs an object, and a Declare is not code
+    // the program wrote.
     private static VBTypeMemberSymbol? ProcedureOf(IRuntimeSession session, ProgramInvocation invocation, out string explanation)
     {
         explanation = string.Empty;
