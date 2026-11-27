@@ -168,6 +168,8 @@ internal static class ExpressionFactDescriber
     }
 
     // MS-VBAL §4.1: what a library the project references declares (the standard library, a type library, another project) is not a module of the project.
+    // A form's control is declared by the form's designer, not by its code.
     internal static ValueExpressionSemanticFlags BindingFlagsOf(Symbol? binding)
-        => binding?.GetProperty(SymbolProperties.Library) is not null ? ValueExpressionSemanticFlags.BoundToLibrary : 0;
+        => (binding?.GetProperty(SymbolProperties.Library) is not null ? ValueExpressionSemanticFlags.BoundToLibrary : 0)
+            | (binding is not null && binding.GetProperty(SymbolProperties.DesignerControl) ? ValueExpressionSemanticFlags.BoundToDesignerControl : 0);
 }

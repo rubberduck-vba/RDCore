@@ -295,6 +295,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00217](rdc00217.md)|Function result always discarded|A `Function` that every call of the project calls as a statement|
 |[RDC00218](rdc00218.md)|IsMissing of a Variant that is not Optional|IsMissing of a required Variant parameter, or of a Variant variable|
 |[RDC00219](rdc00219.md)|Unreachable Case|A `Case` or `Case Else` block that no value of the selector reaches|
+|[RDC00220](rdc00220.md)|ParamArray ignores Option Base|A `ParamArray` parameter in a module that states `Option Base 1`|
+|[RDC00221](rdc00221.md)|VBA.Array ignores Option Base|A call of `VBA.Array` in a module that states `Option Base 1`|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
 |[RDC00304](rdc00304.md)|Obsolete error syntax|An Error statement|
@@ -315,6 +317,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00409](rdc00409.md)|Public field|A `Public` variable of a class module|
 |[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
 |[RDC00411](rdc00411.md)|Code in a class implemented as an interface|A class that another class implements, with a statement in a member|
+|[RDC00412](rdc00412.md)|Control used outside its form|A control of a form, used by code in another module|
 |[RDC00413](rdc00413.md)|Module variable used in one procedure|A variable of the module that only one procedure uses|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
