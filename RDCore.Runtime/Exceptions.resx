@@ -312,6 +312,48 @@
   <data name="VBDeclare_EntryPointNotFound_Verbose" xml:space="preserve">
     <value>{0} could not be called: the library '{1}' has no entry point '{2}'.</value>
   </data>
+  <data name="JsonValues_DateOutOfRange_Verbose" xml:space="preserve">
+    <value>A Date that is not a day from January 1, 100 to December 31, 9999 has no JSON value.</value>
+  </data>
+  <data name="JsonValues_TypeHasNoJson_Verbose" xml:space="preserve">
+    <value>A value of type '{0}' has no JSON value.</value>
+  </data>
+  <data name="JsonValues_NotFinite_Verbose" xml:space="preserve">
+    <value>A number that is not finite has no JSON value.</value>
+  </data>
+  <data name="JsonValues_ElementUnreadable_Verbose" xml:space="preserve">
+    <value>An element of an array cannot be read.</value>
+  </data>
+  <data name="JsonValues_HoldsItself_Verbose" xml:space="preserve">
+    <value>An object that holds itself has no JSON value.</value>
+  </data>
+  <data name="JsonValues_NeitherDictionaryNorCollection_Verbose" xml:space="preserve">
+    <value>An object that is neither a Dictionary nor a Collection has no JSON value.</value>
+  </data>
+  <data name="JsonValues_KeyNotAName_Verbose" xml:space="preserve">
+    <value>A Dictionary key of type '{0}' is not a JSON name.</value>
+  </data>
+  <data name="JsonValues_KindNotType_Verbose" xml:space="preserve">
+    <value>A JSON {0} is not a '{1}'.</value>
+  </data>
+  <data name="JsonValues_NullNotType_Verbose" xml:space="preserve">
+    <value>A JSON null is not a '{0}'.</value>
+  </data>
+  <data name="JsonValues_KindHasNoValue_Verbose" xml:space="preserve">
+    <value>A JSON {0} has no value in the language.</value>
+  </data>
+  <data name="JsonValues_NoDouble_Verbose" xml:space="preserve">
+    <value>The JSON number {0} has no Double.</value>
+  </data>
+  <data name="JsonValues_NoDecimal_Verbose" xml:space="preserve">
+    <value>The JSON number {0} has no Decimal.</value>
+  </data>
+  <data name="JsonValues_NotIsoDate_Verbose" xml:space="preserve">
+    <value>The text '{0}' is not an ISO 8601 date and time with no offset.</value>
+  </data>
+  <data name="JsonValues_ValueNotType_Verbose" xml:space="preserve">
+    <value>The JSON value is not a '{0}'.</value>
+  </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed.</value>
   </data>
