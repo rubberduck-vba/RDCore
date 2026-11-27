@@ -1243,8 +1243,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         provider.Output.Target = output;
         try
         {
-            // the objects the arguments are made of (a New object of a class) are held by the invocation, as a statement holds the objects it makes, and let
-            // go of when it is over: one the program kept nothing of is destroyed then. An End lets go of everything, and an error nothing handled ends as one.
+            // the objects the arguments are made of (a New object of a class) are held by the invocation, as a statement holds the objects it makes, and
+            // let go of when it is over: one the program kept nothing of is destroyed then. An End lets go of everything, and an error nothing handled ends
+            // as one.
             var temporaries = session.Objects.TemporaryCount;
             var (arguments, refusal) = bind(session);
             if (session.Halt.Pending is not null)
