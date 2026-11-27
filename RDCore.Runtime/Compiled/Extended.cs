@@ -231,10 +231,11 @@ public readonly struct Extended
 
     /// <summary>
     /// <c>Sgn</c> of an extended value (<strong>MS-VBAL §6.1.2.10.1.8</strong>): -1, 0 or 1, the sign of its 80 bits as MS-VBA gives it, so a product too
-    /// small for a <c>Double</c> is not 0. The value is not stored; what is pending, and a NaN, an invalid operation, is the error it raises.
+    /// small for a <c>Double</c> is not 0. The value is not stored. An error the value holds pending, or a NaN (an invalid operation), is the status it
+    /// returns.
     /// </summary>
     /// <param name="value">The value it is given.</param>
-    /// <param name="result">The sign; 0 when it raises.</param>
+    /// <param name="result">The sign; 0 when the status is an error.</param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static PayloadStatus Sign(Extended value, out long result)
     {
