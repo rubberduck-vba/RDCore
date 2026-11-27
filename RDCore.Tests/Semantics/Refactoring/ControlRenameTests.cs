@@ -145,7 +145,8 @@ public sealed class ControlRenameTests
         var context = Compose("Picker", code);
 
         Assert.AreEqual(
-            code.Replace("CommandButton Ok ", "CommandButton Accept ").Replace("Ok_Click", "Accept_Click").Replace("(Ok.Left, Ok.Top)", "(Accept.Left, Accept.Top)"),
+            code.Replace("CommandButton Ok ", "CommandButton Accept ").Replace("Ok_Click", "Accept_Click")
+                .Replace("(Ok.Left, Ok.Top)", "(Accept.Left, Accept.Top)"),
             Renamed(context, "Picker", "Private Sub Ok_Click", "Ok", "Accept"));
     }
 
