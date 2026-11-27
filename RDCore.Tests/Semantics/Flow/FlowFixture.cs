@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
@@ -9,6 +10,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Server.Configuration;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Workspace;
@@ -137,8 +139,9 @@ internal static class FlowFixture
         return ExtractionModuleAnalysis.Of(ModuleUri("Main"), text, parse, composition.Resolver, composition.ScopeTree);
     }
 
-    // the class modules, then the standard modules, beside the module, each parsed. A file with blocks is read as the language server reads it
-    // (ParsedModules.Of): its own module, then the module of each block under the block's name, each with its part of the parse and the file's text.
+    // the class modules, then the standard modules, beside the module, each parsed in a workspace that allows blocks in a module file. A file with blocks
+    // is read as the language server reads it (ParsedModules.Of): its own module, then the module of each block under the block's name, each with its part
+    // of the parse and the file's text.
     private static (Uri Module, ModuleType Type, ModuleParseResult Parse, string Source)[] OthersOf(
         IReadOnlyList<(string Name, string Source)>? classes, IReadOnlyList<(string Name, string Source)>? modules)
         => [.. (classes ?? []).Select(module => (module.Name, module.Source, Type: ModuleType.ClassModule, Extension: "cls"))
@@ -146,7 +149,8 @@ internal static class FlowFixture
             .SelectMany(other =>
             {
                 var file = new Uri($"file:///c:/ws/{other.Name}.{other.Extension}");
-                var parse = new ModuleParser().Parse(file, other.Source);
+                var parse = new ModuleParser(workspaceOptions: Options.Create(new SdkWorkspaceOptions { FileLevelStatements = true }))
+                    .Parse(file, other.Source);
                 Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
                 var document = new RDCoreDocument(file, parse);
                 (Uri, ModuleType, ModuleParseResult, string)[] parts = parse.BlockModules.IsEmpty
