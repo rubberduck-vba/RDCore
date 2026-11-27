@@ -530,6 +530,12 @@ internal static class ObjectReferences
     /// <param name="index">The field's position in declaration order.</param>
     public static Held HeldInField(VBUserDefinedTypeValue record, int index)
     {
+        // a field held as bytes holds no object, and is read without making its cell.
+        if (index >= 0 && index < record.FieldCount && record.Shape.Fields[index].Kind == RecordFieldKind.Bytes)
+        {
+            return Held.None;
+        }
+
         var holds = default(Collector);
         CollectField(record.StoredFieldAt(index), ref holds);
         return new Held(holds);

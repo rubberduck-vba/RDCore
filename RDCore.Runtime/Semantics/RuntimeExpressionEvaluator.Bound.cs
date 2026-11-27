@@ -194,9 +194,19 @@ public sealed partial class RuntimeExpressionEvaluator
     internal bool TryConvertUnobserved(VBTypedValue value, VBType destination, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBTypedValue? converted)
     {
         converted = null;
-        return Observation is null && !AssumesVariables && Plans.PlanExecutor.IsPlannedDestination(destination)
-            && Plans.PlanExecutor.TryConvert(value, destination, out converted);
+        return IsUnobserved && Plans.PlanExecutor.IsPlannedDestination(destination) && Plans.PlanExecutor.TryConvert(value, destination, out converted);
     }
+
+    // a known record let to a target of its own type, when nothing observes the evaluation: the target's record is let the record itself, and takes a copy
+    // of it (VBUserDefinedTypeValue.TryLetFrom), which is what the record's let-coercion would make of it first (MS-VBAL 5.5.1.2.8).
+    internal bool LetsRecordUncoerced(
+        VBTypedValue value, VBType destination, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record)
+    {
+        record = IsUnobserved && value is VBUserDefinedTypeValue { IsIndeterminate: false } known && Equals(known.TypeInfo, destination) ? known : null;
+        return record is not null;
+    }
+
+    private bool IsUnobserved => Observation is null && !AssumesVariables;
 
     /// <summary>
     /// Let-assigns a value to the variable a name is bound to: through its slot, by the plan of its let-coercion

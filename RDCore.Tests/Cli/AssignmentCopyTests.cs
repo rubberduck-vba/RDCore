@@ -97,4 +97,13 @@ public sealed class AssignmentCopyTests
             "Private Type T\r\n    O As Noisy\r\n    N As Long\r\nEnd Type",
             "Dim p As T, q As T, e As T", "Set p.O = New Noisy", "q = p", "Set p.O = Nothing", "Debug.Print \"p let go\"",
             "Debug.Print TypeName(q.O) = \"Noisy\"", "q = e", "Debug.Print \"q assigned\""));
+
+    // a record whose Variant field holds an array, let to a variable, to an element of an array of records and to a field of another record: each holds an
+    // array of its own, so an element of the source's assigned afterwards is the source's alone, and a record let itself holds what it held.
+    [TestMethod]
+    public async Task ARecordWithAnArrayInAVariant_LetToAVariableAnElementAndAField_HoldsAnArrayOfItsOwn()
+        => CollectionAssert.AreEqual(new[] { "9 1 1 1", "1 3" }, await Run(
+            "Private Type T\r\n    V As Variant\r\n    N As Long\r\nEnd Type\r\nPrivate Type TOuter\r\n    In As T\r\nEnd Type",
+            "Dim p As T, q As T, a(1 To 2) As T, o As TOuter", "p.V = Array(1, 2)", "p.N = 3", "q = p", "a(1) = p", "o.In = p", "p.V(0) = 9",
+            "Debug.Print p.V(0) & \" \" & q.V(0) & \" \" & a(1).V(0) & \" \" & o.In.V(0)", "q = q", "Debug.Print q.V(0) & \" \" & q.N"));
 }

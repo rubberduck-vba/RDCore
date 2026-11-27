@@ -66,12 +66,14 @@ public static class RecordOperations
     /// written in the field's cell, which a <c>ByRef</c> parameter given the field is bound to, as <c>AssignField</c> writes it
     /// (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>).
     /// </summary>
-    public static bool WriteIntegral(object? record, int index, ScalarKind kind, long value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
+    public static bool WriteIntegral(object? record, int index, ScalarKind kind, long value)
+        => TryWrite(record, index, kind, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
 
     /// <summary>
     /// Let-assigns a payload of the field's floating-point kind to the field at <paramref name="index"/> of <paramref name="record"/>.
     /// </summary>
-    public static bool WriteFloating(object? record, int index, ScalarKind kind, double value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), 0, value));
+    public static bool WriteFloating(object? record, int index, ScalarKind kind, double value)
+        => TryWrite(record, index, kind, new ScalarPayload(ScalarKinds.TypeOf(kind), 0, value));
 
     /// <summary>
     /// The payload the <c>Variant</c> field at <paramref name="index"/> of <paramref name="record"/> holds, when it holds a known value of a scalar type.
@@ -161,11 +163,23 @@ public static class RecordOperations
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ArrayField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBArrayValue;
 
-    // a field held as a payload (DeclaredVariableDefaults) is read where it is, with no value boxed; any other, of the value it holds.
+    // a field held as bytes of the kind's encoding, or as a payload (DeclaredVariableDefaults), is read where it is, with no value boxed; any other, of
+    // the value it holds.
     private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
     {
         payload = default;
-        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is not { } field)
+        if (record is not VBUserDefinedTypeValue held)
+        {
+            return false;
+        }
+
+        if (held.TryReadBytesField(index, EncodingOf(kind), out var integral, out var floating))
+        {
+            payload = new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating);
+            return true;
+        }
+
+        if (held.StoredFieldAt(index) is not { } field)
         {
             return false;
         }
@@ -176,9 +190,20 @@ public static class RecordOperations
     }
 
     // the field holds a value of its declared type, as the interpreter's Let makes it: a LongPtr field a LongPtr, of the payload of the type it is an alias of.
-    private static bool TryWrite(object? record, int index, ScalarPayload payload)
+    // A field held as bytes of the kind's encoding is written in them, which is what letting it a value of its type writes, with no cell made of it.
+    private static bool TryWrite(object? record, int index, ScalarKind kind, ScalarPayload payload)
     {
-        if (record is not VBUserDefinedTypeValue held || held.StoredFieldAt(index) is not { } before)
+        if (record is not VBUserDefinedTypeValue held)
+        {
+            return false;
+        }
+
+        if (held.TryWriteBytesField(index, EncodingOf(kind), payload.Integral, payload.Floating))
+        {
+            return true;
+        }
+
+        if (held.StoredFieldAt(index) is not { } before)
         {
             return false;
         }
@@ -210,6 +235,20 @@ public static class RecordOperations
 
         return held.TryLetFieldAt(index, payload.Typed());
     }
+
+    // how a record holds a field of a kind as bytes (RecordShape): a Date as the Double that is its serial.
+    private static RecordFieldEncoding EncodingOf(ScalarKind kind) => kind switch
+    {
+        ScalarKind.Byte => RecordFieldEncoding.Byte,
+        ScalarKind.Integer => RecordFieldEncoding.Int16,
+        ScalarKind.Long => RecordFieldEncoding.Int32,
+        ScalarKind.LongLong => RecordFieldEncoding.Int64,
+        ScalarKind.Boolean => RecordFieldEncoding.Boolean,
+        ScalarKind.Currency => RecordFieldEncoding.Currency,
+        ScalarKind.Single => RecordFieldEncoding.Single,
+        ScalarKind.Double or ScalarKind.Date => RecordFieldEncoding.Double,
+        _ => RecordFieldEncoding.None,
+    };
 
     // the class of the value of a scalar type, as the type makes one (ScalarPayload.Typed): what a field of the type holds.
     private static Type? ValueClassOf(VBType type) => type switch

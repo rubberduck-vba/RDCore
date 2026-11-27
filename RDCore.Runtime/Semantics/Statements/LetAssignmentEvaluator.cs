@@ -456,6 +456,12 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // a record let to an element of its type that holds one is the element's record let the record itself, which takes a copy of it.
+        if (isElement && expressions.LetsRecordUncoerced(value, elementType, out var record) && TryLetElementRecord(session, array, indices, record))
+        {
+            return RuntimeExecutionOutcome.Next;
+        }
+
         var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(elementType), ConversionSite.Assignment);
         var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
         if (!coerced.IsApplicable)
@@ -488,6 +494,25 @@ public sealed class LetAssignmentEvaluator(
     // Variant, an array or a record that holds some. Only a cell that cannot be written - the inert one an element of a class,
     // user-defined type or Object type starts with - is given a binding that can. An array or a record is stored boxed, as a
     // variable stores one.
+    // the record of an element let a record in place, what it holds counted as StoreElement counts it: false when the element holds no record to let.
+    private static bool TryLetElementRecord(IRuntimeSession session, VBArrayValue array, int[] indices, VBUserDefinedTypeValue record)
+    {
+        var cell = array.GetElementHandle(indices)!;
+        if (!cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        var before = ObjectReferences.HeldIn(session, cell);
+        if (!SymbolAddressTable.TryLetRecordInPlace(cell, record))
+        {
+            return false;
+        }
+
+        ObjectReferences.Rebind(session, cell, before);
+        return true;
+    }
+
     private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, VBTypedValue source)
     {
         var cell = array.GetElementHandle(indices)!;
@@ -1087,8 +1112,14 @@ public sealed class LetAssignmentEvaluator(
         }
 
         // "the source is Let-coerced to the target's declared type" - a field's declared type is its own, and
-        // the coercion is the same one an assignment to a variable of that type would apply.
-        if (!TryLetCoerce(session, statement, source, value, fieldType, out var coerced, out var coercionFailure))
+        // the coercion is the same one an assignment to a variable of that type would apply. A record let to a field of its type is the field's
+        // record let the record itself, which takes a copy of it.
+        VBTypedValue? coerced;
+        if (expressions.LetsRecordUncoerced(value, fieldType, out var record))
+        {
+            coerced = record;
+        }
+        else if (!TryLetCoerce(session, statement, source, value, fieldType, out coerced, out var coercionFailure))
         {
             return coercionFailure;
         }
