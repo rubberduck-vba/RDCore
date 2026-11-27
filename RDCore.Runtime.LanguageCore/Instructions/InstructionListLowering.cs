@@ -52,7 +52,7 @@ public static class InstructionListLowering
 
         // what is wrong with the body is the static pass's to say, once, whoever lowers it: lowering only needs to know where a jump lands, and a jump
         // that lands nowhere has no target.
-        var errors = StatementStaticSemanticsEvaluator.CheckStructure(body, new StaticSemanticsOptions(options.Dead, options.Language, DrawsOnMe: options.DrawsOnMe), procedure);
+        var errors = StatementStaticSemanticsEvaluator.CheckStructure(body, options.StaticSemantics(), procedure);
         return new InstructionListLoweringResult(new InstructionList([.. state.Items], state.Labels, state.ByNode), errors);
     }
 

@@ -1,5 +1,6 @@
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Operators;
+using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -106,7 +107,7 @@ public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvalua
         }
         else
         {
-            var syntheticOperator = new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, locationNode.Identity, locationNode.Location, locationNode, locationNode);
+            var syntheticOperator = LetOperatorSites.Of(locationNode, locationNode.Identity, locationNode.Location, locationNode, locationNode);
             result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue((Symbol)control), element);
         }
 

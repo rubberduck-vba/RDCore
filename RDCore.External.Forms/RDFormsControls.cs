@@ -39,6 +39,7 @@ internal static class RDFormsControlsMembers
 {
     private const int UnknownName = unchecked((int)0x80020006);
     private const int BadParameterCount = unchecked((int)0x8002000E);
+    private const int BadIndex = unchecked((int)0x8002000B);
     private const int VisualBasicError = unchecked((int)0x800A0000);
     private const int TypeMismatch = VisualBasicError | 13;
 
@@ -71,7 +72,7 @@ internal static class RDFormsControlsMembers
 
                 case "ITEM" or DefaultMember:
                     Takes(collection, member, arguments, 1, 1);
-                    return form.HandleOf(Find(form, arguments[0], culture));
+                    return form.HandleOf(ItemOf(form, arguments[0], culture));
 
                 case "ADD":
                     Takes(collection, member, arguments, 2, 3);
@@ -121,6 +122,26 @@ internal static class RDFormsControlsMembers
         if (given < fewest || arguments.Length > most || arguments.Take(fewest).Any(argument => argument is System.Reflection.Missing))
         {
             throw new AutomationException(BadParameterCount, $"{collection}.{member} takes {(fewest == most ? $"{fewest}" : $"{fewest} to {most}")} argument(s).");
+        }
+    }
+
+    // a control of the collection as Item reaches it, as VB6 does: by its name, else by its position, which a String that reads as a number is too. A position
+    // the collection does not hold is 9, Subscript out of range, where a name it does not hold is 730.
+    private static ComponentInstance ItemOf(RDFormsForm form, object? key, CultureInfo culture)
+    {
+        if (key is string name && double.TryParse(name, NumberStyles.Float, culture, out var number) && double.IsFinite(number)
+            && !form.Model.Controls.Any(control => string.Equals(control.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            key = number;
+        }
+
+        try
+        {
+            return Find(form, key, culture);
+        }
+        catch (FormErrorException) when (key is not (string or RDFormsObject))
+        {
+            throw new AutomationException(BadIndex, $"{form.Controls}: there is no control at {key}.");
         }
     }
 

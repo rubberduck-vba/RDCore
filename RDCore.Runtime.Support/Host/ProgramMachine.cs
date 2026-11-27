@@ -1,9 +1,10 @@
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Execution.Hosting;
+using RDCore.Runtime.Execution.Hosting.Json;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -124,7 +125,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
     // the arguments by their parameters' names, as RD-VBA compares names: one naming no parameter is 448, a parameter given none that is not Optional is 449,
     // and a value of no parameter's type is the error its conversion is (13, or 94 for null). An Optional one given none is what a call that omits it passes;
     // a ParamArray is given nothing. Two names that differ only by case are one name given twice: 448 as well.
-    private static (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal) Bind(
+    private static (IRuntimeValue[]? Arguments, IVBRaisableError? Refusal) Bind(
         IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, IReadOnlyDictionary<string, JsonNode?> arguments)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
