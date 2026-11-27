@@ -747,6 +747,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a control of form &apos;{1}&apos;, used from outside the form..
+        /// </summary>
+        public static string PublicControlFieldAccess_Message {
+            get {
+                return ResourceManager.GetString("PublicControlFieldAccess_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
         /// </summary>
         public static string LineContinuationBetweenKeywords_Message {
@@ -2033,6 +2042,24 @@ namespace RDCore.Diagnostics.Model {
         public static string UnreachableCase_Else_Message {
             get {
                 return ResourceManager.GetString("UnreachableCase_Else_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The param array &apos;{0}&apos; starts at 0: Option Base 1 sets the lower bound of the module&apos;s other arrays, not of a ParamArray parameter..
+        /// </summary>
+        public static string ParamArrayIgnoresOptionBase_Message {
+            get {
+                return ResourceManager.GetString("ParamArrayIgnoresOptionBase_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call of the library&apos;s Array function returns an array that starts at 0: only the unqualified Array follows Option Base 1..
+        /// </summary>
+        public static string QualifiedArrayIgnoresOptionBase_Message {
+            get {
+                return ResourceManager.GetString("QualifiedArrayIgnoresOptionBase_Message", resourceCulture);
             }
         }
 

@@ -184,7 +184,8 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         },
         // MS-VBAL §5.2.3.4: a member of an enumeration is a Long.
         VBEnumType => In(json, VBLongType.TypeInfo),
-        // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94.
+        // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94. A fixed-size array,
+        // which is not a let target, is 13 too.
         _ when json is null && declared is not (VBArrayType or VBUserDefinedType)
             => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),

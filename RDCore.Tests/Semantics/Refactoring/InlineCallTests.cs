@@ -646,6 +646,26 @@ public class InlineCallTests
         Assert.AreEqual(before, after, module);
     }
 
+    // an empty ParamArray is written Array(), which follows the Option Base of the module it is written in, the caller's (MS-VBAL §5.2.1.2), while a
+    // ParamArray is from 0 (MS-VBAL §5.3.1.11).
+    private static readonly string[] Listed = ["Public Sub Listed(ParamArray items())", "    Debug.Print UBound(items)", "End Sub"];
+
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerUnderOptionBase1_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", moduleLevel: "Option Base 1", modules: [Helpers(Listed)]);
+        Assert.AreEqual(InlineRefusalKind.UnsupportedParameter, refusal?.Kind);
+        Assert.AreEqual("items", refusal?.Detail);
+    }
+
+    [TestMethod]
+    public async Task AnEmptyParamArray_OfACalleeUnderOptionBase1_IsInlined_FromZero()
+    {
+        var (before, after, module) = await BeforeAndAfterAsync("Listed", string.Empty, "Listed\r\n", modules: [Helpers(["Option Base 1", .. Listed])]);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "items = Array()");
+    }
+
     private static readonly string[] Logger =
     [
         "#Const Verbose = True", "Public Sub Log(ByVal x As Long)",
