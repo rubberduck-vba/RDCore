@@ -234,6 +234,15 @@
   <data name="Host_TheProgramWasInterrupted" xml:space="preserve">
     <value>le programme a été interrompu</value>
   </data>
+  <data name="Host_ArgumentGivenTwice_Verbose" xml:space="preserve">
+    <value>Le paramètre {0} reçoit deux arguments.</value>
+  </data>
+  <data name="Host_ArgumentNotOptional_Verbose" xml:space="preserve">
+    <value>Le paramètre {0} de {1} n'est pas Optional.</value>
+  </data>
+  <data name="Host_NamedArgumentNotFound_Verbose" xml:space="preserve">
+    <value>{0} n'a aucun paramètre nommé {1}.</value>
+  </data>
   <data name="Host_NoSuchModule" xml:space="preserve">
     <value>le programme n'a aucun module standard nommé {0}</value>
   </data>

@@ -133,12 +133,12 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         {
             if (!parameters.Any(parameter => parameter is not ParamArrayParameterSymbol && parameter.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
-                return (null, Refused(VBRuntimeErrorId.NamedArgumentNotFound, $"{procedure.Name} has no parameter named {name}."));
+                return (null, Refused(VBRuntimeErrorId.NamedArgumentNotFound, Verbose(Resources.Host_NamedArgumentNotFound_Verbose, procedure.Name, name)));
             }
 
             if (!named.TryAdd(name, argument))
             {
-                return (null, Refused(VBRuntimeErrorId.NamedArgumentNotFound, $"The parameter {name} is given two arguments."));
+                return (null, Refused(VBRuntimeErrorId.NamedArgumentNotFound, Verbose(Resources.Host_ArgumentGivenTwice_Verbose, name)));
             }
         }
 
@@ -166,7 +166,8 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
             }
             else
             {
-                return (null, Refused(VBRuntimeErrorId.ArgumentNotOptional, $"The parameter {parameter.Name} of {procedure.Name} is not Optional."));
+                return (null,
+                    Refused(VBRuntimeErrorId.ArgumentNotOptional, Verbose(Resources.Host_ArgumentNotOptional_Verbose, parameter.Name, procedure.Name)));
             }
         }
 
@@ -174,4 +175,6 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
     }
 
     private static VBRuntimeErrorInfo Refused(VBRuntimeErrorId id, string verbose) => VBRuntimeErrorInfo.For(id, default, verbose);
+
+    private static string Verbose(string format, params object[] arguments) => string.Format(CultureInfo.CurrentCulture, format, arguments);
 }
