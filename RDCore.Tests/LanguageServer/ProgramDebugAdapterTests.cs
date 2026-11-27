@@ -866,6 +866,32 @@ public sealed class ProgramDebugAdapterTests
         Assert.AreEqual(ExceptionBreakMode.Always, info.BreakMode);
     }
 
+    // the details of the error the program waits at say what it says beyond its description, which stays the description.
+    [TestMethod]
+    public async Task TheErrorAProgramWaitsAt_ThatSaysMore_IsDetailedWithIt_AndItsDescriptionIsAsItWas()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.Suspended,
+            ErrorNumber = 92,
+            ErrorMessage = "For loop not initialized",
+            ErrorVerbose = "the array has no dimensions",
+            ErrorCode = "VBR00092",
+            ErrorTitle = "Run-time error",
+        }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new SetExceptionBreakpointsArguments { Filters = new Container<string>("all") });
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        _ = await session.NextAsync<StoppedEvent>();
+        var info = await session.SendAsync(new ExceptionInfoArguments { ThreadId = 1 });
+        Assert.AreEqual("For loop not initialized", info.Description);
+        StringAssert.Contains(info.Details!.Message, "the array has no dimensions");
+    }
+
     [TestMethod]
     public async Task ThereIsNoExceptionToAskAbout_WhenTheProgramDoesNotWaitAtAnError()
     {
@@ -971,6 +997,34 @@ public sealed class ProgramDebugAdapterTests
         Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
         Assert.AreEqual(5, output.Line, "the line of the error, as the client numbers them");
         Assert.AreEqual(Path, output.Source!.Path);
+        Assert.AreEqual(1, (await session.NextAsync<ExitedEvent>()).ExitCode);
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
+    // what the error says beyond its description is said on the line under it.
+    [TestMethod]
+    public async Task AProgramThatRaisesAnErrorThatSaysMore_IsSaidToHaveEnded_WithItUnderTheDescription()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.RuntimeError,
+            ErrorNumber = 50001,
+            ErrorMessage = "Nobody can answer",
+            ErrorVerbose = "Form2 is still loaded",
+            ErrorTitle = "Run-time error",
+            ErrorLine = 4,
+        }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new SetBreakpointsArguments { Source = new Source { Path = Path }, Breakpoints = new Container<SourceBreakpoint>() });
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        var lines = (await session.NextAsync<OutputEvent>()).Output.Split('\n');
+        var description = Array.FindIndex(lines, line => line.Contains("Nobody can answer", StringComparison.Ordinal));
+        Assert.IsGreaterThanOrEqualTo(0, description, string.Join("|", lines));
+        Assert.AreEqual("Form2 is still loaded", lines[description + 1], string.Join("|", lines));
         Assert.AreEqual(1, (await session.NextAsync<ExitedEvent>()).ExitCode);
         _ = await session.NextAsync<TerminatedEvent>();
     }

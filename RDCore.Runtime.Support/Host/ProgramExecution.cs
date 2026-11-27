@@ -704,7 +704,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 && StatementStaticSemanticsEvaluator.Analyze(procedure.SemanticId, block, new StaticSemanticsOptions(Language: session.Environment.Language), MemberKind.Procedure,
                     new StaticEvaluationContext(session.Symbols.Resolver, scope, Environment: new StaticEnvironment(session.Environment.Is64Bit))).CompileErrors is [var error, ..])
             {
-                return (null, string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description ? error.Description : $"{error.Description}: {error.Verbose}");
+                return (null, VerboseOf(error) is { } verbose ? $"{error.Description}: {verbose}" : error.Description);
             }
 
             var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
@@ -915,6 +915,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
         return undefined is null ? otherwise ?? Resources.Host_CannotEvaluateYet : string.Format(Resources.Host_NameIsNotDefined, undefined.IdentifierName);
     }
+
+    // what an error says beyond its description, which a client shows under it: nothing, when it says only that again.
+    private static string? VerboseOf(VBErrorInfo error) => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description ? null : error.Verbose;
 
     // why nothing can be asked of the program that does not wait.
     private static string NotSuspended(ProgramState state) => state is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended;
@@ -1259,6 +1262,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             ErrorModule = session.CallStack.Current is CallStackFrame waitsIn ? ProgramInspector.ModuleNameOf(waitsIn) : string.Empty,
             ErrorNumber = error?.ErrorId ?? 0,
             ErrorMessage = error?.Description ?? string.Empty,
+            ErrorVerbose = error is null ? null : VerboseOf(error.AsErrorInfo),
             ErrorCode = error?.ToDiagnosticCode() ?? string.Empty,
             ErrorTitle = error is null ? string.Empty : error.AsErrorInfo.ToDiagnosticTitle(),
             ConditionError = session.Halt.StoppedOnCondition is { } failure
@@ -1415,6 +1419,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Output = output.Lines,
             ErrorNumber = error.ErrorId,
             ErrorMessage = error.Description,
+            ErrorVerbose = VerboseOf(error.AsErrorInfo),
             ErrorCode = error.ToDiagnosticCode(),
             ErrorTitle = error.AsErrorInfo.ToDiagnosticTitle(),
             ErrorLineNumber = session.Errors.LineNumber,

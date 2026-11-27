@@ -77,6 +77,19 @@ public sealed class ScriptRunTests
         StringAssert.Contains(error, "'13':");
     }
 
+    // what the error says beyond its description is said on the line under it: a For Each over an array that was never given bounds says why there is
+    // nothing to enumerate.
+    [TestMethod]
+    public async Task AnErrorThatSaysMoreThanItsDescription_IsSaidWithItUnderTheDescription()
+    {
+        var (exit, _, error) = await RunAsync([], "Dim items()", "Dim item", "For Each item In items", "Next");
+
+        Assert.AreEqual(ProgramRunner.Failed, exit, error);
+        var lines = error.Split(Environment.NewLine);
+        Assert.Contains("'92':", lines[0], error);
+        Assert.AreEqual($"  {RDCore.Runtime.Exceptions.VBForEach_ArrayNotInitialized_Verbose}", lines[1], error);
+    }
+
     [TestMethod]
     [DataRow("7", 7, DisplayName = "a code")]
     [DataRow("300", 300, DisplayName = "a code larger than a byte")]
