@@ -2020,8 +2020,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var number = ((VBIntegerValue)numberResult.Result!).Value;
 
         // its help context is the error's, as for an error the runtime raises, whatever one Err has: Error 9 is 1000009, and Error 5 after
-        // Err.Raise 13, , , , 77 is 1000005 (observed in Excel). It says nothing beyond its description, as Err.Raise does not: the program raised it,
-        // which its code says (VBA).
+        // Err.Raise 13, , , , 77 is 1000005 (observed in Excel). Like an Err.Raise, it says nothing beyond its description: that the
+        // program raised it is what its code says.
         return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(number, errorStatement.NumberExpression.Location, string.Empty));
     }
 
