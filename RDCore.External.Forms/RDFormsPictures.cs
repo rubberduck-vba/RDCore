@@ -52,7 +52,9 @@ internal sealed class RDFormsPictures
 
     // the program's own picture that an item has the bytes of; null for none, or for a picture of the designer's.
     public SessionObjectReference? ItemPictureOf(ComponentInstance component, byte[]? stored)
-        => stored is not null && _items.TryGetValue(component, out var held) ? held.FirstOrDefault(item => ReferenceEquals(item.Bytes, stored))?.Picture : null;
+        => stored is not null && _items.TryGetValue(component, out var held)
+            ? held.FirstOrDefault(item => ReferenceEquals(item.Bytes, stored))?.Picture
+            : null;
 
     // the list's items are what they are now: a picture of the program's that no item has the bytes of is let go of.
     public void KeepItems(ComponentInstance component, IReadOnlyList<byte[]?> icons)
