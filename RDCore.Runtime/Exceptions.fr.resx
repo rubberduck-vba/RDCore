@@ -352,7 +352,7 @@
     <value>La valeur JSON n'est pas un '{0}'.</value>
   </data>
   <data name="JsonValues_MemberEnded_Verbose" xml:space="preserve">
-    <value>Le programme a pris fin pendant la lecture de son membre '{0}'.</value>
+    <value>Le programme a pris fin pendant la lecture du membre '{0}' de l'objet.</value>
   </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} a arrêté le processus qui l'appelait : la fonction est probablement mal déclarée - ses paramètres, leurs types, ou la façon dont ils sont passés.</value>

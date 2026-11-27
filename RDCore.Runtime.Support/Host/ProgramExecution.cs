@@ -1263,8 +1263,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         }
     }
 
-    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's type), or
-    // raised by the code that taking its value runs (a Property Get of the object returned): nothing of the program ends.
+    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's
+    // type), or raised by the code that taking its value runs (a Property Get of the object returned): nothing of the program ends.
     private static ExecuteResult Refusal(IVBRaisableError error, RuntimeOutputBuffer output) => new()
     {
         Outcome = ExecutionOutcome.RuntimeError,

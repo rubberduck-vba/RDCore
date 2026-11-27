@@ -686,7 +686,7 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to An object that is neither a Dictionary, a Collection nor an instance of a class of the workspace has no JSON value..
+        ///   Looks up a localized string similar to An object that is not a Dictionary, a Collection or an instance of a class of the workspace has no JSON value..
         /// </summary>
         internal static string JsonValues_ObjectHasNoJson_Verbose {
             get {
@@ -767,7 +767,7 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The program ended while its member '{0}' was read..
+        ///   Looks up a localized string similar to The program ended while the object's member '{0}' was read..
         /// </summary>
         internal static string JsonValues_MemberEnded_Verbose {
             get {
