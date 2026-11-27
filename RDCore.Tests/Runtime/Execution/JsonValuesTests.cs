@@ -212,19 +212,41 @@ public sealed class JsonValuesTests
         Assert.IsTrue(((VBObjectValue)Converted("null", VBObjectType.TypeInfo)).IsNothing());
     }
 
-    // e. what MS-VBA raises when Null is let to a type that is not a Variant.
+    // e. MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is a type mismatch. A fixed-size array is not a let target, for Null as for any value.
+    [TestMethod]
+    [DataRow("Variant()")]
+    [DataRow("Long()")]
+    [DataRow("UDT")]
+    [DataRow("a fixed-size Long array")]
+    public void Null_InAnArrayOrAUserDefinedType_IsATypeMismatch(string type)
+        => AssertError(VBRuntimeErrorId.TypeMismatch, Value("null", _ => type switch
+        {
+            "Variant()" => new VBResizableArrayType(VBVariantType.TypeInfo),
+            "Long()" => new VBResizableArrayType(VBLongType.TypeInfo),
+            "UDT" => Point(),
+            _ => new VBFixedSizeArrayType(VBLongType.TypeInfo),
+        }).Error);
+
+    private static VBUserDefinedType Point()
+    {
+        var uri = TestUri.TestModuleUserDefinedTypeUri("Point");
+        return new VBUserDefinedType(
+            new VBUserDefinedTypeMemberSymbol(uri, uri, "Point", ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public), []);
+    }
+
+    // e. MS-VBAL §5.5.1.2.10: Null let to any other type that is not a Variant is an invalid use of Null.
     [TestMethod]
     [DataRow("Long")]
     [DataRow("String")]
     [DataRow("Date")]
-    [DataRow("Variant()")]
+    [DataRow("Boolean")]
     public void Null_InAnyOtherType_IsInvalidUseOfNull(string type)
         => AssertError(VBRuntimeErrorId.InvalidUseOfNull, Value("null", _ => type switch
         {
             "Long" => VBLongType.TypeInfo,
             "String" => VBStringType.TypeInfo,
             "Date" => VBDateType.TypeInfo,
-            _ => new VBResizableArrayType(VBVariantType.TypeInfo),
+            _ => VBBooleanType.TypeInfo,
         }).Error);
 
     // f. a Collection is an array of its members, an empty one too.

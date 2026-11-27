@@ -23,16 +23,18 @@ namespace RDCore.Runtime.Execution.Hosting;
 //
 //   Scripting.Dictionary   an object, its keys Strings (any other key is 13); a JSON object is a new Dictionary that compares its keys binary.
 //   array                  any array, a multi-dimensional one as nested arrays, the first dimension outermost, its bounds dropped; a JSON array is a
-//                          Variant() from 0, and a nested one a Variant() in it.
-//   Date                   ISO 8601 text with no offset (2026-11-26T14:30:00); text with an offset or a zone is 13.
+//                          Variant() from 0, and a nested one a Variant() in it; for an array of another element type, 13.
+//   Date                   ISO 8601 text to the second, with no offset (2026-11-26T14:30:00); any other text, one with an offset or a zone
+//                          included, is 13. In a Variant, such text stays a String.
 //   Currency, Decimal      a number, every digit of it.
-//   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 94 in any other type.
+//   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 13 in an array or a UDT, 94 in any other type (MS-VBAL
+//                          §5.5.1.2.10; a fixed-size array is not a let target, for null as for any value).
 //   Collection             an array of its members; any other object is 13.
 //   a number in a Variant  what a literal of the same digits is (MS-VBAL §3.3.2): Integer, then Long, then Double past Long's magnitude; with a fraction or
 //                          an exponent, Double.
 //
-// Into any other type, a JSON value is let-coerced from that value of the language, as an assignment is (MS-VBAL §5.5.1.2), with the errors it raises. A
-// value that does not convert, either way, is 13, as a failed let-coercion is.
+// Into any other type, a JSON value is let-coerced from that value of the language, as an assignment is (MS-VBAL §5.5.1.2), with the errors it raises:
+// 13 for text that is not a number, 6 past the type's range. A value that has no conversion at all, either way, is 13.
 internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver resolver)
 {
     private const string Moment = "yyyy'-'MM'-'dd'T'HH':'mm':'ss";
@@ -182,7 +184,9 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         },
         // MS-VBAL §5.2.3.4: a member of an enumeration is a Long.
         VBEnumType => In(json, VBLongType.TypeInfo),
-        _ when json is null => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
+        // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94.
+        _ when json is null && declared is not (VBArrayType or VBUserDefinedType)
+            => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
         VBNumericType number when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.Number => Coerced(ValueConversions.ToNumeric(
             declared is IFixedPointNumericType ? Exact(raw) : Number(raw), number), declared),
