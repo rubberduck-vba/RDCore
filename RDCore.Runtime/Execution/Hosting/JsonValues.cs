@@ -182,7 +182,8 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
             _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
         },
-        // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94.
+        // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94. A fixed-size array,
+        // which is not a let target, is 13 too.
         _ when json is null && declared is not (VBArrayType or VBUserDefinedType)
             => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
