@@ -140,7 +140,8 @@ public sealed class VisualBasicFormControlsTests
     [Ignore("not implemented: a control array of an RDForms form as an object of its own, reached by its name in Controls")]
     public async Task AControlArray_ReachedByItsName_IsTheArray_WhichHasNoName()
     {
-        var lines = await RunAsync("Dim x As Variant", "x = Form1.Controls(\"Command2\").Name", "Debug.Print x & \"|\" & Err.Number & \"|\" & Err.Description");
+        var lines = await RunAsync(
+            "Dim x As Variant", "x = Form1.Controls(\"Command2\").Name", "Debug.Print x & \"|\" & Err.Number & \"|\" & Err.Description");
 
         CollectionAssert.AreEqual(new[] { "|438|Object doesn't support this property or method" }, lines, string.Join(" | ", lines));
     }
