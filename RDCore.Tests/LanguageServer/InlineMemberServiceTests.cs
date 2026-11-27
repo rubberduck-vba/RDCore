@@ -100,13 +100,14 @@ public sealed class InlineMemberServiceTests
     private readonly InlineMemberService _service;
 
     public InlineMemberServiceTests()
+        => _service = ServiceOf(
+            new WorkspaceDocument("Main.bas", Root, Main, version: 4), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 2),
+            new WorkspaceDocument("Counters.bas", Root, Counters, version: 1), new WorkspaceDocument("Shadow.bas", Root, Shadow, version: 1));
+
+    // the service, on a workspace of these documents.
+    private InlineMemberService ServiceOf(params WorkspaceDocument[] documents)
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var documents = new[]
-        {
-            new WorkspaceDocument("Main.bas", Root, Main, version: 4), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 2),
-            new WorkspaceDocument("Counters.bas", Root, Counters, version: 1), new WorkspaceDocument("Shadow.bas", Root, Shadow, version: 1),
-        };
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
@@ -123,7 +124,7 @@ public sealed class InlineMemberServiceTests
                 call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
         var rename = new RenameService(
             _documents, _parsing, new IntrinsicSymbolResolver(), _libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
-        _service = new InlineMemberService(rename, _parsing, _options);
+        return new InlineMemberService(rename, _parsing, _options);
     }
 
     // the service as the language server's container makes it: OmniSharp's, which looks at every constructor, the internal ones too, and fills primitive
@@ -253,5 +254,24 @@ public sealed class InlineMemberServiceTests
         StringAssert.Contains(refusal.Message, "Tally");
         Assert.IsNull(answer.Edit);
         Assert.IsNotNull(answer.Refusal);
+    }
+
+    // a module of parts (RD-VBAL §5.1): Program's plain part declares Add, and its Partial part, a block of Extra.bas, calls it.
+    private const string PlainPart = "Option Explicit\r\nPrivate count As Long\r\n\r\nPrivate Sub Add(ByVal n As Long)\r\n    count = count + n\r\nEnd Sub\r\n";
+
+    private const string PartialPart = "Partial Module Program\r\nPublic Sub Main()\r\n    Add 20\r\n    Debug.Print count\r\nEnd Sub\r\nEnd Module\r\n";
+
+    [TestMethod]
+    public async Task ACallInThePartialPartOfAModule_IsInlinedWhereItIsWritten()
+    {
+        var service = ServiceOf(
+            new WorkspaceDocument("Program.bas", Root, PlainPart, version: 1), new WorkspaceDocument("Extra.bas", Root, PartialPart, version: 3));
+
+        var answer = await service.ApplyAsync(Document("Extra.bas"), new SourcePosition(2, 5), [], [], CancellationToken.None);
+
+        var text = Edited(answer, "Extra.bas", PartialPart);
+        Assert.AreEqual(3, answer.Edit!.Documents.Single().Version);
+        Assert.DoesNotContain("Add 20", text);
+        StringAssert.Contains(text, "    count = count + n\r\n    Debug.Print count\r\n");
     }
 }
