@@ -123,7 +123,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
 
     // the arguments by their parameters' names, as RD-VBA compares names: one naming no parameter is 448, a parameter given none that is not Optional is 449,
     // and a value of no parameter's type is the error its conversion is (13, or 94 for null). An Optional one given none is what a call that omits it passes;
-    // a ParamArray is given nothing. Two names that differ only by case name one parameter twice, as no call can: 450.
+    // a ParamArray is given nothing. Two names that differ only by case are one name given twice: 448 as well.
     private static (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal) Bind(
         IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, IReadOnlyDictionary<string, JsonNode?> arguments)
     {
@@ -138,7 +138,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
 
             if (!named.TryAdd(name, argument))
             {
-                return (null, Refused(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, $"The parameter {name} is given two arguments."));
+                return (null, Refused(VBRuntimeErrorId.NamedArgumentNotFound, $"The parameter {name} is given two arguments."));
             }
         }
 

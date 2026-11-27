@@ -141,7 +141,7 @@ public sealed class ProgramMachineTests
     [DataRow("""{"A":1}""", VBRuntimeErrorId.ArgumentNotOptional, DisplayName = "a parameter that is not Optional, given nothing")]
     [DataRow("""{"A":"x","B":2}""", VBRuntimeErrorId.TypeMismatch, DisplayName = "a value of no parameter's type")]
     [DataRow("""{"A":null,"B":2}""", VBRuntimeErrorId.InvalidUseOfNull, DisplayName = "null for a Long")]
-    [DataRow("""{"A":1,"a":2,"B":3}""", VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, DisplayName = "one parameter named twice")]
+    [DataRow("""{"A":1,"a":2,"B":3}""", VBRuntimeErrorId.NamedArgumentNotFound, DisplayName = "one parameter named twice")]
     public Task AnArgumentThatDoesNotBind_IsARunTimeError_RaisedBeforeTheProcedureRuns(string arguments, VBRuntimeErrorId expected)
         => WithMachineAsync(async machine =>
         {
