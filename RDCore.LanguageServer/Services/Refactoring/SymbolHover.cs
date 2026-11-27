@@ -38,19 +38,30 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         {
             ControlArrayOf = element is null ? null : ClassNameOf(element),
             AdditionTo = symbol.GetProperty(SymbolProperties.LibraryAddition) ? symbol.GetProperty(SymbolProperties.Library) : null,
+            IsDefaultInstance = symbol is VBPredeclaredInstanceSymbol,
         };
     }
 
     public string? ControlArrayOf { get; init; }
 
+    // the default instance variable of a class (MS-VBAL §5.2.4.1.2), which no statement declares: it is said by its name, not by a declaration.
+    public bool IsDefaultInstance { get; init; }
+
     // the library RD-VBA adds the member to, which the library's type library does not declare.
     public string? AdditionTo { get; init; }
 
     public string ToMarkdown(CultureInfo? culture = null)
-        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+    {
+        var declaration = IsDefaultInstance ? SymbolTexts.DefaultInstance($"`{Declaration}`", culture) : $"```vba\n{Declaration}\n```";
+        return string.Join("\n\n", PartsOf(declaration, culture));
+    }
 
     public string ToPlainText(CultureInfo? culture = null)
-        => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n", PartsOf(IsDefaultInstance ? SymbolTexts.DefaultInstance(Declaration, culture) : Declaration, culture));
+
+    // what the hover says, in order: the declaration, what declares the symbol, what a control array is of, what adds it to its library, and its doc string.
+    private IEnumerable<string?> PartsOf(string declaration, CultureInfo? culture)
+        => new[] { declaration, MemberOf(culture), ArrayOf(culture), AdditionOf(culture), Documentation }.Where(part => part is { Length: > 0 });
 
     private string? AdditionOf(CultureInfo? culture) => AdditionTo is null ? null : SymbolTexts.LibraryAddition(AdditionTo, culture);
 
@@ -73,6 +84,7 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         {
             StaticSymbol { Kind: SymbolKindExt.TypeDescriptor, ResolvedType: var intrinsic } => intrinsic.Name,
             VBModuleSymbol module => $"{(module.Kind == SymbolKindExt.Class ? "Class" : "Module")} {module.Name}",
+            VBPredeclaredInstanceSymbol => symbol.Name,
             VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol when SignatureDescription.Of(symbol) is { } property
                 => access + ProcedureKeywords.Of(symbol) + property.Label[Tokens.Property.Length..],
             _ when SignatureDescription.Of(symbol) is { } signature => access + signature.Label,
