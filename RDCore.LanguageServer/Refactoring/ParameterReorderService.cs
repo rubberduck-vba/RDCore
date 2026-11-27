@@ -112,7 +112,7 @@ internal sealed class ParameterReorderService(IRenameService rename) : IParamete
         {
             Documents =
             [
-                // the edits of all the modules of a document are one edit of it, each of its part's document (RD-VBAL §5.1).
+                // each edit goes to the document of the part of the module it is in (RD-VBAL §5.1), and the edits of one document are one edit of it.
                 .. plan.Edits
                     .Select(edit => (Edit: edit, Module: part.Modules.First(candidate => candidate.Is(edit.Module, edit.Document))))
                     .GroupBy(edited => edited.Module.Document.Id.Uri)

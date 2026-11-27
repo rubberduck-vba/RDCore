@@ -63,7 +63,8 @@ public sealed record class ParameterReorderRefusal(ParameterReorderRefusalKind K
     // a refusal of a position where no procedure with parameters to reorder is declared: a code action offers nothing there.
     public bool FindsNothing => Kind is ParameterReorderRefusalKind.NoProcedure or ParameterReorderRefusalKind.OneParameter;
 
-    // the document of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document), which a locator names it by; null where it is not known.
+    // the document of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document), which a locator names it by; null where it is not
+    // known.
     public Uri? Document { get; init; }
 
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
