@@ -72,5 +72,6 @@ public readonly record struct InstructionLoweringOptions(
     /// What the static pass is told about a body lowered with these options: its dead branches, its language, and whether it draws on <c>Me</c>.
     /// </summary>
     /// <param name="blocks">The structure of the module's <c>#If</c> blocks, whatever they evaluated to; <see langword="null"/> when it is not known.</param>
-    public Static.StaticSemanticsOptions StaticSemantics(RDCore.SDK.Semantics.ConditionalCompilationBlocks? blocks = null) => new(Dead, Language, blocks, DrawsOnMe);
+    public Static.StaticSemanticsOptions StaticSemantics(RDCore.SDK.Semantics.ConditionalCompilationBlocks? blocks = null)
+        => new(Dead, Language, blocks, DrawsOnMe);
 }

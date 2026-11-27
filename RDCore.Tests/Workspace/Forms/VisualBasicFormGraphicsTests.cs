@@ -230,12 +230,13 @@ public sealed class VisualBasicFormGraphicsTests
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    // a shown Form4, and a program stopped by the call halt, to Form4's Halt or to the program's own; the statement is run in that activation, as the Immediate window runs it, and
-    // the program then goes on and prints the point the statement draws.
+    // a shown Form4, and a program stopped by the call halt, to Form4's Halt or to the program's own; the statement is run in that activation, as the
+    // Immediate window runs it, and the program then goes on and prints the point the statement draws.
     private static async Task<(DebugEvaluateResult Done, string[] Printed)> StoppedAsync(string halt, string statement)
     {
         var form4 = Form4();
-        var program = $"{Program(["Form4.Show", "DoEvents", halt, "Debug.Print Form4.Point(700, 500)", "Unload Form4"])}Public Sub Halt()\r\n    Stop\r\nEnd Sub\r\n";
+        var program = $"{Program(["Form4.Show", "DoEvents", halt, "Debug.Print Form4.Point(700, 500)", "Unload Form4"])}"
+            + "Public Sub Halt()\r\n    Stop\r\nEnd Sub\r\n";
         DebugEvaluateResult? done = null;
         string[] printed = [];
         await ModuleWorkspace.InspectAsync([], program, async (provider, _, _) =>

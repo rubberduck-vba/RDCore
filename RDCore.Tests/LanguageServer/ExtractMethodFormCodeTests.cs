@@ -72,7 +72,10 @@ public sealed class ExtractMethodFormCodeTests
 
     private readonly RenameService _rename;
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
-    private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vb6" } });
+    private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions
+    {
+        Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vb6" },
+    });
 
     public ExtractMethodFormCodeTests()
     {
@@ -94,8 +97,10 @@ public sealed class ExtractMethodFormCodeTests
 
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
-            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        _rename = new RenameService(documents, _parsing, new IntrinsicSymbolResolver(), libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
+            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName]))
+                .ProvideSymbols()]);
+        _rename = new RenameService(
+            documents, _parsing, new IntrinsicSymbolResolver(), libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
     }
 
     private static Uri DocumentOf(string file) => DocumentUri.From(Path.Combine(Root, file)).ToUri();
@@ -111,7 +116,8 @@ public sealed class ExtractMethodFormCodeTests
     public async Task ABareLine_InTheCodeOfAVisualBasic6Form_IsExtracted_WithWhatItDrawsWith()
     {
         var answer = await new ExtractMethodService(_rename, _parsing, _options).ApplyAsync(
-            DocumentOf("Form1.frm"), DrawingLine(Form), [new RefactorAnswer { Id = ExtractMethodService.NameChoice, Value = "Square" }], [], CancellationToken.None);
+            DocumentOf("Form1.frm"), DrawingLine(Form), [new RefactorAnswer { Id = ExtractMethodService.NameChoice, Value = "Square" }], [],
+            CancellationToken.None);
 
         Assert.IsNull(answer.Refusal, answer.Refusal);
         var text = Applied(Form, answer.Edit!.Documents.Single().Edits);
@@ -130,7 +136,8 @@ public sealed class ExtractMethodFormCodeTests
 
         var errors = analysis.Procedure("Run", MemberKind.Procedure)!.Model.CompileErrors;
 
-        CollectionAssert.AreEqual(undefined ? new[] { VBCompileErrorId.SubOrFunctionNotDefined } : [], errors.Select(error => error.VBCompileErrorId).ToArray(),
+        CollectionAssert.AreEqual(undefined ? new[] { VBCompileErrorId.SubOrFunctionNotDefined } : [],
+            errors.Select(error => error.VBCompileErrorId).ToArray(),
             string.Join(" | ", errors.Select(error => error.Verbose)));
     }
 
