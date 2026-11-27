@@ -3,7 +3,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 namespace RDCore.Runtime.Execution.External;
 
 /// <summary>
-/// The one policy the platform ships with: whether a <c>Declare</c>'d library import may be called at all.
+/// The platform's own policy over library imports: whether a <c>Declare</c>'d library import may be called at all.
 /// </summary>
 /// <remarks>
 /// 🎯 Reads the rule of <c>LibraryImports</c> in <c>IRuntimeEnvironmentProfile.ExecutionPolicy</c>, which an administrator sets and a workspace
