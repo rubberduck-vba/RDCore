@@ -730,15 +730,16 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             // what is wrong with the statement is found out as it is for the procedure's own code (ModuleLoader), in the procedure's scope - an assignment to a
             // function of a library is not a variable there either - and a statement that is wrong does not run.
             var block = new StatementBlock([statement]);
+            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
+                DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements,
+                DrawsOnMe: GraphicsStatementStaticSemantics.DrawsOnMe(provider.Image.Forms.GetValueOrDefault(SymbolUri.ModuleNameOf(procedure.Uri))));
             if (session.Symbols.ScopeOf(procedure.Uri) is { } scope
-                && StatementStaticSemanticsEvaluator.Analyze(procedure.SemanticId, block, new StaticSemanticsOptions(Language: session.Environment.Language), MemberKind.Procedure,
+                && StatementStaticSemanticsEvaluator.Analyze(procedure.SemanticId, block, options.StaticSemantics(), MemberKind.Procedure,
                     new StaticEvaluationContext(session.Symbols.Resolver, scope, Environment: new StaticEnvironment(session.Environment.Is64Bit))).CompileErrors is [var error, ..])
             {
                 return (null, VerboseOf(error) is { } verbose ? $"{error.Description}: {verbose}" : error.Description);
             }
 
-            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
-                DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements);
             var lowered = InstructionListLowering.Lower(block, options, MemberKind.Procedure);
             var scratch = (CallStackFrame)session.Symbols.CreateFrame(selected.NodeId, selected.StaticSymbol, selected.Directives);
             (scratch.Procedure, scratch.Body) = (procedure, lowered.InstructionList);

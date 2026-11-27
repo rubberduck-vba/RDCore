@@ -2,6 +2,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
@@ -9,6 +10,10 @@ namespace RDCore.Runtime.LanguageCore.Static;
 // else it is as undefined as any other undeclared name, in a document module that is a UserForm or an Access form or report too.
 public static class GraphicsStatementStaticSemantics
 {
+    // whether the code of a module with this designer draws on Me: only a Visual Basic 6.0 form's does. Every pass that analyzes or lowers a module's code
+    // is told this.
+    public static bool DrawsOnMe(FormDescriptor? designer) => designer is { HasVisualBasic6FormModel: true };
+
     public static VBCompileErrorInfo? Evaluate(GraphicsMethodStatementNode graphics, bool drawsOnMe = false)
         => graphics is { Target: null, IsWithRelative: false } && !drawsOnMe
             ? VBCompileErrorInfo.For(VBCompileErrorId.SubOrFunctionNotDefined, graphics.SourceLocation,

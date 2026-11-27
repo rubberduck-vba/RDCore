@@ -115,9 +115,10 @@ internal sealed class ExtractionModuleAnalysis
         }
 
         var block = new StatementBlock([.. declaration.Children]);
-        var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(scope.Uri), block, kind: declaration.MemberKind,
-            context: new StaticEvaluationContext(_resolver, scope));
-        var instructions = InstructionListLowering.Lower(block, default, declaration.MemberKind).InstructionList;
+        var options = new InstructionLoweringOptions(DrawsOnMe: GraphicsStatementStaticSemantics.DrawsOnMe(Parse.Designer));
+        var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(scope.Uri), block, options.StaticSemantics(), declaration.MemberKind,
+            new StaticEvaluationContext(_resolver, scope));
+        var instructions = InstructionListLowering.Lower(block, options, declaration.MemberKind).InstructionList;
         var graph = ControlFlowGraph.Of(instructions, model, blocks: _blocks);
         return new ExtractionProcedureAnalysis(declaration, scope, model, instructions, graph, DefinitionsAndUses.Of(instructions, model, Scopes));
     }

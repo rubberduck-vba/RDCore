@@ -105,9 +105,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
 
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
-        var drawsOnMe = parseResult.Designer is { HasVisualBasic6FormModel: true };
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
-            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements, DrawsOnMe: drawsOnMe);
+            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements,
+            DrawsOnMe: GraphicsStatementStaticSemantics.DrawsOnMe(parseResult.Designer));
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
         // the parameter each argument of a call of the module's own procedures is given, which the count of what the argument names follows.
@@ -139,7 +139,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             // structure of the body.
             var scope = session.Symbols.ScopeOf(procedure.Uri);
             var model = StatementStaticSemanticsEvaluator.Analyze(
-                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks, drawsOnMe), declaration.MemberKind,
+                procedure.SemanticId, body, options.StaticSemantics(blocks), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope,
                     Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }) { Arguments = arguments });
 
