@@ -659,6 +659,27 @@ public class InlineCallTests
         Assert.AreEqual("items", refusal?.Detail);
     }
 
+    // a Partial part of the caller's module, in another file.
+    private static (string Name, string Source) PartOfMain(string options)
+        => ("Extra", $"Attribute VB_Name = \"Extra\"\r\nPartial Module Main\r\n{options}\r\nEnd Module\r\n");
+
+    // RD-VBAL §5.1: the caller's module is under the Option Base that any of its parts states.
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerUnderOptionBase1ThatAnotherPartStates_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", modules: [Helpers(Listed), PartOfMain("Option Base 1")]);
+        Assert.AreEqual(InlineRefusalKind.UnsupportedParameter, refusal?.Kind);
+        Assert.AreEqual("items", refusal?.Detail);
+    }
+
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerWhosePartsStateNoOptionBase_IsInlined()
+    {
+        var (_, after, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", modules: [Helpers(Listed), PartOfMain(string.Empty)]);
+        Assert.IsNull(refusal, $"refused: {refusal}");
+        StringAssert.Contains(after, "items = Array()");
+    }
+
     [TestMethod]
     public async Task AnEmptyParamArray_OfACalleeUnderOptionBase1_IsInlined_FromZero()
     {
