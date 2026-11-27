@@ -218,14 +218,18 @@ public sealed class ModuleAssemblyTests
     [DataRow("Option Base 1", true, DisplayName = "Option Base, stated in the Partial part")]
     [DataRow("Option Compare Text", true, DisplayName = "Option Compare, stated in the Partial part")]
     [DataRow("Option Explicit", true, DisplayName = "Option Explicit, stated in the Partial part")]
-    [DataRow("Option Private Module", true, DisplayName = "Option Private Module, stated in the Partial part")]
-    public void TheOptionsOfAModuleOfParts_AreWhatAnyOfItsPartsStates(string option, bool inThePartialPart)
+    [DataRow("Option Private Module", false, DisplayName = "Option Private Module, stated in the plain part")]
+    [DataRow("Option Private Module", true, true, DisplayName = "Option Private Module, stated by the Partial part's header")]
+    public void TheOptionsOfAModuleOfParts_AreWhatAnyOfItsPartsStates(string option, bool inThePartialPart, bool byTheHeader = false)
     {
+        // a block states Option Private Module with the Private of its header, and has no Option Private Module line (RD-VBAL §5.1).
         var plain = $"Attribute VB_Name = \"Helpers\"|{(inThePartialPart ? string.Empty : option)}|Public Sub Add(ParamArray values())|End Sub";
-        var partial = $"Partial Module Helpers|{(inThePartialPart ? option : string.Empty)}|Public Sub Report()|End Sub|End Module";
+        var partial = $"{(byTheHeader ? "Private " : string.Empty)}Partial Module Helpers|{(inThePartialPart && !byTheHeader ? option : string.Empty)}"
+            + "|Public Sub Report()|End Sub|End Module";
+        ModulePart[] parts = [.. PartsOf(First, "Helpers", ModuleType.StdModule, plain), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)];
+        Assert.IsEmpty(parts.SelectMany(part => part.Parse.SyntaxErrors), "each part is valid as written");
 
-        var (modules, refused) = ModuleAssembly.Of(
-            [.. PartsOf(First, "Helpers", ModuleType.StdModule, plain), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)]);
+        var (modules, refused) = ModuleAssembly.Of(parts);
 
         Assert.IsEmpty(refused);
         var stated = PartsOf(First, "Helpers", ModuleType.StdModule, $"Attribute VB_Name = \"Helpers\"|{option}").Single()
