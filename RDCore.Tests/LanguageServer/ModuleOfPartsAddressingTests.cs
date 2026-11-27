@@ -39,7 +39,7 @@ public sealed class ModuleOfPartsAddressingTests
     private const string PartialPart = "Partial Module Program\r\nPublic Sub Bump()\r\n    count = count + 1\r\nEnd Sub\r\n"
         + "\r\nPrivate Sub Add(ByVal n As Long, ByVal unused As Long)\r\n    Debug.Print n\r\nEnd Sub\r\n"
         + "\r\nPublic Sub Note()\r\n    last = 1\r\n    Debug.Print last\r\nEnd Sub\r\nEnd Module\r\n"
-        + "Partial Class Circle\r\nImplements IShape\r\n\r\nPublic Sub Draw()\r\nEnd Sub\r\nEnd Class\r\n";
+        + "Partial Class Circle\r\nImplements IShape\r\nEnd Class\r\n";
 
     private const string ClassHeader = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\n";
 
@@ -212,6 +212,7 @@ public sealed class ModuleOfPartsAddressingTests
         var implemented = Applied(PartialPart, answer.Edits!.Select(edit => (edit.Range, edit.NewText)));
         var stub = implemented.IndexOf("Private Function IShape_Area(ByVal factor As Double) As Double", StringComparison.Ordinal);
         Assert.IsTrue(stub > implemented.IndexOf("Implements IShape", StringComparison.Ordinal), implemented);
+        Assert.IsTrue(stub < implemented.LastIndexOf("End Class", StringComparison.Ordinal), "the stub is inside the block: " + implemented);
         Assert.IsTrue(implemented.EndsWith("End Class\r\n", StringComparison.Ordinal), implemented);
     }
 
