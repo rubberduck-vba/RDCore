@@ -13,7 +13,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// The analyzer reads the syntax tree of the file's module and of each of its blocks' modules. The file's module is under the <c>Option Base</c> of its
-/// semantics, which any of its parts may state, in any file; a block's module is under the <c>Option Base</c> its own tree states.
+/// semantics, which any of its parts may state, in any file, or of its own tree when it has no semantics; a block's module is under the
+/// <c>Option Base</c> its own tree states.
 /// </remarks>
 internal sealed class ParamArrayOptionBaseAnalyzer : IModuleAnalyzer
 {
