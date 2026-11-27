@@ -43,7 +43,8 @@ internal static class LateBoundCandidateFacts
                 ? access with
                 {
                     LateBoundCandidates = CandidatesOf(new StaticEvaluationContext(analysis.Symbols.Resolver,
-                        tree.ScopeFor(CompletionCandidates.OriginAt(tree, moduleUri, expression.Location.Range.Start)), Environment: environment),
+                        tree.ScopeFor(CompletionCandidates.OriginAt(tree, moduleUri, expression.Location.Range.Start, expression.Location.Uri)),
+                        Environment: environment),
                         tree, moduleUri, module, analysis.Symbols, access, expression),
                 }
                 : operation)],

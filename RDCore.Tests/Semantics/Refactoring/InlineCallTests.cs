@@ -20,7 +20,7 @@ public class InlineCallTests
         var offset = analyzed.Text.IndexOf(call, analyzed.Text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.IsTrue(offset >= 0, $"no {call} in Run");
         var position = TextLines.Of(analyzed.Text).PositionOf(offset + 1);
-        var (inlined, refusal) = InlineCall.At(analyzed.Context, analyzed.AnalysisOf, analyzed.ModuleAddress, position);
+        var (inlined, refusal) = InlineCall.At(analyzed.Context, module => analyzed.AnalysisOf(module.Module), analyzed.ModuleAddress, position);
         return (analyzed.Text, inlined is null ? null : DeclarationEdits.ApplyTo(analyzed.Text, inlined.Edits), refusal);
     }
 
@@ -444,7 +444,8 @@ public class InlineCallTests
         var at = body == call
             ? text.IndexOf(call, text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal)
             : text.IndexOf(call, StringComparison.Ordinal);
-        var (inlined, refusal) = InlineCall.At(analyzed.Context, analyzed.AnalysisOf, analyzed.ModuleAddress, TextLines.Of(text).PositionOf(at + 1));
+        var (inlined, refusal) = InlineCall.At(
+            analyzed.Context, module => analyzed.AnalysisOf(module.Module), analyzed.ModuleAddress, TextLines.Of(text).PositionOf(at + 1));
         Assert.IsNull(inlined);
         Assert.AreEqual((InlineRefusalKind)kind, refusal?.Kind);
     }
@@ -656,6 +657,27 @@ public class InlineCallTests
         var (_, _, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", moduleLevel: "Option Base 1", modules: [Helpers(Listed)]);
         Assert.AreEqual(InlineRefusalKind.UnsupportedParameter, refusal?.Kind);
         Assert.AreEqual("items", refusal?.Detail);
+    }
+
+    // a Partial part of the caller's module, in another file.
+    private static (string Name, string Source) PartOfMain(string options)
+        => ("Extra", $"Attribute VB_Name = \"Extra\"\r\nPartial Module Main\r\n{options}\r\nEnd Module\r\n");
+
+    // RD-VBAL §5.1: the caller's module is under the Option Base that any of its parts states.
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerUnderOptionBase1ThatAnotherPartStates_IsRefused()
+    {
+        var (_, _, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", modules: [Helpers(Listed), PartOfMain("Option Base 1")]);
+        Assert.AreEqual(InlineRefusalKind.UnsupportedParameter, refusal?.Kind);
+        Assert.AreEqual("items", refusal?.Detail);
+    }
+
+    [TestMethod]
+    public void AnEmptyParamArray_InACallerWhosePartsStateNoOptionBase_IsInlined()
+    {
+        var (_, after, refusal) = Inlined("Listed", string.Empty, "Listed\r\n", modules: [Helpers(Listed), PartOfMain(string.Empty)]);
+        Assert.IsNull(refusal, $"refused: {refusal}");
+        StringAssert.Contains(after, "items = Array()");
     }
 
     [TestMethod]

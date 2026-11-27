@@ -88,6 +88,13 @@ internal static class ProgramRunner
         await error.WriteLineAsync(result.Outcome is ExecutionOutcome.RuntimeError
             ? string.Format(CultureInfo.CurrentCulture, Resources.Run_RuntimeError, result.ErrorTitle, result.ErrorNumber, result.ErrorMessage, result.ErrorCode)
             : $"{result.Outcome} {result.ErrorMessage}".Trim());
+
+        // what the error says beyond its description, under it: which form was still loaded, for a run nobody attends.
+        if (result.ErrorVerbose is { } verbose)
+        {
+            await error.WriteLineAsync($"  {verbose}");
+        }
+
         foreach (var frame in result.StackTrace)
         {
             await error.WriteLineAsync(frame.Line < 0 ? $"    {frame.Procedure}" : $"    {frame.Procedure}:{frame.Line + 1}");

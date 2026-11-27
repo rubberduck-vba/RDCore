@@ -20,7 +20,8 @@ namespace RDCore.LanguageServer.Workspace;
 /// <para>
 /// Its one argument is the change, as the request carries it (<see cref="ListSettingValueParams"/>): <c>{ "key": "Analysis.DisabledDiagnostics", "value": "RDC01001",
 /// "scope": 0, "remove": false, "document": "file:///..." }</c>. The answer is <c>{ "applied": true }</c>, or <see langword="false"/> when the client did not make the
-/// change, or the argument is no change.
+/// change, or the argument is no change. A client that says why it did not make the change (<see cref="ListSettingValueResult.Reason"/>) has the command
+/// refused with its reason.
 /// </para>
 /// </remarks>
 internal sealed class ListSettingValueCommand(ILanguageServerFacade server, IPlatformClientCapabilitiesService capabilities) : IServerCommand
@@ -55,6 +56,12 @@ internal sealed class ListSettingValueCommand(ILanguageServerFacade server, IPla
         }
 
         var answer = await server.SendRequest(new ListSettingValueRequest(change), token);
+        if (!answer.Applied && answer.Reason is { Length: > 0 } reason)
+        {
+            // the client said why, in its user's language: an item of the list the user's settings cannot remove.
+            throw new ServerCommandRefusedException(reason);
+        }
+
         return new JObject { ["applied"] = answer.Applied };
     }
 }

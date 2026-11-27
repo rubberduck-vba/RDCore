@@ -13,7 +13,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>Option Base</c> gives (<strong>MS-VBAL §5.2.1.2</strong>, <strong>RD-VBAL §6.1.2.13</strong>).
 /// </summary>
 /// <remarks>
-/// The analyzer reads the calls that the module's semantics bind to the library's hidden module, and the file module's own <c>Option Base</c>.
+/// The analyzer reads the calls that the module's semantics bind to the library's hidden module, and the <c>Option Base</c> of those semantics, which any
+/// part of the module may state, in any file.
 /// </remarks>
 internal sealed class QualifiedArrayOptionBaseAnalyzer : IModuleAnalyzer
 {
@@ -24,7 +25,7 @@ internal sealed class QualifiedArrayOptionBaseAnalyzer : IModuleAnalyzer
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.ParseResult.SyntaxTree is not { } module || context.Semantics is not { } semantics
-            || module.GetOptionBase() != 1)
+            || (semantics.Directives?.Base ?? module.GetOptionBase()) != 1)
         {
             return [];
         }

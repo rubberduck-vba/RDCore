@@ -1478,6 +1478,24 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to {0} is in {1} because the platform&apos;s or the application&apos;s settings put it there: your settings can add to that list, and cannot remove an item from it..
+        /// </summary>
+        public static string Config_NotTheUsers {
+            get {
+                return ResourceManager.GetString("Config_NotTheUsers", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is in {1} because the platform&apos;s settings put it there: your settings can add to that list, and cannot remove an item from it. To keep the extension from loading, add it to Platform.Extensions.Blocked..
+        /// </summary>
+        public static string Config_NotTheUsers_Extension {
+            get {
+                return ResourceManager.GetString("Config_NotTheUsers_Extension", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to There is no setting '{0}'..
         /// </summary>
         public static string Config_Unknown {

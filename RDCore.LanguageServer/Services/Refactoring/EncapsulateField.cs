@@ -198,8 +198,9 @@ internal static class EncapsulateField
         [MemberKind.Procedure, MemberKind.Function, MemberKind.PropertyGet, MemberKind.PropertyLet, MemberKind.PropertySet];
 
     // the field named at a position of a module: its declaration or a reference to it.
-    public static Symbol? FieldAt(RenameContext context, Uri module, SourcePosition position)
-        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol } named
+    public static Symbol? FieldAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => RenameBinding.SymbolAt(context, module, position, document)
+            is { Symbol: VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol } named
             ? named.Symbol
             : null;
 
@@ -227,7 +228,8 @@ internal static class EncapsulateField
             return LargeStackThread.Run(() => Plan(context, module, parse, fields));
         }
 
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source || parse.SyntaxTree is not { } tree)
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, parse.SyntaxTree?.SourceLocation.Uri)) is not { } source
+            || parse.SyntaxTree is not { } tree)
         {
             return (null, new(EncapsulationRefusalKind.NotAField, Field: fields[0].Field));
         }
@@ -353,12 +355,14 @@ internal static class EncapsulateField
         var references = new Dictionary<(string, SourcePosition), SymbolReference>();
         foreach (var reference in ReferenceQuery.Of(context, field).References)
         {
-            references.TryAdd((reference.Module.AbsoluteUri, reference.Range.Start), reference);
+            references.TryAdd((RenameModule.KeyOf(reference.Module, reference.Document ?? reference.Module), reference.Range.Start), reference);
         }
         var type = ((ITypedSymbol)field).ResolvedType!;
         var isRecord = type is VBUserDefinedType or VBExternalUserDefinedType;
-        var outside = mine.Where(occurrence => occurrence.Module.AbsoluteUri != module.AbsoluteUri && occurrence.Kind is not OccurrenceKind.Declaration).ToList();
-        SymbolReference? ReferenceOf(NameOccurrence occurrence) => references.GetValueOrDefault((occurrence.Module.AbsoluteUri, occurrence.Range.Start));
+        // the edit is of the part of the module the field is declared in: a reference in another part of a module of parts (RD-VBAL §5.1) is left as it is,
+        // to go through the properties, as one outside the module is.
+        var outside = mine.Where(occurrence => occurrence.Key != source.Key && occurrence.Kind is not OccurrenceKind.Declaration).ToList();
+        SymbolReference? ReferenceOf(NameOccurrence occurrence) => references.GetValueOrDefault((occurrence.Key, occurrence.Range.Start));
 
         // a property that assigns the field: none for a read-only one, nor for a user-defined type, which is assigned only through its members.
         var assignable = !options.ReadOnly && !isRecord;
@@ -369,9 +373,11 @@ internal static class EncapsulateField
             return (null, new(isRecord ? EncapsulationRefusalKind.WritesThroughACopy : EncapsulationRefusalKind.WrittenOutside, Module: assigned.Module, Range: assigned.Range));
         }
 
-        // MS-VBAL §5.3.1.1: a Private property is reached from its own module only. The references are the project's: a Friend one reaches them all.
+        // MS-VBAL §5.3.1.1: a Private property is reached from its own module only, every part of it (RD-VBAL §5.1). The references are the project's: a
+        // Friend one reaches them all.
         var writeAccess = WriteAccessOf(field, options);
         if (outside
+                .Where(occurrence => occurrence.Module.AbsoluteUri != module.AbsoluteUri)
                 .Select(occurrence => (Occurrence: (NameOccurrence?)occurrence, Writes: ReferenceOf(occurrence)?.Use is ReferenceUse.Let or ReferenceUse.Set))
                 .FirstOrDefault(each => each.Writes ? assignable && writeAccess is AccessModifier.Private : options.ReadAccess is AccessModifier.Private)
             is { Occurrence: { } unreached, Writes: var writes })
@@ -388,7 +394,7 @@ internal static class EncapsulateField
 
         // the references inside the module: through the state, or through the properties but for those that assign the field where no property takes it,
         // those a Mid statement writes, and those that write an element of it, an array, or resize or erase it.
-        var inside = mine.Where(occurrence => occurrence.Module.AbsoluteUri == module.AbsoluteUri && occurrence.Kind is OccurrenceKind.Name).ToList();
+        var inside = mine.Where(occurrence => occurrence.Key == source.Key && occurrence.Kind is OccurrenceKind.Name).ToList();
         var writesInside = options.InsideThroughProperties && type is VBArrayType
             ? ElementsOf(context, inside).Where(element => element.Writes).Select(element => element.Occurrence.Range.Start).ToHashSet()
             : [];
@@ -503,16 +509,16 @@ internal static class EncapsulateField
         foreach (var occurrence in occurrences)
         {
             if (occurrence.Node is not ExpressionNode expression
-                || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is not { } module)
+                || context.Modules.FirstOrDefault(candidate => candidate.Key == occurrence.Key) is not { } module)
             {
                 continue;
             }
 
-            if (!parents.TryGetValue(module.Module.AbsoluteUri, out var parentOf))
+            if (!parents.TryGetValue(module.Key, out var parentOf))
             {
                 parentOf = NameOccurrences.Walk(module.Syntax).Where(pair => pair.Parent is not null)
                     .ToDictionary<(SyntaxNode Node, SyntaxNode? Parent), SyntaxNode, SyntaxNode>(pair => pair.Node, pair => pair.Parent!, ReferenceEqualityComparer.Instance);
-                parents[module.Module.AbsoluteUri] = parentOf;
+                parents[module.Key] = parentOf;
             }
 
             if (parentOf.GetValueOrDefault(expression) is MidStatementNode mid && ReferenceEquals(mid.Target, expression))
@@ -534,29 +540,29 @@ internal static class EncapsulateField
         var memberReferences = new Dictionary<SemanticId, SymbolReferences>();
         foreach (var occurrence in outside)
         {
-            if (references.GetValueOrDefault((occurrence.Module.AbsoluteUri, occurrence.Range.Start)) is { } reference
+            if (references.GetValueOrDefault((occurrence.Key, occurrence.Range.Start)) is { } reference
                 && (reference.Use is ReferenceUse.Let or ReferenceUse.Set || reference.MayBePassedByRef))
             {
                 return occurrence;
             }
 
             if (occurrence.Node is not ExpressionNode expression
-                || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is not { } module)
+                || context.Modules.FirstOrDefault(candidate => candidate.Key == occurrence.Key) is not { } module)
             {
                 continue;
             }
 
-            if (!parents.TryGetValue(module.Module.AbsoluteUri, out var parentOf))
+            if (!parents.TryGetValue(module.Key, out var parentOf))
             {
                 parentOf = NameOccurrences.Walk(module.Syntax).Where(pair => pair.Parent is not null)
                     .ToDictionary<(SyntaxNode Node, SyntaxNode? Parent), SyntaxNode, SyntaxNode>(pair => pair.Node, pair => pair.Parent!, ReferenceEqualityComparer.Instance);
-                parents[module.Module.AbsoluteUri] = parentOf;
+                parents[module.Key] = parentOf;
             }
 
-            if (!bindings.TryGetValue(module.Module.AbsoluteUri, out var bindingOf))
+            if (!bindings.TryGetValue(module.Key, out var bindingOf))
             {
                 bindingOf = NameOccurrences.BindingsOf(context, module);
-                bindings[module.Module.AbsoluteUri] = bindingOf;
+                bindings[module.Key] = bindingOf;
             }
 
             // the members of the copy the reference reads, through as many argument lists as are written after them: `Field.Points(1).X`.
@@ -605,7 +611,7 @@ internal static class EncapsulateField
             }
 
             var at = last.Location.Range;
-            if (found.References.Any(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri
+            if (found.References.Any(candidate => RenameModule.KeyOf(candidate.Module, candidate.Document ?? candidate.Module) == module.Key
                     && at.Start <= candidate.Range.Start && candidate.Range.End == at.End && candidate.MayBePassedByRef))
             {
                 return occurrence with { Range = at };
@@ -627,16 +633,16 @@ internal static class EncapsulateField
         foreach (var occurrence in occurrences)
         {
             if (occurrence.Node is not ExpressionNode expression
-                || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is not { } module)
+                || context.Modules.FirstOrDefault(candidate => candidate.Key == occurrence.Key) is not { } module)
             {
                 continue;
             }
 
-            if (!parents.TryGetValue(module.Module.AbsoluteUri, out var parentOf))
+            if (!parents.TryGetValue(module.Key, out var parentOf))
             {
                 parentOf = NameOccurrences.Walk(module.Syntax).Where(pair => pair.Parent is not null)
                     .ToDictionary<(SyntaxNode Node, SyntaxNode? Parent), SyntaxNode, SyntaxNode>(pair => pair.Node, pair => pair.Parent!, ReferenceEqualityComparer.Instance);
-                parents[module.Module.AbsoluteUri] = parentOf;
+                parents[module.Key] = parentOf;
             }
 
             var parent = parentOf.GetValueOrDefault(expression);

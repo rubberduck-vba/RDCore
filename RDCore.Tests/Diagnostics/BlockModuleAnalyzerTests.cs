@@ -28,7 +28,8 @@ public sealed class BlockModuleAnalyzerTests
 
     private static ModuleAnalysisContext ContextOf(string source, string block, Func<Uri, ModuleSemanticsDto>? semantics = null)
     {
-        var parse = new ModuleParser().Parse(File, source);
+        // a .bas has blocks in a workspace that allows statements outside procedures.
+        var parse = FileLevelStatementsOn.Parser().Parse(File, source);
         Assert.IsEmpty(parse.SyntaxErrors, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
         var uri = RDCoreDocument.BlockUri(File, block);
         return new ModuleAnalysisContext(uri, new RDCoreDocument(File, parse).ParseOf(uri)!, (semantics ?? StandardModule)(uri));

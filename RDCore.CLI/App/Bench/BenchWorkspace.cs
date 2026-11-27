@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions;
@@ -22,8 +23,8 @@ internal sealed record class BenchModule(string Name, ModuleType Type, string Re
     Exception? CompanionProblem = null)
 {
     /// <summary>
-    /// Every module the file declares (<see cref="ModuleKinds.ModulesOf"/>): its own, which <see cref="Name"/> and <see cref="Type"/> are, then each
-    /// block's.
+    /// Every module the file declares (<see cref="ModuleKinds.ModulesOf(RDCoreModule, string?, SdkWorkspaceOptions)"/>): its own, which
+    /// <see cref="Name"/> and <see cref="Type"/> are, then each block's.
     /// </summary>
     public IReadOnlyList<DeclaredModule> Declared { get; init; } = [new DeclaredModule(Name, Type, IsBlock: false)];
 }
@@ -91,18 +92,24 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// Whether a module file that the <c>.rdproj</c> of its folder lists is loaded as that project, the file's module being <see cref="Given"/>, as
     /// <c>rdc run</c> and <c>rdc build</c> load it; a module file is a project of its own otherwise.
     /// </param>
+    /// <param name="workspace">
+    /// The workspace's settings, which say the files that declare modules in blocks
+    /// (<see cref="ModuleKinds.ModulesOf(RDCoreModule, string?, SdkWorkspaceOptions)"/>); the defaults when they are not given.
+    /// </param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
     /// <exception cref="InvalidOperationException">A reference of the project to a project names no project of the workspace, or more than one.</exception>
     public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default,
-        SupportedLanguage? language = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage, bool inItsProject = false)
+        SupportedLanguage? language = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage, bool inItsProject = false,
+        SdkWorkspaceOptions? workspace = null)
     {
+        workspace ??= new SdkWorkspaceOptions();
         var full = fileSystem.Path.GetFullPath(path);
         if (fileSystem.File.Exists(full))
         {
             var root = fileSystem.Path.GetDirectoryName(full)!;
             if (inItsProject && projects.TryLocate(root, out _))
             {
-                var folder = await LoadAsync(fileSystem, projects, root, token, language, ansiCodePage);
+                var folder = await LoadAsync(fileSystem, projects, root, token, language, ansiCodePage, workspace: workspace);
                 if (folder.Modules.FirstOrDefault(module => WorkspacePaths.Same(fileSystem.Path.Combine(root, module.RelativePath), full)) is { } given)
                 {
                     return folder with { Given = given };
@@ -111,7 +118,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
 
             var name = fileSystem.Path.GetFileNameWithoutExtension(full);
             var module = new RDCoreModule { RelativeUri = fileSystem.Path.GetFileName(full) };
-            return Compose(fileSystem, root, new RDCoreProject { Name = name }, [module], ansiCodePage);
+            return Compose(fileSystem, root, new RDCoreProject { Name = name }, [module], ansiCodePage, workspace);
         }
 
         if (!fileSystem.Directory.Exists(full))
@@ -121,9 +128,11 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
 
         // a folder with no .rdproj is a project of its own, with no references.
         var project = (await projects.LoadOrSynthesizeAsync(full, language ?? SupportedLanguages.RDVBA, token)).ProjectInfo;
-        return Compose(fileSystem, full, project, project.Modules, ansiCodePage) with
+        return Compose(fileSystem, full, project, project.Modules, ansiCodePage, workspace) with
         {
-            ReferencedProjects = projects.TryLocate(full, out _) ? await ReferencedAsync(fileSystem, projects, full, project, ansiCodePage, token) : [],
+            ReferencedProjects = projects.TryLocate(full, out _)
+                ? await ReferencedAsync(fileSystem, projects, full, project, ansiCodePage, workspace, token)
+                : [],
         };
     }
 
@@ -131,7 +140,8 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     // .rdworkspace lists (WorkspaceFolderList.Read); with no .rdworkspace, the project is the workspace's only one. A reference that names no project, or
     // more than one, refuses the load, naming it. A reference to the project itself closes a circle of references, and gives no names.
     private static async Task<IReadOnlyList<BenchReferencedProject>> ReferencedAsync(
-        IFileSystem fileSystem, IProjectFileLoader projects, string root, RDCoreProject project, int ansiCodePage, CancellationToken token)
+        IFileSystem fileSystem, IProjectFileLoader projects, string root, RDCoreProject project, int ansiCodePage, SdkWorkspaceOptions options,
+        CancellationToken token)
     {
         if (!project.ProjectReferences.Any())
         {
@@ -173,7 +183,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
                 continue;
             }
 
-            referenced.Add(new BenchReferencedProject(resolution.Reference.Name, Compose(fileSystem, folder, info, info.Modules, ansiCodePage)));
+            referenced.Add(new BenchReferencedProject(resolution.Reference.Name, Compose(fileSystem, folder, info, info.Modules, ansiCodePage, options)));
         }
 
         return referenced;
@@ -181,14 +191,15 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
 
     // the project lists the modules by where they are, and says which are document modules; the session reads the same files, in their own encoding, a form's
     // companion file with its module as the language server reads it, and the standard library is referenced first, as it always is.
-    private static BenchWorkspace Compose(IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed, int ansiCodePage)
+    private static BenchWorkspace Compose(
+        IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed, int ansiCodePage, SdkWorkspaceOptions workspace)
     {
         var modules = listed.Select(module =>
         {
             var path = fileSystem.Path.Combine(root, module.RelativeUri);
             var source = ModuleFileText.Decode(fileSystem.File.ReadAllBytes(path), ansiCodePage).Text;
             var companion = FormDesigner.ReadCompanion(fileSystem, path, source, out var problem);
-            var declared = ModuleKinds.ModulesOf(module, source);
+            var declared = ModuleKinds.ModulesOf(module, source, workspace);
             return new BenchModule(declared[0].Name, declared[0].Kind, module.RelativeUri, source, companion, problem) { Declared = declared };
         }).ToArray();
 

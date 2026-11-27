@@ -23,9 +23,10 @@ internal interface IDebugWorkspace
     /// The modules a file is the source of: its own, and the module of each of its blocks (<strong>RD-VBAL §5.1</strong>).
     /// </summary>
     /// <param name="path">The path of the file, as the client says it.</param>
-    /// <param name="file">The modules of the file, and its document, which says the module each position of the file is in.</param>
+    /// <param name="file">The file's document: its modules, the name of each (<see cref="RDCoreDocument.NameOf(Uri)"/>), and the module each position of
+    /// the file is in (<see cref="RDCoreDocument.ModuleAt"/>).</param>
     /// <returns>Whether the file is part of the workspace.</returns>
-    bool TryGetFile(string path, [MaybeNullWhen(false)] out DebugFile file);
+    bool TryGetFile(string path, [MaybeNullWhen(false)] out RDCoreDocument file);
 
     /// <summary>
     /// The file a module is the source of: a block's module is in the file that holds the block.
@@ -85,15 +86,4 @@ internal interface IDebugWorkspace
     /// Completes when a component the debugging cannot go on without is lost for good, with its name.
     /// </summary>
     Task<string> Lost { get; }
-}
-
-// the modules a file of the workspace is the source of (RD-VBAL §5.1): its own, named by its source or the file, and each block's, named by its header. Which
-// one a position of the file is in is the document's to say (RDCoreDocument.ModuleAt). A file of one module has no blocks.
-internal sealed record class DebugFile(string Module, RDCoreDocument Document)
-{
-    // the file's own module first, then each block's, in the order they are written.
-    public IEnumerable<string> Modules => Document.ModuleUris.Select(NameOf);
-
-    // the name of the module at an address of the file: the file's own, or a block's.
-    public string NameOf(Uri module) => module == Document.File ? Module : Document.Parse.BlockModules.First(block => block.Uri == module).Name;
 }

@@ -52,6 +52,24 @@ Quiconque ouvre l'espace de travail a ces codes désactivés en plus des siens :
 La plateforme lit le fichier à son démarrage; un code ajouté par le correctif rapide **Désactiver RDC01001 dans cet espace de travail** est désactivé
 aussitôt.
 
+## Dans le code source
+
+Le code écrit pour l'ancien Rubberduck peut garder ses annotations `'@Ignore` et `'@IgnoreModule`. Elles sont déconseillées, puisque les paramètres
+désactivent les diagnostics, et RDCore les lit comme une suppression des codes qu'elles énumèrent :
+
+```vba
+'@IgnoreModule ProcedureNotUsed, RDC01001
+```
+
+- Dans un fichier d'un seul module, l'une ou l'autre annotation couvre tout le fichier, où qu'elle soit écrite.
+- Dans un fichier de blocs `Class` et `Module`, l'une ou l'autre annotation écrite sur les lignes de commentaire juste au-dessus de l'en-tête d'un
+  bloc couvre le module de ce bloc. Ailleurs, `'@IgnoreModule` couvre le module où elle est écrite, et `'@Ignore` ne couvre rien.
+- Une annotation sans argument couvre tous les codes qui peuvent être désactivés. Une erreur de compilation ou d'exécution est toujours signalée.
+
+Les analyseurs s'exécutent quand même, et seuls leurs résultats pour ces codes sont écartés. Un argument qui ne nomme rien est
+[`RDC00418`](diagnostics/rdc00418.md). Voir [**RD-VBAL §2.6.4** Suppression](specs/rd-vbal.2.6.4.rubberduck-core-diagnostics.md#suppression) pour les
+règles.
+
 Voir [Diagnostics](diagnostics/index.md) pour les codes, et
 [**RD-VBAL §2.3.3** Configuration](specs/rd-vbal.2.3.3.configuration.md#disabled-diagnostics) pour le paramètre.
 

@@ -37,12 +37,13 @@ public static class ReferenceQuery
         var found = NameOccurrences.Find(context, symbol.Name, context.Modules);
 
         var indexes = new Dictionary<string, ModuleIndex>(StringComparer.Ordinal);
-        ModuleIndex IndexOf(Uri module)
+        // the index of the part of its module an occurrence is written in (RenameModule.Key): a module of parts (RD-VBAL §5.1) has a tree for each.
+        ModuleIndex IndexOf(NameOccurrence occurrence)
         {
-            if (!indexes.TryGetValue(module.AbsoluteUri, out var index))
+            if (!indexes.TryGetValue(occurrence.Key, out var index))
             {
-                index = new ModuleIndex(context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri));
-                indexes[module.AbsoluteUri] = index;
+                index = new ModuleIndex(context.Modules.FirstOrDefault(candidate => candidate.Key == occurrence.Key));
+                indexes[occurrence.Key] = index;
             }
 
             return index;
@@ -65,7 +66,7 @@ public static class ReferenceQuery
                 : isType && occurrence.Scope is { } scope && RenameBinding.IsTheType(context, symbol, scope.Uri);
             if (refers)
             {
-                references.Add(ReferenceOf(context, IndexOf(occurrence.Module), occurrence) with { Symbol = occurrence.Binding ?? symbol.SemanticId });
+                references.Add(ReferenceOf(context, IndexOf(occurrence), occurrence) with { Symbol = occurrence.Binding ?? symbol.SemanticId });
             }
         }
 
@@ -78,7 +79,11 @@ public static class ReferenceQuery
                     if (string.Equals(name, symbol.Name, StringComparison.OrdinalIgnoreCase)
                         && RenameBinding.IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
                     {
-                        references.Add(new SymbolReference(source.Module, range, ReferenceForm.TypeName, ReferenceUse.None) { Symbol = symbol.SemanticId });
+                        references.Add(new SymbolReference(source.Module, range, ReferenceForm.TypeName, ReferenceUse.None)
+                        {
+                            Symbol = symbol.SemanticId,
+                            Document = source.Document,
+                        });
                     }
                 }
             }
@@ -90,7 +95,7 @@ public static class ReferenceQuery
                 ? RenameBinding.IsCalledBy(context, together, occurrence)
                 : occurrence.Kind == OccurrenceKind.Member || together.Any(defined => RenameBinding.ChainIndex(occurrence.Scope, defined) < int.MaxValue))
             .Concat(lateBound.Where(occurrence => RenameBinding.MayBeCalledLateBound(context, together, occurrence)))
-            .Select(occurrence => ReferenceOf(context, IndexOf(occurrence.Module), occurrence));
+            .Select(occurrence => ReferenceOf(context, IndexOf(occurrence), occurrence));
         return new SymbolReferences(symbol, [.. symbols], Ordered(references), Ordered(unknown));
     }
 
@@ -119,6 +124,7 @@ public static class ReferenceQuery
         {
             Owner = form == ReferenceForm.Member ? occurrence.Owner : null,
             Qualifier = occurrence.Qualifier,
+            Document = occurrence.Document,
         };
 
         if (!isExpression || occurrence.Node is not ExpressionNode expression)

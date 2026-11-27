@@ -312,6 +312,13 @@
   <data name="FunctionMadeASub_Fix" xml:space="preserve">
     <value>Make &apos;{0}&apos; a Sub</value>
   </data>
+  <data name="ModuleAnnotationHasAShortForm_Message" xml:space="preserve">
+    <value>&apos;@{0}&apos; is written &apos;@{1}&apos; on the lines above the block&apos;s header, where it annotates the block&apos;s module.</value>
+    <comment>{0} is the annotation's name as written; {1} is its short name (Description, Ignore).</comment>
+  </data>
+  <data name="ModuleAnnotationHasAShortForm_Fix" xml:space="preserve">
+    <value>Write &apos;@{0}&apos; above the header</value>
+  </data>
   <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
     <value>Variable &apos;{0}&apos; of the module is used only in &apos;{1}&apos;: it can be declared there.</value>
   </data>
@@ -824,6 +831,19 @@
   </data>
   <data name="RedundantModuleOption_Fix" xml:space="preserve">
     <value>Remove {0}</value>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_Message" xml:space="preserve">
+    <value>The file is in the folder "{0}" of its project, which this '@Folder does not name. Rubberduck's Code Explorer shows the module in the folder the annotation names, once the project is imported into MS-VBA.</value>
+    <comment>{0}: the file's folders under the project's root, joined with a '.' (Parent.Child).</comment>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_RootMessage" xml:space="preserve">
+    <value>The file is at the root of its project, which no '@Folder names. Rubberduck's Code Explorer shows the module in the folder the annotation names, once the project is imported into MS-VBA.</value>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_Fix" xml:space="preserve">
+    <value>Write '@Folder("{0}")</value>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_RootFix" xml:space="preserve">
+    <value>Remove '@Folder</value>
   </data>
   <data name="StrOfAFraction_Message" xml:space="preserve">
     <value>&apos;{0}&apos; of a number between -1 and 1 writes no zero before the decimal point in MS-VBA (&quot; .5&quot;), where MS-VBAL §6.1.2.3.1.20 writes &quot; 0.5&quot;.</value>

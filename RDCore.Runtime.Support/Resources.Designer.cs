@@ -387,6 +387,60 @@ namespace RDCore.Runtime.Support {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The parameter {0} is given two arguments..
+        /// </summary>
+        public static string Host_ArgumentGivenTwice_Verbose {
+            get {
+                return ResourceManager.GetString("Host_ArgumentGivenTwice_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The parameter {0} of {1} is not Optional..
+        /// </summary>
+        public static string Host_ArgumentNotOptional_Verbose {
+            get {
+                return ResourceManager.GetString("Host_ArgumentNotOptional_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} has no parameter named {1}..
+        /// </summary>
+        public static string Host_NamedArgumentNotFound_Verbose {
+            get {
+                return ResourceManager.GetString("Host_NamedArgumentNotFound_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to the program has no standard module named {0}.
+        /// </summary>
+        public static string Host_NoSuchModule {
+            get {
+                return ResourceManager.GetString("Host_NoSuchModule", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} declares no public procedure named {1}.
+        /// </summary>
+        public static string Host_NoSuchProcedure {
+            get {
+                return ResourceManager.GetString("Host_NoSuchProcedure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to the program ended with an End statement.
+        /// </summary>
+        public static string Host_TheProgramEnded {
+            get {
+                return ResourceManager.GetString("Host_TheProgramEnded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to the statement ended the program.
         /// </summary>
         public static string Host_TheStatementEndedTheProgram {

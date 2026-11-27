@@ -84,21 +84,24 @@ internal static class InlineCall
     /// The call at <paramref name="position"/> inlined, or why it is not.
     /// </summary>
     /// <param name="context">The workspace, whose modules are bound.</param>
-    /// <param name="analysisOf">The analysis of a module of the workspace, by its address in <paramref name="context"/>.</param>
+    /// <param name="analysisOf">The analysis of a module of the workspace, of the part of it in <paramref name="context"/> it is asked of.</param>
     /// <param name="module">The address of the module the call is in.</param>
     /// <param name="position">A position in the name of the called member.</param>
+    /// <param name="document">
+    /// The document the call is written in, which names the part of a module of parts (RD-VBAL §5.1) it is in; <see langword="null"/> for the first part at
+    /// <paramref name="module"/>.
+    /// </param>
     public static (InlinedCall? Inlined, InlineRefusal? Refusal) At(
-        RenameContext context, Func<Uri, ExtractionModuleAnalysis?> analysisOf, Uri module, SourcePosition position)
+        RenameContext context, Func<RenameModule, ExtractionModuleAnalysis?> analysisOf, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } syntax
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } syntax
             || NameOccurrences.NameAt(syntax, position) is not { } name)
         {
             return (null, new(InlineRefusalKind.NotAProcedure));
         }
 
         var occurrence = NameOccurrences.Find(context, name, [syntax]).Occurrences
-            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Member && each.Module.AbsoluteUri == module.AbsoluteUri
-                && Contains(each.Range, position));
+            .FirstOrDefault(each => each.Kind is OccurrenceKind.Name or OccurrenceKind.Member && each.Key == syntax.Key && Contains(each.Range, position));
         if (occurrence.Binding is not { } binding || NameOccurrences.SymbolOf(context, binding) is not { } callee)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, name));
@@ -114,11 +117,14 @@ internal static class InlineCall
 
         var calleeModule = NameOccurrences.ModuleOf(callee.Uri);
         var isOtherModule = calleeModule.AbsoluteUri != module.AbsoluteUri;
+        // the part the member is written in, and the analysis of it: a module of parts (RD-VBAL §5.1) is one module, whose parts are each a text of their own.
+        var source = context.PartOf(callee);
+        var calleeAnalysis = source is null ? null : analysisOf(source);
         if (isOtherModule)
         {
             // a RaiseEvent raises an event of the class it is written in (MS-VBAL §5.4.2.20): an unqualified call in that class runs the member for the same
             // object, and the inlined RaiseEvent raises the same event of it.
-            var raises = analysisOf(calleeModule)?.Procedure(callee.Name, kind.Value)?.Declaration.Descendants()
+            var raises = calleeAnalysis?.Procedure(callee.Name, kind.Value)?.Declaration.Descendants()
                 .OfType<KeywordStatementNode>().FirstOrDefault(node => node.Token == Tokens.RaiseEvent);
             if (raises is not null)
             {
@@ -139,25 +145,25 @@ internal static class InlineCall
             return (null, new(InlineRefusalKind.UnsupportedSite, callee.Name, new SourceLocation(module, occurrence.Range)));
         }
 
-        if (analysisOf(calleeModule) is not { } analysis || analysis.Procedure(callee.Name, kind.Value) is not { } procedure
-            || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == calleeModule.AbsoluteUri) is not { } source)
+        if (calleeAnalysis is not { } analysis || analysis.Procedure(callee.Name, kind.Value) is not { } procedure || source is null)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, callee.Name));
         }
 
         var text = TextLines.Of(syntax.Source);
+        var isOtherPart = source.Key != syntax.Key;
         if (RefusalOf(context, callee, procedure) is { } refused)
         {
             return (null, refused);
         }
 
-        if (isOtherModule && OptionsRefusalOf(context, callee, procedure, analysis, analysisOf(module), site) is { } options)
+        if (isOtherModule && OptionsRefusalOf(context, callee, procedure, analysis, analysisOf(syntax), site) is { } options)
         {
             return (null, options);
         }
 
         // the expression form is the call's value where the call is: the statement that raised an error is the same one.
-        var writer = new Writer(context, syntax, text, source, isOtherModule ? TextLines.Of(source.Source) : text, callee, procedure, site);
+        var writer = new Writer(context, syntax, text, source, isOtherPart ? TextLines.Of(source.Source) : text, callee, procedure, site);
         if (site.Call is not null && writer.WriteExpression() is { } expression)
         {
             return expression;
@@ -175,7 +181,7 @@ internal static class InlineCall
         }
 
         // the error handling of the procedure the call is in, which is of the caller's module.
-        if (CallerRefusalOf(isOtherModule ? analysisOf(module) : analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
+        if (CallerRefusalOf(isOtherPart ? analysisOf(syntax) : analysis, callee, procedure, syntax.Syntax, site.Statement) is { } changes)
         {
             return (null, changes);
         }
@@ -894,7 +900,7 @@ internal static class InlineCall
             _before.Add($"Dim {local}() As Variant");
             if (elements.IsEmpty)
             {
-                if (syntax.Syntax.GetOptionBase() != 0)
+                if (context.OptionBaseOf(syntax.Module) != 0)
                 {
                     return new(InlineRefusalKind.UnsupportedParameter, parameter.Name, call.SourceLocation);
                 }

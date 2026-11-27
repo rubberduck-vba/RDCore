@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
@@ -34,13 +35,15 @@ internal interface IPlatformSettings
 /// <param name="fileSystem">The file system the user's settings are in.</param>
 /// <param name="environment">Where the user's folder is.</param>
 /// <param name="extensions">The extensions the platform has.</param>
-internal sealed class PlatformSettings(IFileSystem fileSystem, IPlatformEnvironment environment, IExtensionsProvider extensions) : IPlatformSettings
+/// <param name="configuration">The console's configuration, whose lists the user's add to; <see langword="null"/> where there is none.</param>
+internal sealed class PlatformSettings(
+    IFileSystem fileSystem, IPlatformEnvironment environment, IExtensionsProvider extensions, IConfiguration? configuration = null) : IPlatformSettings
 {
     private SettingsSchema? _schema;
 
     public SettingsSchema Schema => _schema ??= Read();
 
-    public UserSettingsStore Store => new(fileSystem, UserSettingsStore.PathIn(environment), Schema);
+    public UserSettingsStore Store => new(fileSystem, UserSettingsStore.PathIn(environment), Schema, configuration);
 
     public WorkspaceSettingsStore Workspace => new(fileSystem, Schema);
 

@@ -134,19 +134,29 @@ public sealed class HostProjectReloadHandlerTests
         CollectionAssert.AreEqual(new[] { " 21 " }, result.Output.ToArray());
     }
 
-    // a file of blocks is the text of several modules, each of them a module of the session.
+    // a file of blocks is the text of several modules, each of them a module of the session: a VBA module's are, where the host's workspace allows
+    // statements outside procedures, and are lines of its own module elsewhere.
     [TestMethod]
-    public async Task AFileOfBlocks_CountsEachOfItsModules_AmongTheModulesOfTheSessionComposedAgain()
+    [DataRow(true, 4, DisplayName = "the setting on")]
+    [DataRow(false, 2, DisplayName = "the setting off")]
+    public async Task AFileOfBlocks_CountsEachOfItsModules_AmongTheModulesOfTheSessionComposedAgain(bool setting, int modules)
     {
         _files.AddFile(Path.Combine(Root, "Backup.bas"), new MockFileData(
             "Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n"));
-        await ComposeAsync("Program.bas");
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new RDCore.SDK.Server.Configuration.SdkAppOptions { Workspace = new() { FileLevelStatements = setting } });
+        var session = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), _files, NullLogger<EnvironmentSessionProvider>.Instance, options: options);
+        var sut = new HostProjectReloadHandler(session, new ProjectFileLoader(_files), options, NullLogger<HostProjectReloadHandler>.Instance);
+        WriteProject("Program.bas");
+        var project = await new ProjectFileLoader(_files).LoadAsync(Root);
+        session.Compose(project.ProjectInfo, new Uri(project.Uri));
         WriteProject("Program.bas", "Backup.bas");
 
-        var reloaded = await _sut.Handle(new HostProjectReloadParams { WorkspaceRoot = new Uri(Root) }, CancellationToken.None);
+        var reloaded = await sut.Handle(new HostProjectReloadParams { WorkspaceRoot = new Uri(Root) }, CancellationToken.None);
 
         Assert.IsTrue(reloaded.Composed);
-        Assert.AreEqual(4, reloaded.ModuleCount);
+        Assert.AreEqual(modules, reloaded.ModuleCount);
     }
 
     [TestMethod]

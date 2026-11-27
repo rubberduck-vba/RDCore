@@ -547,7 +547,7 @@ public sealed class EncapsulateFieldTests
         var (encapsulation, _) = Encapsulate(before, "count");
         var after = Compose(DeclarationEdits.ApplyTo(module1, encapsulation!.Edits), module2);
         var changes = BindingCheck.Changes(before.Context, after.Context,
-            new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [Module1.AbsoluteUri] = encapsulation.Edits });
+            new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [before.Context.Modules[0].Key] = encapsulation.Edits });
 
         Assert.IsFalse(changes.Any(change => change.Kind is BindingChangeKind.Lost or BindingChangeKind.Unknown), string.Join("; ", changes));
         // the properties are known by the name the field was: the references outside refer to them as they referred to the field.
