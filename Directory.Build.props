@@ -4,7 +4,7 @@
     <!-- the single version source for every project; a release tag must equal v<VersionPrefix>[-suffix], the suffix passed as -p:VersionSuffix. -->
     <VersionPrefix>0.2.8</VersionPrefix>
     <!-- the RDCore.SDK package every project builds on, which brings the RDCore.SDK.Protocols package it depends on: one version for all of them. -->
-    <RDCoreSdkVersion>0.2.2-alpha</RDCoreSdkVersion>
+    <RDCoreSdkVersion>0.2.3-alpha</RDCoreSdkVersion>
     <!-- the RDCore.Forms package the RDForms form host builds on (the RDCore.Forms and RDCore.Forms.Avalonia assemblies are inside it), and the Avalonia it is
          built with: the host starts Avalonia itself. A build on packages that are not published passes their version and feed, as -p:RDCoreSdkVersion,
          -p:RDCoreFormsVersion and -p:RestoreConfigFile. -->
