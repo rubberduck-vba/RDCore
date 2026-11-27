@@ -67,6 +67,9 @@ ajoute : `AddItem`, `RemoveItem`, `Clear`, `List(Index)`, `ItemData(Index)`, `Li
 `SelCount` pour une ListBox. Ils lèvent ce que VB6 lève : 5 pour un indice d'`AddItem` hors de 0 à `ListCount` et un indice de `RemoveItem` hors des
 éléments, 381 pour un indice d'`ItemData` ou de `Selected` hors des éléments, 380 pour un `ListIndex` hors de -1 à `ListCount` - 1, et 383 pour une
 affectation à `ListCount`, `NewIndex` ou `SelCount`. `Column` est un membre de la ListBox de MSForms, et lève 438.
+**Ajout de RD-VBA :** `ItemIcon(Index)` est l'image dessinée devant un élément, une `StdPicture` qu'on lit et affecte (par `Let` ou `Set`) comme un
+`Picture`. Une image que `LoadPicture` a donnée au programme se relit comme le même objet et suit son élément dans `AddItem` et `RemoveItem`; un élément
+qui n'en a pas lit `Nothing`. Un indice hors des éléments lève 381.
 
 La `Font` d'un contrôle est un `StdFont`, le même objet à chaque lecture. Une modification faite par elle change chaque contrôle qui la détient, et
 `Set Text2.Font = Text1.Font` partage la police. Un `Set` d'une police du programme la partage aussi : après `Set Label1.Font = f`,

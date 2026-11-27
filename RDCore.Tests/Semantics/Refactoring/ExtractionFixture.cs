@@ -162,7 +162,8 @@ internal static class ExtractionFixture
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue) };
         var duplicates = ExtractionDuplicates.Find(
-            plan, source, choices, analyzed.Context, analyzed.ModuleAddress, [.. (searched ?? ["Main"]).Select(FlowFixture.Analyzed.AddressOf)], analyzed.AnalysisOf);
+            plan, source, choices, analyzed.Context, analyzed.ModuleAddress, [.. (searched ?? ["Main"]).Select(FlowFixture.Analyzed.AddressOf)],
+            part => analyzed.AnalysisOf(part.Module));
         return (duplicates, plan, choices, analyzed);
     }
 

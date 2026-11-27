@@ -318,20 +318,23 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <param name="pipeline">What runs it. Composed for this invocation with <paramref name="token"/>: the invocation is interrupted through it.</param>
     /// <param name="procedure">The procedure to run.</param>
     /// <param name="bind">
-    /// Makes the arguments, one for each parameter of <paramref name="procedure"/>, before it runs; or gives the run-time error that refuses the invocation.
+    /// Makes the arguments, one for each parameter of <paramref name="procedure"/>, before it runs; or gives the run-time error that refuses the invocation,
+    /// which code it runs to make them may raise (an object's <c>Class_Initialize</c> or <c>Property Let</c>). What it makes is held until the invocation is
+    /// over, as a statement holds the objects it makes.
     /// </param>
     /// <param name="returned">
     /// Takes the value the procedure returned, before anything else runs in the session; gives the run-time error the value is instead, when it cannot be
-    /// taken. A <c>Sub</c> returns no value, and is not given to it.
+    /// taken, which code it runs to take it may raise (an object's <c>Property Get</c>). A <c>Sub</c> returns no value, and is not given to it.
     /// </param>
     /// <param name="token">The cancellation of the invocation, which <paramref name="pipeline"/> was composed with.</param>
     /// <returns>
     /// How it ended, as a run ends. An invocation that its arguments refuse, or whose value cannot be taken, ends as a run-time error that ends nothing: the
-    /// session is as the procedure left it. An invocation while a program runs is refused, and a program that is suspended is let go of.
+    /// session is as the procedure left it. An <c>End</c> in code that making the arguments or taking the value runs ends the invocation as one in the
+    /// procedure does. An invocation while a program runs is refused, and a program that is suspended is let go of.
     /// </returns>
     public Task<ExecuteResult> InvokeAsync(
-        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind,
-        Func<VBTypedValue, VBRuntimeErrorInfo?> returned, CancellationToken token)
+        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, Func<IRuntimeSession, (IRuntimeValue[]? Arguments, IVBRaisableError? Refusal)> bind,
+        Func<VBTypedValue, IVBRaisableError?> returned, CancellationToken token)
         => StartAsync(pipeline, procedure, debug: false, token, immediate: false, streamOutput: false, unattended: true, started: null,
             invoked: session => InvokeToTheEnd(session, pipeline, procedure, bind, returned, token));
 
@@ -730,15 +733,16 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             // what is wrong with the statement is found out as it is for the procedure's own code (ModuleLoader), in the procedure's scope - an assignment to a
             // function of a library is not a variable there either - and a statement that is wrong does not run.
             var block = new StatementBlock([statement]);
+            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
+                DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements,
+                DrawsOnMe: GraphicsStatementStaticSemantics.DrawsOnMe(provider.Image.Forms.GetValueOrDefault(SymbolUri.ModuleNameOf(procedure.Uri))));
             if (session.Symbols.ScopeOf(procedure.Uri) is { } scope
-                && StatementStaticSemanticsEvaluator.Analyze(procedure.SemanticId, block, new StaticSemanticsOptions(Language: session.Environment.Language), MemberKind.Procedure,
+                && StatementStaticSemanticsEvaluator.Analyze(procedure.SemanticId, block, options.StaticSemantics(), MemberKind.Procedure,
                     new StaticEvaluationContext(session.Symbols.Resolver, scope, Environment: new StaticEnvironment(session.Environment.Is64Bit))).CompileErrors is [var error, ..])
             {
                 return (null, VerboseOf(error) is { } verbose ? $"{error.Description}: {verbose}" : error.Description);
             }
 
-            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
-                DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements);
             var lowered = InstructionListLowering.Lower(block, options, MemberKind.Procedure);
             var scratch = (CallStackFrame)session.Symbols.CreateFrame(selected.NodeId, selected.StaticSymbol, selected.Directives);
             (scratch.Procedure, scratch.Body) = (procedure, lowered.InstructionList);
@@ -1233,22 +1237,42 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     private ExecuteResult InvokeToTheEnd(
         IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure,
-        Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind, Func<VBTypedValue, VBRuntimeErrorInfo?> returned,
+        Func<IRuntimeSession, (IRuntimeValue[]? Arguments, IVBRaisableError? Refusal)> bind, Func<VBTypedValue, IVBRaisableError?> returned,
         CancellationToken token)
     {
         var output = new RuntimeOutputBuffer();
         provider.Output.Target = output;
         try
         {
+            // the objects the arguments are made of (a New object of a class) are held by the invocation, as a statement holds the objects it makes, and let
+            // go of when it is over: one the program kept nothing of is destroyed then. An End lets go of everything, and so does an error nothing handles,
+            // which ends the run.
+            var temporaries = session.Objects.TemporaryCount;
             var (arguments, refusal) = bind(session);
+            if (session.Halt.Pending is not null)
+            {
+                // what ran to make them ended the program: the halt is reported before anything of the invocation is.
+                return ReportEnd(RuntimeSemanticsEvaluationResult.InternalError(), session, output, token);
+            }
+
             if (refusal is not null)
             {
+                ObjectReferences.ReleaseTemporaries(session, temporaries);
                 return Refusal(refusal, output);
             }
 
             var invocation = pipeline.RunProgram(procedure, session.Symbols.Resolver, arguments!, token);
-            if (invocation is { IsSuccess: true, Result: { } value } && session.Halt.Pending is null && procedure is VBReturningMemberSymbol
-                && returned(value) is { } untaken)
+            // the value is converted after the procedure has run, and a conversion can run more of the program (an object's Property Get): an End in it
+            // ends the invocation as an End in the procedure does.
+            var untaken = invocation is { IsSuccess: true, Result: { } value } && session.Halt.Pending is null && procedure is VBReturningMemberSymbol
+                ? returned(value)
+                : null;
+            if (invocation.IsSuccess && session.Halt.Pending is null)
+            {
+                ObjectReferences.ReleaseTemporaries(session, temporaries);
+            }
+
+            if (untaken is not null && session.Halt.Pending is null)
             {
                 return Refusal(untaken, output);
             }
@@ -1261,9 +1285,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         }
     }
 
-    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's type):
-    // the program raised nothing, and nothing of it ends.
-    private static ExecuteResult Refusal(VBRuntimeErrorInfo error, RuntimeOutputBuffer output) => new()
+    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's
+    // type), or raised by the code that making the arguments or taking the value runs (a Class_Initialize or a Property Let of an argument, a Property
+    // Get of the object returned): nothing of the program ends.
+    private static ExecuteResult Refusal(IVBRaisableError error, RuntimeOutputBuffer output) => new()
     {
         Outcome = ExecutionOutcome.RuntimeError,
         Output = output.Lines,
