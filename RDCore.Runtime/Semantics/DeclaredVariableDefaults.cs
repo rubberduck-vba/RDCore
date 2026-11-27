@@ -40,8 +40,9 @@ namespace RDCore.Runtime.Semantics;
 /// <param name="session">The session the variables are allocated in, which resolves what the bounds name.</param>
 /// <param name="bounds">Reduces a bound to an integer.</param>
 /// <param name="stop">
-/// Stops an analysis that is told to stop when it next makes an element of a fixed-size array: an element is made the first time it is used
-/// (<see cref="VBArrayValue.MadeCells"/>), and one made after the analysis is told to stop throws <see cref="OperationCanceledException"/>.
+/// Stops an analysis that is told to stop: an element of a fixed-size array is made the first time it is used (<see cref="VBArrayValue.MadeCells"/>), and
+/// one that asks as it is made throws <see cref="OperationCanceledException"/> once the analysis is told to stop. Otherwise the analysis stops at its next
+/// instruction.
 /// </param>
 public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds, CancellationToken stop = default) : IVariableDefaults
 {
@@ -121,8 +122,9 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     /// </remarks>
     public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
 
-    // what makes each element of a declared array, asking first whether to stop. An element kept in the cell VBArrayValue makes of its default value (a
-    // String's, an Object's, any element of an array when values are boxed) is made with nothing asked: the analysis stops at its next instruction.
+    // what makes each element of a declared array, asking first whether to stop. An element held as bytes, and one kept in the cell VBArrayValue makes of
+    // its default value (a String's, an Object's, any element of an array when values are boxed), are made with nothing asked: the analysis stops at its
+    // next instruction.
     private Func<T>? Stopping<T>(Func<T>? make) => make is null || !stop.CanBeCanceled ? make : () =>
     {
         stop.ThrowIfCancellationRequested();
