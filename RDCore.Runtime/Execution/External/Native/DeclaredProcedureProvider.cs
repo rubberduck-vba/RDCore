@@ -50,7 +50,8 @@ namespace RDCore.Runtime.Execution.External.Native;
 /// one cannot be run yet, and says so.
 /// </para>
 /// <para>
-/// Whether a program may call one at all is the policy over library imports (<c>AllowDllImports</c>), which every such call passes before it reaches this.
+/// Whether a program may call one at all is the policy over library imports (the rule of <c>LibraryImports</c> in
+/// <c>IRuntimeEnvironmentProfile.ExecutionPolicy</c>), which every such call passes before it reaches this.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose programs make the calls.</param>
