@@ -324,8 +324,8 @@
   <data name="JsonValues_HoldsItself_Verbose" xml:space="preserve">
     <value>An object that holds itself has no JSON value.</value>
   </data>
-  <data name="JsonValues_NeitherDictionaryNorCollection_Verbose" xml:space="preserve">
-    <value>An object that is neither a Dictionary nor a Collection has no JSON value.</value>
+  <data name="JsonValues_ObjectHasNoJson_Verbose" xml:space="preserve">
+    <value>An object that is neither a Dictionary, a Collection nor an instance of a class of the workspace has no JSON value.</value>
   </data>
   <data name="JsonValues_KeyNotAName_Verbose" xml:space="preserve">
     <value>A Dictionary key of type '{0}' is not a JSON name.</value>
@@ -350,6 +350,9 @@
   </data>
   <data name="JsonValues_ValueNotType_Verbose" xml:space="preserve">
     <value>The JSON value is not a '{0}'.</value>
+  </data>
+  <data name="JsonValues_MemberEnded_Verbose" xml:space="preserve">
+    <value>The program ended while its member '{0}' was read.</value>
   </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed.</value>

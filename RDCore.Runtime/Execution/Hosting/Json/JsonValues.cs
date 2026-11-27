@@ -4,6 +4,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -29,13 +30,15 @@ namespace RDCore.Runtime.Execution.Hosting.Json;
 //   Currency, Decimal      a number, every digit of it.
 //   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 13 in an array or a UDT, 94 in any other type (MS-VBAL
 //                          §5.5.1.2.10; a fixed-size array is not a let target, for null as for any value).
-//   Collection             an array of its members; any other object is 13.
+//   Collection             an array of its members.
+//   an instance            of a class of the workspace: an object of its public members, read as CallByName reads them (JsonValues.Instances.cs).
+//                          Any other object is 13.
 //   a number in a Variant  what a literal of the same digits is (MS-VBAL §3.3.2): Integer, then Long, then Double past Long's magnitude; with a fraction or
 //                          an exponent, Double.
 //
 // Into any other type, a JSON value is let-coerced from that value of the language, as an assignment is (MS-VBAL §5.5.1.2), with the errors it raises:
 // 13 for text that is not a number, 6 past the type's range. A value that has no conversion at all, either way, is 13.
-internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver resolver)
+internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver resolver)
 {
     private const string Moment = "yyyy'-'MM'-'dd'T'HH':'mm':'ss";
 
@@ -45,8 +48,8 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         public VBRuntimeErrorId Error { get; } = error;
     }
 
-    // the JSON value of value; the error it is instead, when it has none.
-    public VBRuntimeErrorInfo? ToJson(VBTypedValue value, out JsonNode? json)
+    // the JSON value of value; the error it is instead, when it has none, or the error a member it reads raised, as the member raised it.
+    public IVBRaisableError? ToJson(VBTypedValue value, out JsonNode? json)
     {
         json = null;
         try
@@ -57,6 +60,10 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         catch (Refused refused)
         {
             return VBRuntimeErrorInfo.For(refused.Error, default, refused.Message);
+        }
+        catch (Raised raised)
+        {
+            return raised.Error;
         }
     }
 
@@ -93,7 +100,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             ? JsonValue.Create(moment.ToString(Moment, CultureInfo.InvariantCulture))
             : throw Mismatch(Exceptions.JsonValues_DateOutOfRange_Verbose),
         VBStringValue text => JsonValue.Create(text.Value ?? string.Empty),
-        VBObjectValue reference => reference.IsNothing() ? null : OutObject(reference.Value, way),
+        VBObjectValue reference => reference.IsNothing() ? null : OutObject(reference, way),
         VBArrayValue array => OutArray(array, 0, new int[array.Rank], way),
         _ => throw Mismatch(Verbose(Exceptions.JsonValues_TypeHasNoJson_Verbose, value.TypeInfo.Name)),
     };
@@ -121,8 +128,9 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         return result;
     }
 
-    private JsonNode OutObject(VBRuntimeObjectId identity, HashSet<VBRuntimeObjectId> way)
+    private JsonNode OutObject(VBObjectValue reference, HashSet<VBRuntimeObjectId> way)
     {
+        var identity = reference.Value;
         if (!way.Add(identity))
         {
             throw Mismatch(Exceptions.JsonValues_HoldsItself_Verbose);
@@ -147,7 +155,12 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
                 return members;
             }
 
-            throw Mismatch(Exceptions.JsonValues_NeitherDictionaryNorCollection_Verbose);
+            if (instance is not null && IsWorkspaceClass(instance.ClassModule))
+            {
+                return OutInstance(reference, instance.ClassModule, way);
+            }
+
+            throw Mismatch(Exceptions.JsonValues_ObjectHasNoJson_Verbose);
         }
         finally
         {
