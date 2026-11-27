@@ -338,13 +338,13 @@ They come right after the `VBA` library, as the References dialog of the VB6 IDE
 library and `VBRUN` both declare is the `VBA` library's: `vbCancel` is the `VbMsgBoxResult` member `2`, where
 `VBRUN`'s `DragConstants` member is `0`. RD-VBA and RDCore BASIC have none.
 
-A VBScript project, one whose modules are all scripts (`.vbs`), has two implicit references, in this order: `IHost`, the
-type library of `wscript.exe`, whose `WScript` object every script names, and `IWshRuntimeLibrary`, the Windows Script
-Host Object Model (`wshom.ocx`), whose `WshShell` a script creates with `CreateObject("WScript.Shell")`. A project that
-has a script among other modules has the same two, after the references of its `.rdproj` (item 6 above), so that a
-script names `WScript` there as it does in a project of scripts. Both libraries carry copies of the Scripting runtime's
-`FileSystemObject`, `File`, `Folder`, `Drive` and `TextStream`; coming after the listed references, they do not shadow
-them: in a project that lists `Scripting`, `FileSystemObject` is Scripting's.
+A VBScript project, one written in VBScript, whose modules are scripts (`.vbs`), has two implicit references, in this
+order: `IHost`, the type library of `wscript.exe`, whose `WScript` object every script names, and `IWshRuntimeLibrary`,
+the Windows Script Host Object Model (`wshom.ocx`), whose `WshShell` a script creates with
+`CreateObject("WScript.Shell")`. A project of another language that has a script has the same two, after the
+references of its `.rdproj` (item 6 above), so that a script names `WScript` there as it does in a VBScript project.
+Both libraries carry copies of the Scripting runtime's `FileSystemObject`, `File`, `Folder`, `Drive` and
+`TextStream`; coming after the listed references, they do not shadow them: in a project that lists `Scripting`, `FileSystemObject` is Scripting's.
 
 The `VBA` library therefore comes before every library a project lists. A library that declares a name the `VBA`
 library also declares, such as a class `Collection`, a function `Left` or a constant `vbCancel`, does not shadow it:
