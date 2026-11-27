@@ -324,8 +324,7 @@ internal static partial class InterfaceImplementation
         // the declaration of a member of a module of the workspace, and the text of that module.
         private (SyntaxNode Node, TextLines Text)? DeclarationOf(VBTypeMemberSymbol member, MemberKind kind)
         {
-            var moduleUri = NameOccurrences.ModuleOf(member.Uri).AbsoluteUri;
-            if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == moduleUri) is not { } module)
+            if (context.PartOf(member) is not { } module)
             {
                 return null;
             }
@@ -414,8 +413,7 @@ internal static partial class InterfaceImplementation
         // the type of a variable of the interface, as its declaration writes it; the name of its type when it has no As clause.
         private string VariableTypeOf(VBTypeMemberSymbol variable)
         {
-            var moduleUri = NameOccurrences.ModuleOf(variable.Uri).AbsoluteUri;
-            var declared = context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == moduleUri)?.Syntax.Children.OfType<VariableDeclarationNode>()
+            var declared = context.PartOf(variable)?.Syntax.Children.OfType<VariableDeclarationNode>()
                 .FirstOrDefault(node => node.NameRange?.Start == variable.SelectionRange.Start || string.Equals(node.Name, variable.Name, StringComparison.OrdinalIgnoreCase));
             return declared?.ChildNodes().OfType<AsTypeExpressionNode>().FirstOrDefault() is { } asType ? TypeNameOf(asType) : NameOfType(variable.ResolvedType);
         }

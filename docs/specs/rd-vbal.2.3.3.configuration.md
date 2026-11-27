@@ -2,7 +2,9 @@
 
 Every component of the platform is configured from the `Configuration` section of its `appsettings.json`, deployed with it. A user changes a setting for
 themselves with the shell's `CONFIG` verb, or with `rdc config` in command mode. What a user sets is kept apart from what the platform was deployed with, and a
-deployed `appsettings.json` is never written to.
+deployed `appsettings.json` is never written to. The platform's own settings file, `platform-settings.json` at the platform root, gives every component the
+defaults they share, the extensions the platform loads among them
+([`PlatformSettingsConfiguration`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.PlatformSettingsConfiguration.html)).
 
 ## Settings
 
@@ -27,6 +29,7 @@ When a change of a setting takes effect is part of the setting ([`SettingAttribu
 |`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`, `Analysis.DisabledDiagnostics`|
 |`NextStart`|When the component that reads it starts, or the next session does.|`Environment.*`, `Workspace.*`, `CLI.*`, `Platform.Extensions.Allowed`|
 |`Deployment`|Never through the platform: only the deployed configuration sets it.|`ServerApp.Component`, `Platform.Transport.*`, `Server.ClientProcessId`|
+|`Platform`|When the component that reads it starts. Only `platform-settings.json` sets it.|`Environment.ExecutionPolicy.*`, `Audit.*`|
 
 A `Deployment` setting is read before there is a client to ask: which component a process is, and how it connects. A user does not set one, because a bad value
 would keep the platform from starting, and with it the client that could put it back.
@@ -100,13 +103,16 @@ Each component reads it after its deployed `appsettings.json`, and before the en
 
 |Source|Precedence|
 |---|---|
-|`appsettings.json`, deployed with the component|Lowest.|
-|`user.settings.json`|Takes the place of the deployed value.|
+|`platform-settings.json`, at the platform root|Lowest: the defaults every component shares.|
+|`appsettings.json`, deployed with the component|Takes the place of the platform's default.|
+|`user.settings.json`|Takes the place of the deployed value. A list adds to the deployed one, and cannot remove its items.|
 |The workspace's settings ([Workspace Settings](#workspace-settings))|Takes the place of the user's value. A list adds to the user's.|
 |Environment variables (`Configuration__Server__Verbose`)|Take the place of the workspace's value.|
-|The command line|Highest.|
+|The command line|Takes the place of every value above, but for a `Platform` setting.|
+|`platform-settings.json`, for a `Platform` setting|Highest: the file's value, or the setting's default when the file does not say it.|
 
-Of the file, only values the settings can be are read: a value a setting cannot be, a value of a `Deployment` setting, and a file that is not JSON are not read.
+Of the file, only values the settings can be are read: a value a setting cannot be, a value of a `Deployment` or a `Platform` setting, and a file that is not
+JSON are not read.
 A file written by hand never keeps the platform from starting. A setting the component does not know of is read as it is: it is another component's.
 
 A component reads the file when it starts, and not again: that is when a `NextStart` setting takes effect.

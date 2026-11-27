@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.Host.Handlers;
+using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
@@ -195,4 +197,30 @@ public sealed class SessionResetTests
             Assert.IsTrue(ended.Acted);
             Assert.AreEqual(ExecutionOutcome.Halted, (await running.WaitAsync(Patience)).Outcome);
         }, cancelWhen: ModuleWorkspace.WhenRunning, debug: true);
+
+    // a reset runs each Terminate by the pipeline it is given, whatever was composed for the session since: its token cuts short one that never ends.
+    [TestMethod]
+    public async Task AReset_RunsEachTerminateByThePipelineItIsGiven()
+        => await ModuleWorkspace.InspectAsync(
+            [("Looping", ModuleWorkspace.ClassModule("Looping",
+                "Private Sub Class_Terminate()",
+                "    Do",
+                "    Loop",
+                "End Sub"))],
+            Program(
+                "Public Held As Object",
+                "Public Sub Main()",
+                "    Set Held = New Looping",
+                "End Sub"), async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            var cut = new CancellationToken(canceled: true);
+            var errors = NSubstitute.Substitute.For<IErrorDetailsRecorder>();
+            var resetting = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errors, cut, outside: provider.Outside);
+            RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errors, CancellationToken.None, outside: provider.Outside);
+
+            var reset = await provider.Execution.ResetAsync(resetting, cut).WaitAsync(Patience);
+
+            Assert.AreEqual(ExecutionOutcome.Interrupted, reset.Outcome, reset.ErrorMessage);
+        });
 }

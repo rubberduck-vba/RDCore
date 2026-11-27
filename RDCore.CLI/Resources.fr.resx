@@ -718,6 +718,12 @@
   <data name="Config_Deployment" xml:space="preserve">
     <value>{0} n'est réglé que par le déploiement de la plateforme : il est lu avant qu'une console puisse le changer.</value>
   </data>
+  <data name="Config_NotTheUsers" xml:space="preserve">
+    <value>{0} est dans {1} parce que les réglages de la plateforme ou de l'application l'y mettent : vos réglages peuvent ajouter à cette liste, mais pas en retirer un élément.</value>
+  </data>
+  <data name="Config_NotTheUsers_Extension" xml:space="preserve">
+    <value>{0} est dans {1} parce que les réglages de la plateforme l'y mettent : vos réglages peuvent ajouter à cette liste, mais pas en retirer un élément. Pour empêcher l'extension de se charger, ajoutez-la à Platform.Extensions.Blocked.</value>
+  </data>
   <data name="Config_Unknown" xml:space="preserve">
     <value>Il n'y a aucun paramètre « {0} ».</value>
   </data>

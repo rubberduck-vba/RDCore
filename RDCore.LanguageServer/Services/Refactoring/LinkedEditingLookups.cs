@@ -19,9 +19,10 @@ public static class LinkedEditingLookups
         MemberKind.Procedure, MemberKind.Function, MemberKind.PropertyGet, MemberKind.PropertyLet, MemberKind.PropertySet,
     };
 
-    public static IReadOnlyList<SourceRange> At(RenameContext context, Uri module, SourcePosition position)
+    // the document names the part of a module of parts (RD-VBAL §5.1) the position is in; null for the first part at the address.
+    public static IReadOnlyList<SourceRange> At(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } source
             || source.Syntax.Children.OfType<MemberDeclarationNode>()
                 .FirstOrDefault(member => Procedures.Contains(member.MemberKind) && Contains(member.SourceLocation.Range, position)) is not { } procedure)
         {
@@ -35,15 +36,15 @@ public static class LinkedEditingLookups
         }
 
         var within = procedure.SourceLocation.Range;
-        if (SymbolNavigation.OccurrencesAt(context, module, position) is not { Symbol: var symbol } target || !IsOfTheProcedure(symbol)
-            || target.Unresolved.Any(site => site.Module.AbsoluteUri == module.AbsoluteUri && Contains(within, site.Range.Start)))
+        if (SymbolNavigation.OccurrencesAt(context, module, position, source.Document) is not { Symbol: var symbol } target || !IsOfTheProcedure(symbol)
+            || target.Unresolved.Any(site => site.Key == source.Key && Contains(within, site.Range.Start)))
         {
             // a name in the procedure whose meaning is not known may be this one: the edit of the others would leave it behind.
             return [];
         }
 
         // a parameter that a named argument names outside the procedure (MS-VBAL §5.6.13.1) is named there too.
-        if (target.Sites.Any(site => site.Module.AbsoluteUri != module.AbsoluteUri || !Contains(within, site.Range.Start)))
+        if (target.Sites.Any(site => site.Key != source.Key || !Contains(within, site.Range.Start)))
         {
             return [];
         }

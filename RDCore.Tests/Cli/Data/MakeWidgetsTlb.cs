@@ -7,9 +7,12 @@
 // Widgets {0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3B01} 1.0 declares a creatable class Widget: its default interface _Widget has a property Thing of type
 // Missing.IThing and a property Count (Long); its events interface _WidgetEvents has an event Changed(Value As Missing.IThing) and an event Ready. Missing
 // {0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3A01} 1.0 is made beside it, in a folder of its own that is deleted after, and never registered: Widgets names it, and
-// loading Widgets in any other process finds no such library (TYPE_E_CANTLOADLIBRARY). The test project does not compile this file.
+// loading Widgets in any other process finds no such library (TYPE_E_CANTLOADLIBRARY). Its module Texts has two String constants: Quoted, with a double
+// quote inside its text, and TwoLines, with a line break inside its text. The test project does not compile this file.
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+
+[assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
 
 var output = Path.GetFullPath(args.Length > 0 ? args[0] : ".");
 var scratch = Path.Combine(Path.GetTempPath(), "MakeWidgetsTlb-" + Guid.NewGuid().ToString("N"));
@@ -54,6 +57,11 @@ try
     coclass.AddImplType(1, eventsReference);
     coclass.SetImplTypeFlags(1, IMPLTYPEFLAGS.IMPLTYPEFLAG_FDEFAULT | IMPLTYPEFLAGS.IMPLTYPEFLAG_FSOURCE);
     coclass.LayOut();
+
+    widgets.CreateTypeInfo("Texts", TYPEKIND.TKIND_MODULE, out var texts);
+    Build.Constant(texts, 0, "Quoted", "say \"hi\"");
+    Build.Constant(texts, 1, "TwoLines", "a\r\nb");
+    texts.LayOut();
     widgets.SaveAllChanges();
 
     Console.WriteLine(Path.Combine(output, "Widgets.tlb"));
@@ -97,6 +105,20 @@ static class Build
         var pointee = Marshal.AllocHGlobal(Marshal.SizeOf<TYPEDESC>());
         Marshal.StructureToPtr(new TYPEDESC { vt = (short)VarEnum.VT_USERDEFINED, lpValue = reference }, pointee, false);
         return new TYPEDESC { vt = (short)VarEnum.VT_PTR, lpValue = pointee };
+    }
+
+    // a constant of a module: a VARDESC of the kind VAR_CONST whose value is a VARIANT; a module's members are numbered from 0x40000000, as MIDL numbers them.
+    public static void Constant(ICreateTypeInfo info, int index, string name, string value)
+    {
+        var variant = Marshal.AllocHGlobal(24);
+        Marshal.GetNativeVariantForObject(value, variant);
+        var variable = new VARDESC
+        {
+            memid = 0x40000000 + index, varkind = VARKIND.VAR_CONST, elemdescVar = new ELEMDESC { tdesc = new TYPEDESC { vt = (short)VarEnum.VT_BSTR } },
+        };
+        variable.desc.lpvarValue = variant;
+        info.AddVarDesc(index, ref variable);
+        info.SetVarName(index, name);
     }
 
     public static void Function(ICreateTypeInfo info, int index, int memberId, string name, (string Name, TYPEDESC Type)[] parameters, TYPEDESC returns, INVOKEKIND kind)

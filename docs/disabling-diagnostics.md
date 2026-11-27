@@ -50,6 +50,24 @@ A workspace can disable codes of its own, in the `Configuration` section of the 
 Whoever opens the workspace has these codes disabled as well as their own: the workspace's list adds to theirs and takes nothing from it. The platform reads
 the file when it starts; a code added with the quick fix **Disable RDC01001 in this workspace** is disabled at once.
 
+## In the source
+
+Code written for legacy Rubberduck can keep its `'@Ignore` and `'@IgnoreModule` annotations. They are deprecated, since settings turn diagnostics off,
+and RDCore reads them as a suppression of the codes they list:
+
+```vba
+'@IgnoreModule ProcedureNotUsed, RDC01001
+```
+
+- In a file of one module, either annotation covers the whole file, wherever it is written.
+- In a file of `Class` and `Module` blocks, either annotation written on the comment lines directly above a block's header covers that block's
+  module. Elsewhere, `'@IgnoreModule` covers the module it is written in, and `'@Ignore` covers nothing.
+- An annotation with no argument covers every code that can be disabled. A compile error or a run-time error is still reported.
+
+The analyzers still run, and only their findings for those codes are left out. An argument that names nothing is
+[`RDC00418`](diagnostics/rdc00418.md). See [**RD-VBAL §2.6.4** Suppression](specs/rd-vbal.2.6.4.rubberduck-core-diagnostics.md#suppression) for the
+rules.
+
 See [Diagnostics](diagnostics/index.md) for the codes, and
 [**RD-VBAL §2.3.3** Configuration](specs/rd-vbal.2.3.3.configuration.md#disabled-diagnostics) for the setting.
 

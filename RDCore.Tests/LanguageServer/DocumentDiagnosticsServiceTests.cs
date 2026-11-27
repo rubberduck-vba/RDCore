@@ -471,6 +471,23 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual(2, result.Diagnostics.Count);
     }
 
+    // the annotation's codes are dropped once every provider has answered, whichever found them; a language error is published whatever it says.
+    [TestMethod]
+    public async Task WhatAnIgnoreModuleAnnotationNames_IsNotPublished_WhicheverProviderFoundIt()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), "'@IgnoreModule RDC00101, XYZ00042\r\nPublic Sub Foo()\r\nEnd Sub"));
+        ProvidersAre(
+            Provider("RDCore.Diagnostics", 1, Diag(1, code: "RDC00101"), Diag(1)),
+            Provider(Manifest("Vendor", nameof(DiagnoseDocument), prefix: "XYZ"), 1, Diag(2, code: "XYZ00042")));
+
+        var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "VBC01027" }, result.Diagnostics.Select(diagnostic => diagnostic.Code!.Value.String).ToArray());
+    }
+
     [TestMethod]
     public async Task OverlappingDiagnosticsAcrossProviders_AreDeduped()
     {
@@ -669,6 +686,49 @@ public sealed class DocumentDiagnosticsServiceTests
 
         Assert.IsNull(PayloadSentTo(provider).Semantics);
         await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
+    }
+
+    // the host has a block's module by the block's name, at its address under the root: a block is asked for by its address under its file, and an address
+    // that is no block of the file is no module.
+    [TestMethod]
+    public async Task ABlocksModule_IsAskedOfTheHostByItsName_AndAnAddressThatIsNoBlockOfTheFile_IsNone()
+    {
+        var backup = Backup("Class Logger\r\nEnd Class\r\n");
+        ModulesAre(backup);
+        _documents.WorkspaceRoot.Returns(Root);
+        var logger = SymbolUri.Module(Root, "Logger");
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(logger, true, [], [], [])])));
+        var file = backup.Id.Uri.ToUri();
+
+        var ofTheBlock = await Sut().SemanticsAsync(RDCoreDocument.BlockUri(file, "Logger"), CancellationToken.None);
+        var ofNoBlock = await Sut().SemanticsAsync(RDCoreDocument.BlockUri(file, "Other"), CancellationToken.None);
+
+        Assert.AreEqual(logger, ofTheBlock?.Module);
+        Assert.IsNull(ofNoBlock);
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(Arg.Any<HostSemanticsParams>(), Arg.Any<CancellationToken>());
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Logger" && request.ModuleUri!.AbsoluteUri == logger.AbsoluteUri),
+            Arg.Any<CancellationToken>());
+    }
+
+    // a file's own module is the host's by the name its source gives it (Attribute VB_Name), and by its file's name when the source gives none.
+    [TestMethod]
+    [DataRow("Named", "Named", DisplayName = "named by its source")]
+    [DataRow(null, "Own", DisplayName = "named by its file")]
+    public async Task AFilesOwnModule_IsAskedOfTheHostByTheNameItsSourceGivesIt_OrItsFilesName(string? declared, string expected)
+    {
+        var own = StandardModule("Own", declared);
+        ModulesAre(own);
+        _documents.WorkspaceRoot.Returns(Root);
+        var module = SymbolUri.Module(Root, expected);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(module, true, [], [], [])])));
+
+        var semantics = await Sut().SemanticsAsync(own.Id.Uri.ToUri(), CancellationToken.None);
+
+        Assert.AreEqual(module, semantics?.Module);
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == expected && request.ModuleUri!.AbsoluteUri == module.AbsoluteUri),
+            Arg.Any<CancellationToken>());
     }
 
     // a monitor of the program the host runs, which says it waits in break mode or not, as the host says when it is asked.
@@ -939,11 +999,12 @@ public sealed class DocumentDiagnosticsServiceTests
     private static WorkspaceDocument StandardModule(string file, string? name)
         => new($"src/{file}.bas", Root, (name is null ? string.Empty : $"Attribute VB_Name = \"{name}\"\r\n") + "Public Sub Work()\r\nEnd Sub\r\n");
 
-    // the documents of the project, each parsed as itself.
+    // the documents of the project, each parsed as itself, in a workspace that allows blocks in a module file.
     private void ModulesAre(params WorkspaceDocument[] modules)
     {
         WorkspaceHas(modules);
-        var parses = modules.ToDictionary(module => module.Id.Uri.ToUri().AbsoluteUri, module => new ModuleParser().Parse(module.Id.Uri.ToUri(), module.Text));
+        var parses = modules.ToDictionary(module => module.Id.Uri.ToUri().AbsoluteUri,
+            module => FileLevelStatementsOn.Parser().Parse(module.Id.Uri.ToUri(), module.Text));
         _parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
             .Returns(call =>
             {
@@ -1059,7 +1120,8 @@ public sealed class DocumentDiagnosticsServiceTests
     private void BackupParses()
     {
         WorkspaceHas(BackupFile);
-        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(new ModuleParser().Parse(BackupFile.Id.Uri.ToUri(), FileOfBlocks));
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(FileLevelStatementsOn.Parser().Parse(BackupFile.Id.Uri.ToUri(), FileOfBlocks));
     }
 
     private static DiagnoseDocumentPayload PayloadOf(DiagnoseDocumentParams request) => PlatformJson.Deserialize<DiagnoseDocumentPayload>(request.Json);

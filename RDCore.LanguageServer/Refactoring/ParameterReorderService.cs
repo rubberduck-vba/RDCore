@@ -112,28 +112,34 @@ internal sealed class ParameterReorderService(IRenameService rename) : IParamete
         {
             Documents =
             [
-                .. plan.Edits.GroupBy(edit => edit.Module.AbsoluteUri).Select(group =>
-                {
-                    var edited = part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key);
-                    return new RefactorDocumentEdit
+                // each edit goes to the document of the part of the module it is in (RD-VBAL §5.1), and the edits of one document are one edit of it.
+                .. plan.Edits
+                    .Select(edit => (Edit: edit, Module: part.Modules.First(candidate => candidate.Is(edit.Module, edit.Document))))
+                    .GroupBy(edited => edited.Module.Document.Id.Uri)
+                    .Select(group => new RefactorDocumentEdit
                     {
-                        Uri = edited.Document.Id.Uri.ToUri(),
-                        Version = edited.Document.Version,
-                        Edits = [.. group.Select(edit => new RefactorTextEdit { Range = SourceRangeOf(edited.ToTextRange(edit.Range)), NewText = edit.NewText })],
-                    };
-                }),
+                        Uri = group.First().Module.Document.Id.Uri.ToUri(),
+                        Version = group.First().Module.Document.Version,
+                        Edits = [.. group.Select(edited => new RefactorTextEdit
+                        {
+                            Range = SourceRangeOf(edited.Module.ToTextRange(edited.Edit.Range)),
+                            NewText = edited.Edit.NewText,
+                        })],
+                    }),
             ],
         }, null);
     }
 
     public async Task<(string Title, string? Refusal)?> OfferAsync(Uri documentUri, SourcePosition position, CancellationToken token)
     {
-        if (await rename.ComposeAsync(token) is not { } workspace || workspace.DocumentOf(documentUri) is not ({ } part, { } module))
+        if (await rename.ComposeAsync(token) is not { } workspace
+            || workspace.DocumentAt(documentUri, new Position(position.Line, position.Character)) is not ({ } part, { } module))
         {
             return null;
         }
 
-        var (target, refusal) = ParameterReorder.Prepare(part.Context, module.Module, module.ToModulePosition(new Position(position.Line, position.Character)));
+        var (target, refusal) = ParameterReorder.Prepare(
+            part.Context, module.Module, module.ToModulePosition(new Position(position.Line, position.Character)), module.WrittenIn);
         if (target is null)
         {
             return refusal is { FindsNothing: false } ? (ParameterReorderRefusal.Title(refusal.Name), refusal.ToMessage(RenameWorkspace.Locator(part))) : null;
@@ -151,12 +157,14 @@ internal sealed class ParameterReorderService(IRenameService rename) : IParamete
     private async Task<(Planned? Planned, Refusal? Refusal)> PlannedAsync(
         Uri documentUri, SourcePosition position, IReadOnlyList<RefactorAnswer>? answers, CancellationToken token)
     {
-        if (await rename.ComposeAsync(token) is not { } workspace || workspace.DocumentOf(documentUri) is not ({ } part, { } module))
+        if (await rename.ComposeAsync(token) is not { } workspace
+            || workspace.DocumentAt(documentUri, new Position(position.Line, position.Character)) is not ({ } part, { } module))
         {
             return (null, RefusalOf(null, new(ParameterReorderRefusalKind.NoProcedure, string.Empty)));
         }
 
-        var (target, refused) = ParameterReorder.Prepare(part.Context, module.Module, module.ToModulePosition(new Position(position.Line, position.Character)));
+        var (target, refused) = ParameterReorder.Prepare(
+            part.Context, module.Module, module.ToModulePosition(new Position(position.Line, position.Character)), module.WrittenIn);
         if (target is null)
         {
             return (null, RefusalOf(part, refused!));
@@ -197,7 +205,7 @@ internal sealed class ParameterReorderService(IRenameService rename) : IParamete
     private static Refusal RefusalOf(RenameWorkspace.ProjectPart? part, ParameterReorderRefusal refusal) => new(
         Code(refusal.Kind),
         refusal.ToMessage(part is null ? null : RenameWorkspace.Locator(part)),
-        refusal.Module is { } module ? LocationOf(part, module, refusal.Position) : null);
+        refusal.Module is { } module ? LocationOf(part, module, refusal.Document, refusal.Position) : null);
 
     private static RefactorNotice Refused(Refusal refusal)
         => new() { Code = refusal.Code, Kind = RefactorNoticeKind.Refusal, Message = refusal.Message, Location = refusal.Location };
@@ -207,12 +215,12 @@ internal sealed class ParameterReorderService(IRenameService rename) : IParamete
         Code = code,
         Kind = kind,
         Message = change.ToMessage(RenameWorkspace.Locator(part)),
-        Location = change.Module is { } module ? LocationOf(part, module, change.Position) : null,
+        Location = change.Module is { } module ? LocationOf(part, module, change.Document, change.Position) : null,
     };
 
-    // where a position of a module is, in the text of the document that module is.
-    private static SourceLocation? LocationOf(RenameWorkspace.ProjectPart? part, Uri module, SourcePosition position)
-        => part?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
+    // where a position of a module is, in the text of the document that module is: of the part of a module of parts the document names (RD-VBAL §5.1).
+    private static SourceLocation? LocationOf(RenameWorkspace.ProjectPart? part, Uri module, Uri? written, SourcePosition position)
+        => part?.Modules.FirstOrDefault(candidate => candidate.Is(module, written)) is { } document
             ? new SourceLocation(document.Document.Id.Uri.ToUri(), SourceRangeOf(document.ToTextRange(new SourceRange(position, position))))
             : null;
 

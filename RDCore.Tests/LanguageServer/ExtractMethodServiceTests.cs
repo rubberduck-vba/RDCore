@@ -71,23 +71,34 @@ public sealed class ExtractMethodServiceTests
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly IPlatformClientCapabilitiesService _capabilities = Substitute.For<IPlatformClientCapabilitiesService>();
     private readonly RenameService _rename;
-    private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+    // a .bas declares blocks, a Partial one among them, only in a workspace that allows file-level statements (RD-VBAL §5.1).
+    private readonly IOptions<SdkAppOptions> _options = Options.Create(new SdkAppOptions
+    {
+        Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba", FileLevelStatements = true },
+    });
 
-    public ExtractMethodServiceTests()
+    public ExtractMethodServiceTests() => _rename = RenameOf(new WorkspaceDocument("Main.bas", Root, Module, version: Version));
+
+    // the renames, on a workspace of these documents.
+    private RenameService RenameOf(params WorkspaceDocument[] documents)
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var module = new WorkspaceDocument("Main.bas", Root, Module, version: Version);
-        _documents.GetAllDocuments().Returns([module]);
-        var uri = module.Id.Uri.ToUri();
-        _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = module; return true; });
-        _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, Module)));
+        _documents.GetAllDocuments().Returns(documents);
+        foreach (var document in documents)
+        {
+            var uri = document.Id.Uri.ToUri();
+            _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
+            _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(FileLevelStatementsOn.Parser().Parse(uri, document.Text)));
+        }
+
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        _rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
+        return new RenameService(
+            _documents, _parsing, new IntrinsicSymbolResolver(), libraries, _options, NullLogger<RenameService>.Instance, OneProject.Registry());
     }
 
     private static Uri Document => DocumentUri.From(Path.Combine(Root, "Main.bas")).ToUri();
@@ -364,5 +375,32 @@ public sealed class ExtractMethodServiceTests
             Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>() },
         }, CancellationToken.None);
         return actions!.Select(action => action.CodeAction!).SingleOrDefault(action => action.Kind == CodeActionHandler.RefactorExtractMethod);
+    }
+
+    // a module of parts (RD-VBAL §5.1): Program's plain part declares count, and its Partial part, a block of Extra.bas, writes it.
+    private const string PlainPart = "Option Explicit\r\nPrivate count As Long\r\n\r\nPublic Sub Reset()\r\n    count = 0\r\nEnd Sub\r\n";
+
+    private const string PartialPart =
+        "Partial Module Program\r\nPublic Sub Bump()\r\n    count = count + 1\r\n    Debug.Print count\r\nEnd Sub\r\nEnd Module\r\n";
+
+    [TestMethod]
+    public async Task StatementsOfThePartialPartOfAModule_AreExtractedIntoThatPart_AsAnEditOfItsDocument()
+    {
+        var service = new ExtractMethodService(
+            RenameOf(new WorkspaceDocument("Program.bas", Root, PlainPart, version: 2), new WorkspaceDocument("Extra.bas", Root, PartialPart, version: 5)),
+            _parsing, _options);
+
+        var answer = await service.ApplyAsync(
+            DocumentUri.From(Path.Combine(Root, "Extra.bas")).ToUri(), Lines(2, 2), [Answer(ExtractMethodService.NameChoice, "Increment")], [],
+            CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var document = answer.Edit!.Documents.Single();
+        Assert.AreEqual(DocumentUri.From(Path.Combine(Root, "Extra.bas")).ToUri(), document.Uri);
+        Assert.AreEqual(5, document.Version);
+        var text = DeclarationEdits.ApplyTo(PartialPart, document.Edits);
+        StringAssert.Contains(text, "Public Sub Bump()\r\n    Increment\r\n    Debug.Print count\r\nEnd Sub\r\n");
+        var written = text.IndexOf("Private Sub Increment()\r\n    count = count + 1\r\nEnd Sub\r\n", StringComparison.Ordinal);
+        Assert.IsTrue(written > 0 && written < text.LastIndexOf("End Module", StringComparison.Ordinal), text);
     }
 }

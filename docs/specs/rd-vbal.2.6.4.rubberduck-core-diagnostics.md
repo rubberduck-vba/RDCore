@@ -97,6 +97,9 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00411`](../diagnostics/rdc00411.md)|Code in a class implemented as an interface|Warning|`ModuleSemanticsDto.Class` (`ClassModuleSemanticFlags.Implemented`, which the host sets for a class that the `Implements` directive of a module of the project names), and the syntax tree: the first procedure of the class with code (a statement, or a `Dim`, `Static` or `Const`)|
 |[`RDC00412`](../diagnostics/rdc00412.md)|Control used outside its form|Information|`ExpressionFactDto.Flags`: `BoundToDesignerControl`, on an expression of a module other than the control's form|
 |[`RDC00413`](../diagnostics/rdc00413.md)|Module variable used in one procedure|Information|`DeclarationFactDto.ReferencedFrom` of a variable of the module (stated for a `Private` or `Dim` one, and a `Public` one of a program or of an `Option Private Module` module): every `DeclarationReference.Procedure` the same, and of the class itself for a `Public` variable of a class; the syntax tree for `WithEvents`|
+|[`RDC00416`](../diagnostics/rdc00416.md)|Module annotation has a short form|Information|the parse: an `AnnotationTriviaNode` named `ModuleDescription` or `IgnoreModule` among the module annotations of a block's module ([`Annotations.GetModuleAnnotations`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Annotations.html) of its `RDCoreDocument.ParseOf`); renamed when it is a header annotation (`GetHeaderAnnotations`)|
+|[`RDC00417`](../diagnostics/rdc00417.md)|Folder annotation not the file's folder|Information|the trivia of the parse: an `AnnotationTriviaNode` named `Folder` whose first argument is a string literal; the document's path, under the project root of `ModuleSemanticsDto.Module` (`SymbolUri.ProjectRootOf`)|
+|[`RDC00418`](../diagnostics/rdc00418.md)|Ignore annotation names no diagnostic|Warning|the language server, in the static phase: an argument of an `AnnotationTriviaNode` named `Ignore` or `IgnoreModule` that is not a code (`RDCoreDiagnosticCode.TryParse`) or a legacy inspection name the language server maps (see [Suppression](#suppression)), or that names only language errors|
 |[`RDC01001`](../diagnostics/rdc01001.md)|Use meaningful identifier names|Information|the names the syntax tree declares, `DeclarationFact.Role` and `Binding` (a lifecycle handler, and the handlers and implementations bound to a type library's or a compiled library's event or interface by `BoundLibrary` and `IsBoundInSourceProject`, are left out; a form's control's handlers, by `IsSourceAControl`, are judged), and the allow-list in `DiagnosticsOptions.MeaningfulNames`; every finding carries a `SettingFix` that adds its name to that list|
 |[`RDC01002`](../diagnostics/rdc01002.md)|Hungarian notation|Information|the names the syntax tree declares, `DeclarationFact.Role` and `Binding`, left out as for `RDC01001`, and the allow-list in `DiagnosticsOptions.HungarianNotation`; every finding carries a `SettingFix` that adds its name to that list|
 |[`RDC01003`](../diagnostics/rdc01003.md)|Empty If block|Information|the syntax tree: the `Body` of an `IfBlockStatementNode` or an `ElseIfBlockStatementNode`, the `ThenBody` of an `InlineIfStatementNode`, with no `StatementNode`, except where RDC11049 is raised|
@@ -221,6 +224,26 @@ A hidden default member of a library's class can stand for other members, which 
 `Range._Default` is `Item` given arguments (`r(1)` is `r.Item(1)`) and `Value` given none (`x = r` is `x = r.Value`). Its fact carries them
 (`DefaultMemberFact.WrittenAs`), on an expression of the class (`ExpressionFact.DefaultMember`) and in the default members an access goes through, so a code
 fix writes the members the code can name. `rdc export-library` keeps them, as it keeps the members that are design-time only, from the file it replaces.
+
+### Suppression
+
+Settings configure diagnostics: they disable a code for the user or the workspace (`Analysis.DisabledDiagnostics`), and the analyzer that finds it skips
+that work. The `'@Ignore` and `'@IgnoreModule` annotations of legacy Rubberduck are deprecated, and kept as a suppression in the source of the codes they
+list. Every provider still analyzes the document, and the language server drops the suppressed findings from what it publishes, whichever provider found
+them.
+
+|Written|Suppresses the findings of|
+|---|---|
+|`'@Ignore` or `'@IgnoreModule`, in a file of one module|the whole file, wherever the annotation is written|
+|`'@IgnoreModule`, in a file that has blocks|the module it is in: a block's module, its header's comment lines included, or the file's own module outside every block (`RDCoreDocument.ParseOf`)|
+|`'@Ignore` on the comment lines directly above a block's header|that block's module ([`Annotations.GetHeaderAnnotations`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Annotations.html))|
+|`'@Ignore` anywhere else in a file that has blocks|none|
+
+- **Arguments:** codes and legacy inspection names, separated by commas: `'@Ignore RDC00315, ProcedureNotUsed`. A code of any provider is written as
+  the code. A legacy name, written without its `Inspection` suffix, stands for the core codes that took its place (`LegacyInspectionNames`).
+- **No argument:** every code that can be disabled.
+- **Language errors:** a `VBC`, `VBR` or `VBA` finding is never suppressed (`RDCoreDiagnosticCode.CanBeDisabled`).
+- **An argument that suppresses nothing** is reported as [`RDC00418`](../diagnostics/rdc00418.md), at the argument.
 
 ## Language Core Conditions and Analyzer Opinions
 

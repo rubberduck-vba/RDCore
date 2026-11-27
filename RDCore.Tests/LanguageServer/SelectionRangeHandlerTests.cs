@@ -42,11 +42,12 @@ public sealed class SelectionRangeHandlerTests
         WorkspaceDocument[] held =
             [new("Module1.bas", Root, Module1, version: 1), new("Main.rdc", Root, Program, version: 1), new("Backup.bas", Root, Backup, version: 1)];
         _documents.Holds(held);
+        // Backup.bas has blocks, in a workspace that allows statements outside procedures.
         foreach (var document in held)
         {
             var uri = document.Id.Uri.ToUri();
             _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(document))));
+                .Returns(Task.FromResult(FileLevelStatementsOn.Parser().Parse(uri, ParsingClientService.ModuleSourceOf(document))));
         }
     }
 

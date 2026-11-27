@@ -107,7 +107,8 @@ internal sealed class ExtractionModuleAnalysis
         // the procedure's scope is the one its declaration is in: a property's procedures are separate symbols with one name.
         if (Parse.SyntaxTree?.Children.OfType<MemberDeclarationNode>()
                 .FirstOrDefault(member => member.MemberKind == kind && member.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is not { } declaration
-            || !Scopes.TryGetScope(CompletionCandidates.OriginAt(Scopes, Module, declaration.SourceLocation.Range.Start), out var scope)
+            || !Scopes.TryGetScope(
+                CompletionCandidates.OriginAt(Scopes, Module, declaration.SourceLocation.Range.Start, declaration.SourceLocation.Uri), out var scope)
             || scope.Kind is not LexicalScopeKind.Procedure)
         {
             return null;

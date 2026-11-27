@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using RDCore.CLI.App.Configuration;
@@ -113,5 +114,31 @@ public sealed class ListSettingValueHandlerTests
         Assert.IsFalse(_fileSystem.File.Exists(WorkspaceSettingsStore.PathIn(WorkspaceFolder)));
         Assert.AreEqual(0, _told);
         _live.DidNotReceive().Refresh();
+    }
+
+    // an item the console's configuration lists, and the user did not add: the user's settings add to that list, and do not take from it.
+    [TestMethod]
+    [DataRow(Key, "RDC01001", false, DisplayName = "a code the application's settings disable")]
+    [DataRow("Platform.Extensions.Allowed", "RDCore.Diagnostics", true, DisplayName = "an extension the platform's settings allow")]
+    public async Task AnItemTheUserDidNotAdd_IsNotRemoved_AndTheAnswerSaysWhy(string key, string item, bool isExtension)
+    {
+        var environment = Substitute.For<IPlatformEnvironment>();
+        environment.UserDataDirectory.Returns(UserFolder);
+        var extensions = Substitute.For<IExtensionsProvider>();
+        extensions.Discover().Returns([]);
+        var path = $"{SettingsSchema.Root}:{key.Replace('.', ':')}:0";
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { [path] = item }).Build();
+        var settings = new PlatformSettings(_fileSystem, environment, extensions, configuration);
+        var sut = new ListSettingValueHandler(settings, _live, new LiveSettingsNotifier(_ => { _told++; return Task.CompletedTask; }),
+            Options.Create(new SdkAppOptions()));
+
+        var change = new ListSettingValueRequest(new ListSettingValueParams { Key = key, Value = item, Scope = SettingScope.Platform, Remove = true });
+
+        var answer = await sut.Handle(change, CancellationToken.None);
+
+        Assert.IsFalse(answer.Applied);
+        Assert.AreEqual(string.Format(isExtension ? CLI.Resources.Config_NotTheUsers_Extension : CLI.Resources.Config_NotTheUsers, item, key), answer.Reason);
+        Assert.IsFalse(_fileSystem.File.Exists(UserSettingsStore.PathIn(environment)));
+        Assert.AreEqual(0, _told);
     }
 }

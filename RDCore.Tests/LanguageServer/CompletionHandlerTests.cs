@@ -23,4 +23,9 @@ public sealed class CompletionHandlerTests
     [TestMethod]
     public void ABang_AsksForNothing()
         => CollectionAssert.DoesNotContain(OptionsOf(new CompletionHandler(Substitute.For<ICompletionService>())).TriggerCharacters!.ToArray(), "!");
+
+    // an annotation starts with the `@` right after the `'` of a comment: typing it asks for the annotations legal there.
+    [TestMethod]
+    public void AnAt_AsksForTheAnnotations()
+        => CollectionAssert.Contains(OptionsOf(new CompletionHandler(Substitute.For<ICompletionService>())).TriggerCharacters!.ToArray(), "@");
 }

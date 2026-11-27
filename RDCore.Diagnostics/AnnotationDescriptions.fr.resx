@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Ce que fait chaque annotation principale (ExtensionAnnotationsAttribute) : par son nom, ou son nom et celui d'un paramètre joints par « _ ». -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Description" xml:space="preserve">
+    <value>Décrit le module ou le membre qu'elle annote : le texte que le survol et l'explorateur d'objets en affichent.</value>
+  </data>
+  <data name="Description_Text" xml:space="preserve">
+    <value>La description.</value>
+  </data>
+  <data name="ModuleDescription" xml:space="preserve">
+    <value>Décrit le module : le texte que le survol et l'explorateur d'objets en affichent.</value>
+  </data>
+  <data name="ModuleDescription_Text" xml:space="preserve">
+    <value>La description.</value>
+  </data>
+  <data name="VariableDescription" xml:space="preserve">
+    <value>Décrit la variable qu'elle annote : le texte que le survol et l'explorateur d'objets en affichent.</value>
+  </data>
+  <data name="VariableDescription_Text" xml:space="preserve">
+    <value>La description.</value>
+  </data>
+  <data name="Folder" xml:space="preserve">
+    <value>Obsolète. Le dossier sous lequel l'explorateur de code de Rubberduck, dans le VBE, range le module.</value>
+  </data>
+  <data name="Folder_Path" xml:space="preserve">
+    <value>Le dossier, ses niveaux séparés par des points : "Parent.Child".</value>
+  </data>
+  <data name="Ignore" xml:space="preserve">
+    <value>Supprime les diagnostics qu'elle énumère dans le fichier, ou dans le module du bloc au-dessus de l'en-tête duquel elle est écrite.</value>
+  </data>
+  <data name="Ignore_Codes" xml:space="preserve">
+    <value>Les codes des diagnostics à supprimer : RDC00101.</value>
+  </data>
+  <data name="IgnoreModule" xml:space="preserve">
+    <value>Supprime les diagnostics qu'elle énumère dans son module.</value>
+  </data>
+  <data name="IgnoreModule_Codes" xml:space="preserve">
+    <value>Les codes des diagnostics à supprimer : RDC00101.</value>
+  </data>
+  <data name="Obsolete" xml:space="preserve">
+    <value>Marque le membre ou la variable comme obsolète, pour que chacune de ses utilisations soit signalée.</value>
+  </data>
+  <data name="Obsolete_Message" xml:space="preserve">
+    <value>Ce qu'il faut utiliser à la place, affiché avec chaque utilisation.</value>
+  </data>
+  <data name="Exposed" xml:space="preserve">
+    <value>Rend la classe visible aux autres projets (VB_Exposed).</value>
+  </data>
+  <data name="PredeclaredId" xml:space="preserve">
+    <value>Donne à la classe une instance par défaut, du nom de la classe (VB_PredeclaredId).</value>
+  </data>
+  <data name="Interface" xml:space="preserve">
+    <value>Marque la classe comme une interface, que d'autres classes implémentent.</value>
+  </data>
+  <data name="NoIndent" xml:space="preserve">
+    <value>Laisse le module tel qu'il est écrit quand le code est indenté.</value>
+  </data>
+  <data name="DefaultMember" xml:space="preserve">
+    <value>Fait du membre le membre par défaut de la classe (VB_UserMemId 0).</value>
+  </data>
+  <data name="Enumerator" xml:space="preserve">
+    <value>Fait du membre l'énumérateur qu'utilise une instruction For Each (VB_UserMemId -4).</value>
+  </data>
+  <data name="EntryPoint" xml:space="preserve">
+    <value>Marque la procédure comme une procédure que l'hôte appelle, comme une macro, pour qu'aucun code n'ait à l'appeler.</value>
+  </data>
+  <data name="EntryPoint_Caller" xml:space="preserve">
+    <value>Ce qui l'appelle dans le document hôte, comme le nom d'une forme.</value>
+  </data>
+  <data name="ExcelHotkey" xml:space="preserve">
+    <value>Associe un raccourci clavier à la macro dans Excel (VB_ProcData.VB_Invoke_Func).</value>
+  </data>
+  <data name="ExcelHotkey_Key" xml:space="preserve">
+    <value>La touche, avec Ctrl : "A".</value>
+  </data>
+  <data name="ModuleAttribute" xml:space="preserve">
+    <value>Définit un attribut du module.</value>
+  </data>
+  <data name="ModuleAttribute_Attribute" xml:space="preserve">
+    <value>Le nom de l'attribut : VB_Description.</value>
+  </data>
+  <data name="ModuleAttribute_Values" xml:space="preserve">
+    <value>Les valeurs de l'attribut.</value>
+  </data>
+  <data name="MemberAttribute" xml:space="preserve">
+    <value>Définit un attribut du membre ou de la variable.</value>
+  </data>
+  <data name="MemberAttribute_Attribute" xml:space="preserve">
+    <value>Le nom de l'attribut : VB_Description.</value>
+  </data>
+  <data name="MemberAttribute_Values" xml:space="preserve">
+    <value>Les valeurs de l'attribut.</value>
+  </data>
+</root>

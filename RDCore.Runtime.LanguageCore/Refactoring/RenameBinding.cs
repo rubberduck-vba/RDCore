@@ -24,9 +24,10 @@ namespace RDCore.Runtime.LanguageCore.Refactoring;
 // how a rename binds a name: the reference index binds names the same way, so it finds what a rename renames.
 public static class RenameBinding
 {
-    public static (SourceRange Origin, Symbol Symbol)? SymbolAt(RenameContext context, Uri module, SourcePosition position)
+    // the document names the part of a module of parts (RD-VBAL §5.1) the position is in; null for the first part at the address.
+    public static (SourceRange Origin, Symbol Symbol)? SymbolAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } source)
         {
             return null;
         }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using RDCore.Parsing;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model;
@@ -5,6 +6,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.Parser;
@@ -20,7 +22,56 @@ public sealed class BlockModulesParseTests
     private static readonly Uri Script = new("file:///c:/ws/Backup.vbs");
     private static readonly Uri Module = new("file:///c:/ws/Module1.bas");
 
-    private static ModuleParseResult Parse(Uri uri, params string[] lines) => new ModuleParser().Parse(uri, string.Join("\r\n", lines) + "\r\n");
+    // a module file (Module) has blocks in a workspace that allows statements outside procedures; a script (Script) has them in any.
+    private static ModuleParseResult Parse(Uri uri, params string[] lines) => FileLevelStatementsOn.Parser().Parse(uri, string.Join("\r\n", lines) + "\r\n");
+
+    private static readonly string[] OwnAndTwoBlocks =
+    [
+        "Public Sub Own()",
+        "End Sub",
+        "Class Account",
+        "    Public Sub Deposit()",
+        "    End Sub",
+        "End Class",
+        "Module Logger",
+        "    Public Sub Log()",
+        "    End Sub",
+        "End Module",
+    ];
+
+    private static ModuleParseResult ParseIn(SdkWorkspaceOptions? workspace, string file, string[] lines)
+        => new ModuleParser(workspaceOptions: workspace is null ? null : Options.Create(workspace))
+            .Parse(new Uri($"file:///c:/ws/{file}"), string.Join("\r\n", lines) + "\r\n");
+
+    // a file declares modules in blocks only where it may have statements outside its procedures: a script in any workspace, a VBA module only in a
+    // workspace whose setting allows them (SdkWorkspaceOptions.FileLevelStatements).
+    [TestMethod]
+    [DataRow("vba", "Backup.vbs", false, DisplayName = "a script, in a VBA workspace, the setting off")]
+    [DataRow("vbscript", "Backup.vbs", false, DisplayName = "a script, in a VBScript workspace")]
+    [DataRow("vba", "Backup.bas", true, DisplayName = "a VBA module, the setting on")]
+    public void AFilesBlocks_AreModules_WhereItMayHaveStatementsOutsideItsProcedures(string language, string file, bool setting)
+    {
+        var parse = ParseIn(new SdkWorkspaceOptions { Language = language, FileLevelStatements = setting }, file, OwnAndTwoBlocks);
+
+        Assert.IsEmpty(parse.SyntaxErrors, Errors(parse));
+        CollectionAssert.AreEqual(new[] { "Account", "Logger" }, parse.BlockModules.Select(block => block.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Deposit" }, Members(parse.BlockModules[0].SyntaxTree));
+    }
+
+    // elsewhere a header and an end line are lines of the file's own module after its procedures, where MS-VBA allows only comments; with no options, the
+    // workspace is the default one, whose setting is off.
+    [TestMethod]
+    [DataRow(true, DisplayName = "a VBA workspace, the setting off")]
+    [DataRow(false, DisplayName = "no options")]
+    public void AVBAModulesBlocks_WithTheSettingOff_AreSyntaxErrorsOfItsOwnModule(bool options)
+    {
+        var parse = ParseIn(options ? new SdkWorkspaceOptions { Language = "vba" } : null, "Backup.bas", OwnAndTwoBlocks);
+
+        Assert.IsEmpty(parse.BlockModules);
+        CollectionAssert.Contains(parse.SyntaxErrors.Select(error => error.Location.Range.Start.Line).ToArray(), 2, Errors(parse));
+        Assert.IsTrue(parse.SyntaxErrors.All(error => error.ErrorId == (int)VBCompileErrorId.OnlyCommentsAfterEndProcedure), Errors(parse));
+        Assert.IsFalse(parse.Trivia.OfType<BlockBoundaryTriviaNode>().Any(), "no line is a block's header or end");
+    }
 
     private static string Errors(ModuleParseResult parse)
         => string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.ErrorId} at {error.Location.Range.Start.Line}: {error.Verbose}"));
@@ -110,7 +161,7 @@ public sealed class BlockModulesParseTests
     {
         string[] block = ["    count = 1", "    Public Sub Log()", "    End Sub"];
         var parse = Parse(Script, ["Log", "Module Logger", .. block, "End Module"]);
-        var asAModule = Parse(Module, block);
+        var asAModule = new ModuleParser().Parse(Module, string.Join("\r\n", block) + "\r\n");
 
         CollectionAssert.Contains(Members(parse.SyntaxTree!), ProgramEntryPoint.ScriptName, "the file is a script");
         var logger = parse.BlockModules.Single();
@@ -323,13 +374,14 @@ public sealed class BlockModulesParseTests
 
         Assert.IsEmpty(parse.BlockModules);
         CollectionAssert.Contains(parse.SyntaxErrors.Select(error => error.Location.Range.Start.Line).ToArray(), 0, Errors(parse));
-        CollectionAssert.AreEqual(new[] { "Deposit" }, Members(parse.SyntaxTree!), "the file's own module");
+        CollectionAssert.Contains(Members(parse.SyntaxTree!), "Deposit", "the file's own module");
     }
 
     [TestMethod]
     public void AnAnchoredFile_AnchorsItsBlocks()
     {
-        var parse = new ModuleParser().Parse(Module, "Module Logger\r\n    Public Sub Log()\r\n    End Sub\r\nEnd Module\r\n", new SourcePosition(10, 4));
+        var parse = FileLevelStatementsOn.Parser()
+            .Parse(Module, "Module Logger\r\n    Public Sub Log()\r\n    End Sub\r\nEnd Module\r\n", new SourcePosition(10, 4));
 
         var logger = parse.BlockModules.Single();
         Assert.AreEqual(new SourceRange(new(10, 4), new(13, 10)), logger.Range);

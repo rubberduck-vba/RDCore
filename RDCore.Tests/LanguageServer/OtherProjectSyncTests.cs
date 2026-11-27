@@ -223,12 +223,13 @@ public sealed class OtherProjectSyncTests
         return discarded;
     }
 
-    // a file of the project of a root, written with the source given: what the server has of it, and its parse.
+    // a file of the project of a root, written with the source given: what the server has of it, and its parse, in a workspace that allows blocks in a
+    // module file.
     private Uri Write(string root, string file, string source)
     {
         _modules.RemoveAll(module => module.Document.Name == Path.GetFileNameWithoutExtension(file) && module.Document.WorkspaceRoot == root);
         var document = new WorkspaceDocument(file, root, source) { Projects = [root] };
-        _modules.Add((document, new ModuleParser().Parse(document.Id.Uri.ToUri(), source)));
+        _modules.Add((document, FileLevelStatementsOn.Parser().Parse(document.Id.Uri.ToUri(), source)));
         return document.Id.Uri.ToUri();
     }
 

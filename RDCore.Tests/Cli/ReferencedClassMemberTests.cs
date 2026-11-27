@@ -768,13 +768,14 @@ public sealed class ReferencedClassMemberTests
         return new ReferencedProjectModules(reference.Name, reference.Priority, reference.Root, modules, resolver);
     }
 
-    // the modules of the files, as rdc run makes them: each file's own, and its blocks', the parts of one name assembled (ParsedModule.Assemble).
+    // the modules of the files, as rdc run makes them: each file's own, and its blocks', the parts of one name assembled (ParsedModule.Assemble). The
+    // workspace allows blocks in a module file.
     private static ParsedModule[] Parsed(Uri root, IEnumerable<Source> modules)
     {
         ModulePart[] parts = [.. modules.SelectMany(module =>
         {
             var file = new Uri(root, module.FileName);
-            var parse = new ModuleParser().Parse(file, module.Text);
+            var parse = FileLevelStatementsOn.Parser().Parse(file, module.Text);
             Assert.AreEqual(
                 !module.HasSyntaxErrors, parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
             return ModulePart.PartsOf(file, module.Name, module.Type, parse);

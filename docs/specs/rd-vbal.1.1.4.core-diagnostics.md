@@ -4,6 +4,11 @@
 
 A *diagnostics provider* is a platform extension whose manifest advertises the [DiagnoseDocument](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.DiagnoseDocument.html) capability. RDCore.Diagnostics is the core-bundled diagnostics provider; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 
+A diagnostics provider answers `rdcore/diagnostics/document` with
+[AnalyzerDiagnosticsHandler](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.AnalyzerDiagnosticsHandler.html): it
+runs the extension's analyzers on the document the language server pushes down, and answers with their findings. A provider that reports diagnostics of
+its own besides them derives from it, as RDCore.Diagnostics does for the language's syntax, compile and run-time errors.
+
 The role of *analyzers* in extensions like RDCore.Diagnostics is to inspect the flags and errors in *semantic contexts*, and issue diagnostics. Semantic flags are described in [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md).
 
 ## Diagnostic Codes
@@ -65,6 +70,15 @@ While it assembles the platform, the language server does not start an extension
 At run time, the language server reports the core extension's findings as they are. Of another extension's findings, it keeps only those whose code has the prefix the extension declares, and it reports each one with the extension's title as its `source` and with no link to the RDCore documentation. It drops every other finding, and logs it: a finding of an extension that declares no prefix is always dropped.
 
 A diagnostic gets a link to its page in the RDCore documentation only when its code has one of the platform's own prefixes (`VBC`, `VBR`, `VBA`, `RDC`, `RDX`).
+
+An extension links its own codes to its own pages with the attribute's `HelpBaseUri`, an absolute `http` or `https` address:
+
+```csharp
+[assembly: DiagnosticPrefix("XYZ", HelpBaseUri = "https://example.org/docs/diagnostics")]
+```
+
+A finding coded `XYZ00042` then links to `https://example.org/docs/diagnostics/xyz00042.html`, when the extension's `DiagnosticFactory` is given the
+declared prefix (`DeclaredPrefix`). The language server keeps that link, and removes any link of an extension's finding to the RDCore documentation.
 
 ## Run-time and Application Errors
 
