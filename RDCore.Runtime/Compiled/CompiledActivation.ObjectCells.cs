@@ -190,12 +190,12 @@ public sealed partial class CompiledActivation
     // what the object variables and parameters of an activation that returns let go of, as the frame lets go of them (RuntimeProcedureInvoker.ReleaseLocals):
     // the variables in the order they are declared, then Me, of a member, then the parameters in theirs, but those that were their caller's variable
     // (MS-VBAL §5.3.1.10: an object only they held is destroyed with them, which is where its Terminate runs). Each cell holds Nothing after, for the next
-    // call made in the activation.
+    // call made in the activation. A parameter's symbol is a local variable's too, and is not one of the variables.
     private void LetGoOfObjects(ValueBindingHandle? me)
     {
         for (var number = 0; number < _objects.Length; number++)
         {
-            if (_objects[number] is { } cell && _body.SlotSymbols[_body.ObjectSlots[number]] is VBLocalVariableSymbol)
+            if (_objects[number] is { } cell && _body.SlotSymbols[_body.ObjectSlots[number]] is VBLocalVariableSymbol and not VBParameterSymbol)
             {
                 LetGoOf(cell);
             }
