@@ -55,6 +55,18 @@ public sealed class CompiledObjectArgumentTests
             "Private Sub IShape_Place(ByVal T As Thing, ByVal N As Long)",
             "    T.Value = T.Value + 10 * N",
             "End Sub")),
+        ("Gauge", ModuleWorkspace.ClassModule("Gauge",
+            "Option Explicit",
+            "Private mValue As Long",
+            "Public Property Get Value() As Long",
+            "    Value = mValue",
+            "End Property",
+            "Public Property Let Value(ByVal V As Long)",
+            "    mValue = V",
+            "End Property",
+            "Public Function Bumped(ByVal N As Long) As Long",
+            "    Bumped = mValue + N",
+            "End Function")),
     ];
 
     private static readonly string Helpers = string.Join("\r\n",
@@ -247,4 +259,62 @@ public sealed class CompiledObjectArgumentTests
             "    Debug.Print \"cleared \" & N",
             "End Sub",
             Helpers), expected: "cleared 1 ; cleared 2 ; 11 ; terminated 0 ; end");
+
+    // an object variable given by reference, a local and a parameter of the caller, to a function that reads a member of its parameter and to a procedure
+    // that assigns one: each callee works on the caller's object through the parameter.
+    [TestMethod]
+    public async Task AnObjectGivenByReference_IsTheCallersObject_ToAMemberReadOrAssigned()
+        => _ = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim T As Thing",
+            "    Set T = New Thing",
+            "    Debug.Print Summed(T)",
+            "    Debug.Print Local()",
+            "End Sub",
+            "Private Function Summed(ByVal T As Thing) As Long",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        Summed = Summed + ValueOf(T)",
+            "        Bumped T",
+            "    Next",
+            "End Function",
+            "Private Function Local() As Long",
+            "    Dim T As Thing, I As Long",
+            "    Set T = New Thing",
+            "    For I = 1 To 3",
+            "        Bumped T",
+            "        Local = Local + ValueOf(T)",
+            "    Next",
+            "End Function",
+            "Private Function ValueOf(ByRef X As Thing) As Long",
+            "    ValueOf = X.Value",
+            "End Function",
+            "Private Sub Bumped(ByRef X As Thing)",
+            "    X.Value = X.Value + 1",
+            "End Sub",
+            Helpers), "ValueOf", recoveries: 0, classes: Classes, expected: "Completed | 3 ; terminated 3 ; 6 ; terminated 3 |");
+
+    // the same, through the members of a class that holds its value privately: a Property Get and a function read it, a Property Let assigns it.
+    [TestMethod]
+    public async Task AnObjectGivenByReference_IsTheCallersObject_ToItsPropertiesAndFunctions()
+        => _ = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim G As Gauge, I As Long, S As Long",
+            "    Set G = New Gauge",
+            "    For I = 1 To 3",
+            "        Raised G",
+            "        S = S + ValueOf(G) + BumpedBy(G, 10)",
+            "    Next",
+            "    Debug.Print S",
+            "End Sub",
+            "Private Function ValueOf(ByRef X As Gauge) As Long",
+            "    ValueOf = X.Value",
+            "End Function",
+            "Private Function BumpedBy(ByRef X As Gauge, ByVal N As Long) As Long",
+            "    BumpedBy = X.Bumped(N)",
+            "End Function",
+            "Private Sub Raised(ByRef X As Gauge)",
+            "    X.Value = X.Value + 1",
+            "End Sub",
+            Helpers), "ValueOf", recoveries: 0, classes: Classes, expected: "Completed | 42 |");
 }
