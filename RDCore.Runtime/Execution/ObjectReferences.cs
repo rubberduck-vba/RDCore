@@ -352,7 +352,7 @@ internal static class ObjectReferences
     }
 
     // how a cell stores a value: an array or a record boxed, as a variable stores one (SymbolAddressTable.BoxedValue).
-    private static IRuntimeValue Boxed(VBTypedValue value)
+    internal static IRuntimeValue Boxed(VBTypedValue value)
         => value is VBArrayValue or VBUserDefinedTypeValue ? SymbolAddressTable.BoxedValue(value) : value.RuntimeValue;
 
     /// <summary>
@@ -572,11 +572,12 @@ internal static class ObjectReferences
         Release(session, before);
     }
 
+    // a field held as bytes holds no object: the record's reference fields, a nested record's among them, are all there is to walk.
     private static void CollectRecord(VBUserDefinedTypeValue record, ref Collector holds)
     {
-        for (var index = 0; index < record.FieldCount; index++)
+        foreach (var field in record.ReferenceFields)
         {
-            CollectField(record.StoredFieldAt(index), ref holds);
+            CollectField(field, ref holds);
         }
     }
 

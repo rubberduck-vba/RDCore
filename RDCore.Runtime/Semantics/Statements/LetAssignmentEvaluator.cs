@@ -490,7 +490,6 @@ public sealed class LetAssignmentEvaluator(
     // variable stores one.
     private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, VBTypedValue source)
     {
-        var value = source is VBArrayValue or VBUserDefinedTypeValue ? SymbolAddressTable.BoxedValue(source) : source.RuntimeValue;
         var cell = array.GetElementHandle(indices)!;
         var before = ObjectReferences.HeldIn(session, cell);
         if (cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
@@ -498,14 +497,14 @@ public sealed class LetAssignmentEvaluator(
             // a record let to an element that holds one is written where the element's record is: a field given by reference is the field.
             if (!SymbolAddressTable.TryLetRecordInPlace(cell, source))
             {
-                cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+                cell.Store(session.Symbols.Resolver, ObjectReferences.Boxed(source), !source.IsIndeterminate);
             }
 
             ObjectReferences.Rebind(session, cell, before);
             return cell;
         }
 
-        array.TrySetElement(BindingKnowledge.NewCell(value, !source.IsIndeterminate), indices);
+        array.TrySetElement(BindingKnowledge.NewCell(ObjectReferences.Boxed(source), !source.IsIndeterminate), indices);
         var stored = array.GetElementHandle(indices)!;
         ObjectReferences.Rebind(session, stored, before);
         return stored;
