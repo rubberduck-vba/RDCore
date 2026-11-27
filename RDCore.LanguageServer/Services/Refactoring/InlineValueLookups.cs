@@ -19,9 +19,11 @@ public static class InlineValueLookups
         MemberKind.Procedure, MemberKind.Function, MemberKind.PropertyGet, MemberKind.PropertyLet, MemberKind.PropertySet,
     };
 
-    public static IReadOnlyList<(string Name, SourceRange Range)> In(RenameContext context, Uri module, SourceRange range, SourcePosition stopped)
+    // the document names the part of a module of parts (RD-VBAL §5.1) the program is stopped in; null for the first part at the address.
+    public static IReadOnlyList<(string Name, SourceRange Range)> In(
+        RenameContext context, Uri module, SourceRange range, SourcePosition stopped, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } source
             || source.Syntax.Descendants().OfType<MemberDeclarationNode>()
                 .FirstOrDefault(member => Procedures.Contains(member.MemberKind) && Contains(member.SourceLocation.Range, stopped)) is not { } procedure)
         {

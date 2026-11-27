@@ -43,22 +43,23 @@ public static class SymbolLenses
         foreach (var lens in In(module))
         {
             lenses.Add(lens);
-            if (SymbolNavigation.IsInterfaceMemberAt(context, module.Module, lens.NameRange.Start))
+            if (SymbolNavigation.IsInterfaceMemberAt(context, module.Module, lens.NameRange.Start, module.Document))
             {
                 lenses.Add(lens with { Kind = SymbolLensKind.Implementations });
             }
 
-            lenses.AddRange(SymbolNavigation.ImplementedAt(context, module.Module, lens.NameRange.Start)
+            lenses.AddRange(SymbolNavigation.ImplementedAt(context, module.Module, lens.NameRange.Start, module.Document)
                 .Select(implemented => lens with { Kind = SymbolLensKind.Implements, Implemented = implemented }));
         }
 
         return lenses;
     }
 
-    public static IReadOnlyList<SymbolSite> ReferencesOf(RenameContext context, Uri module, SourcePosition namePosition)
-        => SymbolNavigation.UsersAt(context, module, namePosition)?.Sites ?? [];
+    // the document names the part of a module of parts (RD-VBAL §5.1) the name is in; null for the first part at the address.
+    public static IReadOnlyList<SymbolSite> ReferencesOf(RenameContext context, Uri module, SourcePosition namePosition, Uri? document = null)
+        => SymbolNavigation.UsersAt(context, module, namePosition, document)?.Sites ?? [];
 
     // the procedures that implement the member, as Go to Implementation finds them.
-    public static IReadOnlyList<SymbolSite> ImplementationsOf(RenameContext context, Uri module, SourcePosition namePosition)
-        => SymbolNavigation.ImplementationsAt(context, module, namePosition)?.Sites ?? [];
+    public static IReadOnlyList<SymbolSite> ImplementationsOf(RenameContext context, Uri module, SourcePosition namePosition, Uri? document = null)
+        => SymbolNavigation.ImplementationsAt(context, module, namePosition, document)?.Sites ?? [];
 }

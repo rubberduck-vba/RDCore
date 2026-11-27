@@ -44,8 +44,9 @@ internal enum BindingChangeKind
 /// <param name="After">Where the name is after the edit; <see langword="null"/> for a name that is gone.</param>
 /// <param name="Was">What the name referred to before the edit; <see langword="null"/> when it was no reference.</param>
 /// <param name="Is">What the name refers to after the edit; <see langword="null"/> when it is no reference.</param>
+/// <param name="Document">The document of the part of the module the name is written in (RD-VBAL §5.1, <see cref="RenameModule.Document"/>).</param>
 internal sealed record class BindingChange(
-    BindingChangeKind Kind, Uri Module, string Name, SourceRange? Before, SourceRange? After, SemanticId? Was, SemanticId? Is);
+    BindingChangeKind Kind, Uri Module, string Name, SourceRange? Before, SourceRange? After, SemanticId? Was, SemanticId? Is, Uri? Document = null);
 
 /// <summary>
 /// What an edit of the code changes of the references of its names, which a refactoring verifies before it is offered: every name of the edited modules,
@@ -96,19 +97,23 @@ internal static class BindingCheck
                     kept.Add(key);
                     if (found.Binding != occurrence.Binding)
                     {
-                        changes.Add(new(BindingChangeKind.Retargeted, occurrence.Module, name, occurrence.Range, moved, occurrence.Binding, found.Binding));
+                        changes.Add(new(
+                            BindingChangeKind.Retargeted, occurrence.Module, name, occurrence.Range, moved, occurrence.Binding, found.Binding,
+                            occurrence.Document));
                     }
                 }
                 else
                 {
                     var kind = unknown.Contains(key) ? BindingChangeKind.Unknown : BindingChangeKind.Lost;
-                    changes.Add(new(kind, occurrence.Module, name, occurrence.Range, kind is BindingChangeKind.Unknown ? moved : null, occurrence.Binding, null));
+                    changes.Add(new(
+                        kind, occurrence.Module, name, occurrence.Range, kind is BindingChangeKind.Unknown ? moved : null, occurrence.Binding, null,
+                        occurrence.Document));
                 }
             }
 
             foreach (var occurrence in now.Occurrences.Where(occurrence => !kept.Contains(Key(occurrence))))
             {
-                changes.Add(new(BindingChangeKind.Written, occurrence.Module, name, null, occurrence.Range, null, occurrence.Binding));
+                changes.Add(new(BindingChangeKind.Written, occurrence.Module, name, null, occurrence.Range, null, occurrence.Binding, occurrence.Document));
             }
         }
 

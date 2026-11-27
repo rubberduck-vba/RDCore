@@ -571,9 +571,9 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             switch (change.Kind)
             {
                 case BindingChangeKind.Lost or BindingChangeKind.Unknown:
-                    return Format("EncapsulateFieldVerification_Lost", field.Name, locate(change.Module, change.Before!.Value.Start));
+                    return Format("EncapsulateFieldVerification_Lost", field.Name, locate(change.Document ?? change.Module, change.Before!.Value.Start));
                 case BindingChangeKind.Retargeted when !IsExpected(change, encapsulation, after):
-                    return Format("EncapsulateFieldVerification_Retargeted", field.Name, locate(change.Module, change.Before!.Value.Start));
+                    return Format("EncapsulateFieldVerification_Retargeted", field.Name, locate(change.Document ?? change.Module, change.Before!.Value.Start));
             }
         }
 

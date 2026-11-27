@@ -63,9 +63,12 @@ public sealed record class ParameterReorderRefusal(ParameterReorderRefusalKind K
     // a refusal of a position where no procedure with parameters to reorder is declared: a code action offers nothing there.
     public bool FindsNothing => Kind is ParameterReorderRefusalKind.NoProcedure or ParameterReorderRefusalKind.OneParameter;
 
+    // the document of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document), which a locator names it by; null where it is not known.
+    public Uri? Document { get; init; }
+
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
     {
-        var where = Module is null ? string.Empty : (locate ?? DefaultLocation)(Module, Position);
+        var where = Module is null ? string.Empty : locate is null ? DefaultLocation(Module, Position) : locate(Document ?? Module, Position);
         return Format($"ReorderParameters_{Kind}", culture, Name, Other, where);
     }
 
@@ -82,7 +85,12 @@ public sealed record class ParameterReorderRefusal(ParameterReorderRefusalKind K
 }
 
 // the procedure at a position, and its parameters as they are declared: the value of a Property Let or Set, which stays last, is not one of them.
-public sealed record class ParameterReorderTarget(string Name, Uri Module, SourceRange Range, SemanticId Procedure, ImmutableArray<string> Parameters, ImmutableArray<string> Declarations);
+public sealed record class ParameterReorderTarget(
+    string Name, Uri Module, SourceRange Range, SemanticId Procedure, ImmutableArray<string> Parameters, ImmutableArray<string> Declarations)
+{
+    // the document of the part of the module the range is in (RD-VBAL §5.1, RenameModule.Document); null where it is not known.
+    public Uri? Document { get; init; }
+}
 
 // the edits, or why there are none; the changes the user accepts before they are made (an argument that does something, evaluated in another order); and
 // the calls whose arguments an order of the parameters could evaluate in another order, which the user is told of before choosing one.
@@ -96,9 +104,11 @@ public sealed record class ParameterReorderPlan(ImmutableArray<RenameEdit> Edits
 // position. The procedures whose parameters are the procedure's change with it.
 public static class ParameterReorder
 {
-    public static (ParameterReorderTarget? Target, ParameterReorderRefusal? Refusal) Prepare(RenameContext context, Uri module, SourcePosition position)
+    // the document names the part of a module of parts (RD-VBAL §5.1) the position is in; null for the first part at the address.
+    public static (ParameterReorderTarget? Target, ParameterReorderRefusal? Refusal) Prepare(
+        RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } source
             || NameOccurrences.NameAt(source, position) is not { } name)
         {
             return (null, new(ParameterReorderRefusalKind.NoProcedure, string.Empty));
@@ -125,7 +135,11 @@ public static class ParameterReorder
         }
 
         var declarations = parameters.Take(count).Select(each => DeclarationTextOf(context, each) ?? each.Name).ToImmutableArray();
-        return (new ParameterReorderTarget(symbol.Name, module, here.Range, symbol.SemanticId, [.. parameters.Take(count).Select(each => each.Name)], declarations), null);
+        ImmutableArray<string> reordered = [.. parameters.Take(count).Select(each => each.Name)];
+        return (new ParameterReorderTarget(symbol.Name, module, here.Range, symbol.SemanticId, reordered, declarations)
+        {
+            Document = source.Document,
+        }, null);
     }
 
     // order: for each position of the new list, the position the parameter written there has now.
@@ -173,15 +187,15 @@ public static class ParameterReorder
         }
 
         return new([.. edits
-            .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
-            .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(edit => (edit.Key, edit.Range))
+            .OrderBy(edit => edit.Key, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start)], null, Distinct(changes.Where(change => change.Changed)), Distinct(changes));
     }
 
     private static ParameterReorderPlan Refused(ParameterReorderRefusal refusal) => new([], refusal, [], []);
 
     private static ImmutableArray<ParameterReorderRefusal> Distinct(IEnumerable<(ParameterReorderRefusal Change, bool Changed)> changes)
-        => [.. changes.Select(change => change.Change).DistinctBy(change => (change.Module?.AbsoluteUri, change.Position))];
+        => [.. changes.Select(change => change.Change).DistinctBy(change => (change.Module?.AbsoluteUri, change.Document?.AbsoluteUri, change.Position))];
 
     private static ParameterReorderRefusal? RefusalOf(RenameContext context, Symbol procedure) => procedure switch
     {
@@ -227,8 +241,7 @@ public static class ParameterReorder
             return new(ParameterReorderRefusalKind.Mismatched, member.Name, NameOccurrences.Describe(member));
         }
 
-        var at = NameOccurrences.ModuleOf(member.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
+        if (context.PartOf(member) is not { } source
             || ParameterRemoval.DeclarationOf(source, parameters[0]) is not { } declaration)
         {
             return new(ParameterReorderRefusalKind.NotDeclaredByWorkspace, member.Name);
@@ -238,11 +251,11 @@ public static class ParameterReorder
         var items = TextsOf(source.Source, ListEdits.ItemsOf(source.Source, list));
         if (items.Count != parameters.Length)
         {
-            return new(ParameterReorderRefusalKind.Unresolved, member.Name, Module: source.Module, Position: list.Start);
+            return new(ParameterReorderRefusalKind.Unresolved, member.Name, Module: source.Module, Position: list.Start) { Document = source.Document };
         }
 
         edits.AddRange(ListEdits.ReplaceItems(source.Source, list, [.. order.Select(index => items[index]), .. items.Skip(order.Count)])
-            .Select(edit => ParameterRemoval.EditOf(source.Module, edit)));
+            .Select(edit => ParameterRemoval.EditOf(source, edit)));
         return CallEdits(context, member, parameters, order, edits, changes);
     }
 
@@ -259,7 +272,7 @@ public static class ParameterReorder
                 ParameterRemoval.CallProblemKind.CalledByName => ParameterReorderRefusalKind.CalledByName,
                 ParameterRemoval.CallProblemKind.LateBound => ParameterReorderRefusalKind.LateBound,
                 _ => ParameterReorderRefusalKind.Unresolved,
-            }, member.Name, Module: missed.Module, Position: missed.Position);
+            }, member.Name, Module: missed.Module, Position: missed.Position) { Document = missed.Document };
         }
 
         var count = order.Count;
@@ -273,13 +286,13 @@ public static class ParameterReorder
         {
             if (call.List is not { } list)
             {
-                return new(ParameterReorderRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee);
+                return new(ParameterReorderRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee) { Document = source.Document };
             }
 
             var written = TextsOf(source.Source, ListEdits.ItemsOf(source.Source, list));
             if (written.Count != call.Arguments.Length)
             {
-                return new(ParameterReorderRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee);
+                return new(ParameterReorderRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee) { Document = source.Document };
             }
 
             // each argument by the parameter it is passed to; one passed by name to no parameter of the list is left where it is.
@@ -321,10 +334,14 @@ public static class ParameterReorder
             var (evaluated, changed) = EvaluationChange(context, call, bindingOf, arguments, parameterOf, positionOf);
             if (evaluated is { } first)
             {
-                changes.Add((new(changed ? ParameterReorderRefusalKind.Evaluated : ParameterReorderRefusalKind.MayEvaluate, member.Name, Module: source.Module, Position: first), changed));
+                var changeKind = changed ? ParameterReorderRefusalKind.Evaluated : ParameterReorderRefusalKind.MayEvaluate;
+                changes.Add((new(changeKind, member.Name, Module: source.Module, Position: first)
+                {
+                    Document = source.Document,
+                }, changed));
             }
 
-            edits.AddRange(ListEdits.ReplaceItems(source.Source, list, items).Select(edit => ParameterRemoval.EditOf(source.Module, edit)));
+            edits.AddRange(ListEdits.ReplaceItems(source.Source, list, items).Select(edit => ParameterRemoval.EditOf(source, edit)));
         }
 
         return null;
@@ -368,16 +385,14 @@ public static class ParameterReorder
 
     private static bool IsParamArray(RenameContext context, VBParameterSymbol parameter)
     {
-        var at = NameOccurrences.ModuleOf(parameter.Uri);
-        return context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is { } source
+        return context.PartOf(parameter) is { } source
             && ParameterRemoval.DeclarationOf(source, parameter) is { Parameter.IsParamArray: true };
     }
 
     // the declaration of a parameter as it is written (ByVal a As Long), for a dialog to show.
     private static string? DeclarationTextOf(RenameContext context, VBParameterSymbol parameter)
     {
-        var at = NameOccurrences.ModuleOf(parameter.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
+        if (context.PartOf(parameter) is not { } source
             || ParameterRemoval.DeclarationOf(source, parameter) is not { } declaration)
         {
             return null;

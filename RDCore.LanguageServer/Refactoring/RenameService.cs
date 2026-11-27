@@ -355,7 +355,7 @@ internal sealed class RenameWorkspace
     // what a rename at a position renames: a UserForm's control only for a client that puts its .frx back when the edit fails.
     private static RenamePreparation Prepared(ProjectPart part, DocumentModule module, Position position, bool replacesFiles)
     {
-        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position));
+        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position), module.WrittenIn);
         if (preparation.Target is not { } target)
         {
             return preparation;
@@ -423,7 +423,8 @@ internal sealed class RenameWorkspace
                 Description = RefactoringTitles.RenameInStringDescription(target.Name),
                 NeedsConfirmation = true,
             };
-            questions.Add(new(InString, RefactoringTitles.RenameInStringQuestion(target.Name, inStrings.Count, locate(firstString.Module, firstString.Range.Start)),
+            var firstPlace = locate(firstString.Document ?? firstString.Module, firstString.Range.Start);
+            questions.Add(new(InString, RefactoringTitles.RenameInStringQuestion(target.Name, inStrings.Count, firstPlace),
                 RefactoringTitles.RenameInStringRename(), RefactoringTitles.RenameInStringLeave()));
         }
 
@@ -441,7 +442,7 @@ internal sealed class RenameWorkspace
                     NeedsConfirmation = true,
                 };
                 var question = RefactoringTitles.RenameLateBoundQuestion(target.Name, className, isBacked, lateBound.Count,
-                    locate(firstAccess.Module, firstAccess.Range.Start));
+                    locate(firstAccess.Document ?? firstAccess.Module, firstAccess.Range.Start));
                 questions.Add(new(annotation, question, RefactoringTitles.RenameLateBoundRename(), RefactoringTitles.RenameLateBoundLeave()));
             }
         }
@@ -593,7 +594,7 @@ internal sealed class RenameWorkspace
     // client knows, and its edits name none: they are of the file as it is on disk (LSP 3.17 OptionalVersionedTextDocumentIdentifier).
     // The edits of all the modules of a document are one edit of it: two edits that name one document and version are a hazard to a client.
     private IEnumerable<WorkspaceEditDocumentChange> DocumentChangesOf(ProjectPart part, IReadOnlyList<RenameEdit> edits) => edits
-        .Select(edit => (Edit: edit, Module: part.Modules.First(candidate => candidate.Module.AbsoluteUri == edit.Module.AbsoluteUri)))
+        .Select(edit => (Edit: edit, Module: part.Modules.First(candidate => candidate.Is(edit.Module, edit.Document))))
         .GroupBy(edited => edited.Module.Document.Id.Uri)
         .Select(group => new WorkspaceEditDocumentChange(new TextDocumentEdit
         {
@@ -620,7 +621,7 @@ internal sealed class RenameWorkspace
         }
 
         var part = PartOf(module);
-        if (ParameterRemoval.Prepare(part.Context, module.Module, module.ToModulePosition(position)).Target is not { } target)
+        if (ParameterRemoval.Prepare(part.Context, module.Module, module.ToModulePosition(position), module.WrittenIn).Target is not { } target)
         {
             return null;
         }
@@ -659,7 +660,7 @@ internal sealed class RenameWorkspace
     public IReadOnlyList<(string Name, Position Position)> Renamable(Uri documentUri, LspRange range)
         => [.. ModulesOf(documentUri).SelectMany(module =>
             SymbolRename.TargetsIn(PartOf(module).Context, module.Module,
-                new SourceRange(module.ToModulePosition(range.Start), module.ToModulePosition(range.End)))
+                new SourceRange(module.ToModulePosition(range.Start), module.ToModulePosition(range.End)), module.WrittenIn)
                 .Select(target => (target.Name, module.ToTextRange(target.Range).Start)))];
 
     /// <summary>
@@ -706,8 +707,8 @@ internal sealed class RenameWorkspace
     public HierarchyItem? PrepareHierarchy(Uri documentUri, Position position, bool types)
         => ModuleAt(documentUri, position) is { } module
             ? types
-                ? SymbolHierarchy.PrepareTypes(PartOf(module).Context, module.Module, module.ToModulePosition(position))
-                : SymbolHierarchy.PrepareCalls(PartOf(module).Context, module.Module, module.ToModulePosition(position))
+                ? SymbolHierarchy.PrepareTypes(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn)
+                : SymbolHierarchy.PrepareCalls(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn)
             : null;
 
     /// <summary>
@@ -736,7 +737,7 @@ internal sealed class RenameWorkspace
     /// <returns><see langword="null"/> for an item of no document the server holds.</returns>
     public (DocumentUri Uri, LspRange Range, LspRange SelectionRange)? Locate(HierarchyItem item)
     {
-        if (PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is not { } document)
+        if (PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Is(item.Module, item.Document)) is not { } document)
         {
             return null;
         }
@@ -750,7 +751,7 @@ internal sealed class RenameWorkspace
 
     /// <summary>A range of the module of an item, in the text of its document.</summary>
     public LspRange InTextOf(HierarchyItem item, SourceRange range)
-        => PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+        => PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Is(item.Module, item.Document)) is { } document
             ? document.ToTextRange(range)
             : new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 
@@ -767,7 +768,8 @@ internal sealed class RenameWorkspace
     public (IReadOnlyList<Location> Locations, string? Incomplete) References(Uri documentUri, Position position, bool includeDeclaration)
     {
         if (ModuleAt(documentUri, position) is not { } module
-            || SymbolNavigation.ReferencesAt(PartOf(module).Context, module.Module, module.ToModulePosition(position), includeDeclaration) is not { } target)
+            || SymbolNavigation.ReferencesAt(PartOf(module).Context, module.Module, module.ToModulePosition(position), includeDeclaration, module.WrittenIn)
+                is not { } target)
         {
             return ([], null);
         }
@@ -787,7 +789,7 @@ internal sealed class RenameWorkspace
         foreach (var module in ModulesOf(documentUri))
         {
             if (BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
-                || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+                || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Is(module.Module, module.WrittenIn)) is not { } source)
             {
                 continue;
             }
@@ -818,7 +820,7 @@ internal sealed class RenameWorkspace
     /// </summary>
     public IReadOnlyList<Location> LensReferences(Uri documentUri, Position position)
         => ModuleAt(documentUri, position) is { } module
-            ? LocationsOf(SymbolLenses.ReferencesOf(PartOf(module).Context, module.Module, module.ToModulePosition(position)))
+            ? LocationsOf(SymbolLenses.ReferencesOf(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn))
             : [];
 
     /// <summary>
@@ -827,14 +829,14 @@ internal sealed class RenameWorkspace
     /// </summary>
     public IReadOnlyList<Location> LensImplementations(Uri documentUri, Position position)
         => ModuleAt(documentUri, position) is { } module
-            ? LocationsOf(SymbolLenses.ImplementationsOf(PartOf(module).Context, module.Module, module.ToModulePosition(position)))
+            ? LocationsOf(SymbolLenses.ImplementationsOf(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn))
             : [];
 
     // each site at its name, in the text of its document; none of a document no project of the workspace holds.
     private IReadOnlyList<Location> LocationsOf(IEnumerable<SymbolSite> sites)
         => [.. sites
             .Select(site => (Site: site,
-                Document: PartOf(site.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+                Document: PartOf(site.Module)?.Modules.FirstOrDefault(candidate => candidate.Is(site.Module, site.Document))))
             .Where(found => found.Document is not null)
             .Select(found => new Location { Uri = found.Document!.Document.Id.Uri, Range = found.Document.ToTextRange(found.Site.SelectionRange) })];
 
@@ -846,7 +848,7 @@ internal sealed class RenameWorkspace
     public IReadOnlyList<DocumentHighlight> Highlights(Uri documentUri, Position position)
     {
         if (ModuleAt(documentUri, position) is not { } module
-            || SymbolNavigation.OccurrencesAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is not { } target)
+            || SymbolNavigation.OccurrencesAt(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn) is not { } target)
         {
             return [];
         }
@@ -854,7 +856,7 @@ internal sealed class RenameWorkspace
         // the names of the symbol in every module of the document, a block's as well as its own.
         var modules = ModulesOf(documentUri);
         return [.. target.Sites
-            .Select(site => (Site: site, Module: modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+            .Select(site => (Site: site, Module: modules.FirstOrDefault(candidate => candidate.Is(site.Module, site.Document))))
             .Where(found => found.Module is not null)
             .Select(found => new DocumentHighlight { Range = found.Module!.ToTextRange(found.Site.Range), Kind = DocumentHighlightKind.Text })];
     }
@@ -874,7 +876,7 @@ internal sealed class RenameWorkspace
 
         // the line a client shows the values at is the one the range of the stop ends on.
         var within = new SourceRange(module.ToModulePosition(range.Start), module.ToModulePosition(range.End));
-        return [.. InlineValueLookups.In(PartOf(module).Context, module.Module, within, module.ToModulePosition(stoppedLocation.End))
+        return [.. InlineValueLookups.In(PartOf(module).Context, module.Module, within, module.ToModulePosition(stoppedLocation.End), module.WrittenIn)
             .Where(lookup => module.IsInText(lookup.Range.Start))
             .Select(lookup => new InlineValueVariableLookup { Range = module.ToTextRange(lookup.Range), VariableName = lookup.Name, CaseSensitiveLookup = false })];
     }
@@ -893,7 +895,7 @@ internal sealed class RenameWorkspace
             return new LinkedEditingRanges { Ranges = new Container<LspRange>() };
         }
 
-        var ranges = LinkedEditingLookups.At(PartOf(module).Context, module.Module, module.ToModulePosition(position));
+        var ranges = LinkedEditingLookups.At(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn);
         return new LinkedEditingRanges
         {
             Ranges = ranges.All(range => module.IsInText(range.Start))
@@ -917,15 +919,15 @@ internal sealed class RenameWorkspace
     /// <returns>The symbol; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
     public (Symbol Symbol, LspRange Range)? SymbolAt(Uri documentUri, Position position)
         => ModuleAt(documentUri, position) is { } module
-            && RenameBinding.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is { } named
+            && RenameBinding.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn) is { } named
             ? (named.Symbol, module.ToTextRange(named.Origin))
             : null;
 
     private IReadOnlyList<LocationLink> Navigate(
-        Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, SymbolNavigationTarget?> navigate)
+        Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, Uri?, SymbolNavigationTarget?> navigate)
     {
         if (ModuleAt(documentUri, position) is not { } module
-            || navigate(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is not { } target)
+            || navigate(PartOf(module).Context, module.Module, module.ToModulePosition(position), module.WrittenIn) is not { } target)
         {
             return [];
         }
@@ -938,7 +940,7 @@ internal sealed class RenameWorkspace
         var origin = module.ToTextRange(target.Origin);
         var modules = PartOf(module).Modules;
         return [.. target.Sites
-            .Select(site => (Site: site, Document: modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+            .Select(site => (Site: site, Document: modules.FirstOrDefault(candidate => candidate.Is(site.Module, site.Document))))
             .Where(found => found.Document is not null)
             .Select(found => new LocationLink
             {
@@ -969,8 +971,10 @@ internal sealed class RenameWorkspace
     // a position is named the way the document names it: its file, and the line of its text - for a program of the BASIC, the number it labels the line with.
     private static string Say(ProjectPart part, RenameRefusal refusal) => refusal.ToMessage(Locator(part));
 
+    // a place is named by its module's address, or by the document of the part of a module of parts it is in (RD-VBAL §5.1): the document is that part's.
     internal static Func<Uri, SourcePosition, string> Locator(ProjectPart part) => (module, position) =>
-        part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
+        (part.Modules.FirstOrDefault(candidate => candidate.Is(module, null))
+            ?? part.Modules.FirstOrDefault(candidate => candidate.Parse.SyntaxTree?.SourceLocation.Uri.AbsoluteUri == module.AbsoluteUri)) is { } document
             ? document.Locate(position)
             : $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
 
@@ -988,6 +992,10 @@ internal sealed class RenameWorkspace
 
         // what names it among the parts of every address (RenameModule.Key).
         public string Key => RenameModule.KeyOf(Module, WrittenIn);
+
+        // whether it is the part at the module's address that the document writes; with no document, any part at the address (RenameModule.Is).
+        public bool Is(Uri module, Uri? document)
+            => Module.AbsoluteUri == module.AbsoluteUri && (document is null || Parse.SyntaxTree?.SourceLocation.Uri.AbsoluteUri == document.AbsoluteUri);
 
         // the part of a parse of the document's whole text that the module is: a block's module its block, the document's own module the rest
         // (RDCoreDocument.ParseOf), as the module's own parse is.

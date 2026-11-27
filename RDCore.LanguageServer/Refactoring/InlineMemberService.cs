@@ -539,7 +539,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             {
                 var where = change.Before ?? change.After;
                 return NotVerified(chosen[0], InlineRefusal.Format("InlineMember_Verification_Retargeted", null, change.Name,
-                    where is { } range ? $"({locate(change.Module, range.Start)})" : string.Empty), locate);
+                    where is { } range ? $"({locate(change.Document ?? change.Module, range.Start)})" : string.Empty), locate);
             }
         }
 
