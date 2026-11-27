@@ -344,7 +344,7 @@ internal sealed class CompletionService(
 
         var (composition, module, workspaceRoot, moduleUri, completedKind) = composed;
         var tree = composition.ScopeTree;
-        var origin = CompletionCandidates.OriginAt(tree, moduleUri, new SourcePosition(line, character));
+        var origin = CompletionCandidates.OriginAt(tree, moduleUri, new SourcePosition(line, character), module.SourceLocation.Uri);
         var candidates = context.Kind switch
         {
             CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
@@ -445,7 +445,7 @@ internal sealed class CompletionService(
         }
 
         var (composition, module, workspaceRoot, moduleUri, _) = composed;
-        var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character));
+        var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character), module.SourceLocation.Uri);
         if (SignatureDescription.OfCall(ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver) is not { } signature)
         {
             return null;
@@ -509,15 +509,18 @@ internal sealed class CompletionService(
             return null;
         }
 
-        // a project's names are bound among what it references, libraries and projects of the workspace, as the host's analysis of it binds them.
+        // a project's names are bound among what it references, libraries and projects of the workspace, as the host's analysis of it binds them: of the
+        // modules its parts assemble, the document's among them (RD-VBAL §5.1), each symbol written in its part's document.
+        IReadOnlyList<ModulePart> mine = [.. ParsedModules.PartsOf(address, parse, moduleName, kind)];
+        var (assembled, _) = ParsedModule.Assemble(workspaceRoot, [.. isOwnProject ? [] : OtherParts(root, address, mine), .. mine]);
         var composition = _compositions.GetOrCompose(
             workspaceRoot,
-            [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, address, its),
-                .. its.Select(module => (module.Uri, module.Kind, module.Parse))], resolver,
+            [.. assembled.Select(module => (module.Uri, module.Kind, module.Parse))], resolver,
             projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedProjects?.LibrariesOf(workspaceRoot, root, token) ?? (primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null),
-            documentHosts: isOwnProject ? null : DocumentHostsOf(root));
+            documentHosts: isOwnProject ? null : DocumentHostsOf(root),
+            directives: ParsedModule.DirectivesOf(assembled));
 
         return (composition, syntaxTree, workspaceRoot, completed.Uri, completed.Kind);
     }
@@ -573,9 +576,10 @@ internal sealed class CompletionService(
         }
     }
 
-    // the workspace's modules but the completed document's, each block of a document one of them, as the symbol sync composes them.
-    private IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> OtherModules(
-        string root, Uri workspaceRoot, Uri completed, IReadOnlyList<ParsedModule> its)
+    // the parts the workspace's other documents are the text of, each block of a document one of them, as the symbol sync assembles them. A part named as
+    // one of the completed document's is a part of its module when one of the two is a Partial block (RD-VBAL §5.1); two that are not are two modules of
+    // one name, and the completed document's is the one completed.
+    private IEnumerable<ModulePart> OtherParts(string root, Uri completed, IReadOnlyList<ModulePart> mine)
     {
         foreach (var document in documents.GetProjectDocuments(root))
         {
@@ -585,11 +589,11 @@ internal sealed class CompletionService(
                 continue;
             }
 
-            foreach (var module in ParsedModules.Of(workspaceRoot, uri, parse, document.Name, ParsingClientService.ModuleTypeOf(document)))
+            foreach (var part in ParsedModules.PartsOf(uri, parse, document.Name, ParsingClientService.ModuleTypeOf(document)))
             {
-                if (!its.Any(mine => string.Equals(mine.Name, module.Name, StringComparison.OrdinalIgnoreCase)))
+                if (mine.Where(own => string.Equals(own.Name, part.Name, StringComparison.OrdinalIgnoreCase)).All(own => own.IsPartial || part.IsPartial))
                 {
-                    yield return (module.Uri, module.Kind, module.Parse);
+                    yield return part;
                 }
             }
         }

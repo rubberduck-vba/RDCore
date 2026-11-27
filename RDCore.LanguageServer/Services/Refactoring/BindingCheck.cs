@@ -64,7 +64,7 @@ internal static class BindingCheck
     /// </summary>
     /// <param name="before">The workspace before the edit.</param>
     /// <param name="after">The workspace after the edit: the same modules, the edited ones parsed from the text the edit leaves.</param>
-    /// <param name="edits">The edits of each edited module, by the module's absolute URI; they do not overlap.</param>
+    /// <param name="edits">The edits of each edited module, by the key of the part it is (<see cref="RenameModule.Key"/>); they do not overlap.</param>
     public static IReadOnlyList<BindingChange> Changes(RenameContext before, RenameContext after, IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits)
     {
         // the static pass recurses once per expression level: one large-stack thread for the whole check.
@@ -85,12 +85,12 @@ internal static class BindingCheck
             foreach (var occurrence in was.Occurrences)
             {
                 // a name inside the text an edit replaced is not kept: what is written in its place is the edit's.
-                if (Moved(edits, occurrence.Module, occurrence.Range) is not { } moved)
+                if (Moved(edits, occurrence.Key, occurrence.Range) is not { } moved)
                 {
                     continue;
                 }
 
-                var key = (occurrence.Module.AbsoluteUri, moved.Start);
+                var key = (occurrence.Key, moved.Start);
                 if (known.TryGetValue(key, out var found))
                 {
                     kept.Add(key);
@@ -115,12 +115,12 @@ internal static class BindingCheck
         return changes;
     }
 
-    private static (string, SourcePosition) Key(NameOccurrence occurrence) => (occurrence.Module.AbsoluteUri, occurrence.Range.Start);
+    private static (string, SourcePosition) Key(NameOccurrence occurrence) => (occurrence.Key, occurrence.Range.Start);
 
     // every name the edited modules write: their references, and their declarations, which a module that is not edited may refer to.
     private static IEnumerable<string> NamesOf(RenameContext context, IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits)
     {
-        foreach (var module in context.Modules.Where(module => edits.ContainsKey(module.Module.AbsoluteUri)))
+        foreach (var module in context.Modules.Where(module => edits.ContainsKey(module.Key)))
         {
             var whole = new SourceRange(SourcePosition.Zero, new SourcePosition(int.MaxValue, int.MaxValue));
             foreach (var name in NameOccurrences.NamesIn(module, whole))
@@ -138,7 +138,7 @@ internal static class BindingCheck
         }
     }
 
-    // where a range of a module is after the edits; null when an edit replaced any of it. A module that is not edited is as it was.
-    private static SourceRange? Moved(IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits, Uri module, SourceRange range)
-        => edits.TryGetValue(module.AbsoluteUri, out var moduleEdits) ? DeclarationEdits.RangeAfter(range, moduleEdits) : range;
+    // where a range of a part of a module is after the edits; null when an edit replaced any of it. A part that is not edited is as it was.
+    private static SourceRange? Moved(IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits, string part, SourceRange range)
+        => edits.TryGetValue(part, out var moduleEdits) ? DeclarationEdits.RangeAfter(range, moduleEdits) : range;
 }

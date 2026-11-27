@@ -45,7 +45,7 @@ public static class InlayHints
             return null;
         }
 
-        var scope = context.ScopeTree.ScopeFor(CompletionCandidates.OriginAt(context.ScopeTree, module.Module, callee.Location.Range.Start));
+        var scope = context.ScopeTree.ScopeFor(CompletionCandidates.OriginAt(context.ScopeTree, module.Module, callee.Location.Range.Start, module.Document));
         return context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Global, scope.Uri).Symbol;
     }
 }

@@ -71,10 +71,10 @@ internal sealed record class InlineRemoval(InlineRemovalKind Kind, Uri Module, R
     /// <param name="analysis">The analysis of the member's module.</param>
     /// <param name="callee">The member.</param>
     /// <param name="declaration">The member's declaration.</param>
-    /// <param name="inlined">The name of the member at each call that is inlined, by its module.</param>
+    /// <param name="inlined">The name of the member at each call that is inlined, by the part of its module it is in (<see cref="RenameModule.Key"/>).</param>
     public static InlineRemoval Of(
         RenameContext context, ExtractionModuleAnalysis analysis, Symbol callee, MemberDeclarationNode declaration,
-        IReadOnlyCollection<(Uri Module, SourceRange Name)> inlined)
+        IReadOnlyCollection<(string Part, SourceRange Name)> inlined)
     {
         var module = analysis.Module;
         var found = NameOccurrences.Find(context, callee.Name, context.Modules);
@@ -104,10 +104,11 @@ internal sealed record class InlineRemoval(InlineRemovalKind Kind, Uri Module, R
 
         // the member's own name in its body, a function's result, goes with it.
         var own = declaration.SourceLocation.Range;
-        var sites = inlined.Select(site => (site.Module.AbsoluteUri, site.Name)).ToHashSet();
+        var ownPart = RenameModule.KeyOf(module, declaration.SourceLocation.Uri);
+        var sites = inlined.ToHashSet();
         if (found.Occurrences.FirstOrDefault(occurrence => occurrence.Binding == callee.SemanticId && occurrence.Kind is not OccurrenceKind.Declaration
-                && !(occurrence.Module.AbsoluteUri == module.AbsoluteUri && own.Start <= occurrence.Range.Start && occurrence.Range.End <= own.End)
-                && !sites.Contains((occurrence.Module.AbsoluteUri, occurrence.Range)))
+                && !(occurrence.Key == ownPart && own.Start <= occurrence.Range.Start && occurrence.Range.End <= own.End)
+                && !sites.Contains((occurrence.Key, occurrence.Range)))
             is { Module: not null } left)
         {
             return new(InlineRemovalKind.ReferenceLeft, module, Location: new(left.Module, left.Range));

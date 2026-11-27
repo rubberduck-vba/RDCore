@@ -46,7 +46,7 @@ public sealed class BindingCheckTests
             lines.InsertRange(start.Line, joined.Split("\r\n"));
         }
 
-        return (new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [module.AbsoluteUri] = edits }, string.Join("\r\n", lines));
+        return (new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [RenameModule.KeyOf(module, module)] = edits }, string.Join("\r\n", lines));
     }
 
     private static RefactorTextEdit Edit(int line, int start, int end, string text) => new() { Range = new SourceRange(line, start, line, end), NewText = text };
