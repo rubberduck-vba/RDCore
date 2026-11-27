@@ -758,7 +758,7 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The text '{0}' is not ISO 8601 date and time with no offset..
+        ///   Looks up a localized string similar to The text '{0}' is not an ISO 8601 date and time with no offset..
         /// </summary>
         internal static string JsonValues_NotIsoDate_Verbose {
             get {

@@ -349,7 +349,7 @@
     <value>The JSON number {0} has no Decimal.</value>
   </data>
   <data name="JsonValues_NotIsoDate_Verbose" xml:space="preserve">
-    <value>The text '{0}' is not ISO 8601 date and time with no offset.</value>
+    <value>The text '{0}' is not an ISO 8601 date and time with no offset.</value>
   </data>
   <data name="JsonValues_ValueNotType_Verbose" xml:space="preserve">
     <value>The JSON value is not a '{0}'.</value>
