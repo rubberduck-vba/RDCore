@@ -56,14 +56,14 @@ public sealed class ModuleOfPartsBindingTests
     {
         // a list is made of the document's text with the line taken out, parsed as a fragment.
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
         _documents.WorkspaceRoot.Returns(Root);
         _documents.GetAllDocuments().Returns([_plain, _partial]);
         foreach (var document in new[] { _plain, _partial })
         {
             var uri = document.Id.Uri.ToUri();
-            var parse = new ModuleParser().Parse(uri, document.Text);
+            var parse = FileLevelStatementsOn.Parser().Parse(uri, document.Text);
             Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
             _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
             _parsing.TryGetCached(uri, out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
@@ -72,7 +72,11 @@ public sealed class ModuleOfPartsBindingTests
 
     private CompletionService Sut()
     {
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        // a .bas declares blocks, a Partial one among them, only in a workspace that allows file-level statements (RD-VBAL §5.1).
+        var options = Options.Create(new SdkAppOptions
+        {
+            Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba", FileLevelStatements = true },
+        });
         return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), Substitute.For<IReferencedLibraryService>(),
             new InMemoryLibrarySource(), new ClientVerbRegistry(), options, NullLogger<CompletionService>.Instance, OneProject.Registry());
     }

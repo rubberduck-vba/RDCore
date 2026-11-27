@@ -94,26 +94,11 @@ public sealed class ModuleAnnotationShortFormAnalyzerTests
             Fixed(Source([.. above, "'@IgnoreModule RDC01001", "Class Shape", "End Class"]), "Ignore"));
     }
 
-    // blocks are an RD-VBA addition of every file, whether or not it allows file-level statements.
     [TestMethod]
-    public void WithoutFileLevelStatements_TheAnnotationOfABlock_IsReportedAsWell()
+    public void NothingIsReported_InAFileWithoutBlocks_OrForTheShortForm()
     {
-        var source = Source("Class Shape", "    '@ModuleDescription(\"Shapes\")", "End Class");
-        Assert.IsNotEmpty(Parse(source, fileLevelStatements: false).BlockModules, "the premise: the parse finds the block without file-level statements");
-
-        var finding = Assert.ContainsSingle(Run(source, fileLevelStatements: false));
-
-        Assert.AreEqual(RDCoreDiagnosticId.ModuleAnnotationHasAShortForm, finding.Id);
-        Assert.AreEqual(1, finding.Range.Start.Line);
-    }
-
-    [TestMethod]
-    [DataRow(true, DisplayName = "with file-level statements")]
-    [DataRow(false, DisplayName = "without file-level statements")]
-    public void NothingIsReported_InAFileWithoutBlocks_OrForTheShortForm(bool fileLevelStatements)
-    {
-        Assert.IsEmpty(Run(Source("'@ModuleDescription(\"Shapes\")", "Public Sub Own()", "End Sub"), fileLevelStatements));
+        Assert.IsEmpty(Run(Source("'@ModuleDescription(\"Shapes\")", "Public Sub Own()", "End Sub")));
         Assert.IsEmpty(Run(Source("'@Description(\"Shapes\")", "Class Shape", "    '@Description(\"Draws\")", "    Public Sub Draw()", "    End Sub",
-            "End Class"), fileLevelStatements));
+            "End Class")));
     }
 }

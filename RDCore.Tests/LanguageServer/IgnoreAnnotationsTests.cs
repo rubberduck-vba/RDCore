@@ -26,6 +26,9 @@ public sealed class IgnoreAnnotationsTests
 
     private static ModuleParseResult Parse(params string[] lines) => Parse(fileLevelStatements: false, lines);
 
+    // a .bas declares modules in blocks only in a workspace that allows statements outside procedures (RD-VBAL §5.1).
+    private static ModuleParseResult ParseBlocks(params string[] lines) => Parse(fileLevelStatements: true, lines);
+
     private static ModuleParseResult Parse(bool fileLevelStatements, params string[] lines)
     {
         var parser = new ModuleParser(workspaceOptions: Options.Create(new SdkWorkspaceOptions { FileLevelStatements = fileLevelStatements }));
@@ -154,7 +157,7 @@ public sealed class IgnoreAnnotationsTests
     [TestMethod]
     public void InAFileOfBlocks_IgnoreModule_SuppressesInItsOwnModule_AndIgnoreInNone()
     {
-        var parse = Parse(
+        var parse = ParseBlocks(
             "Public Sub Own()",     // 0
             "End Sub",
             "Class Account",        // 2
@@ -177,7 +180,7 @@ public sealed class IgnoreAnnotationsTests
     [TestMethod]
     public void InAFileOfBlocks_IgnoreAboveABlocksHeader_SuppressesInThatBlock()
     {
-        var parse = Parse(
+        var parse = ParseBlocks(
             "Public Sub Own()",     // 0
             "End Sub",
             "'@Ignore RDC01001",    // 2
@@ -196,15 +199,13 @@ public sealed class IgnoreAnnotationsTests
             found: [Finding("RDC01001", 0), Finding("RDC01001", 4), Finding("RDC01001", 8), Finding("RDC01002", 4)]));
     }
 
-    // the same, on the file's first line: no code of the file's own module is above it, with or without file-level statements.
+    // the same, on the file's first line: no code of the file's own module is above it.
     [TestMethod]
-    [DataRow("Ignore", false, DisplayName = "'@Ignore")]
-    [DataRow("IgnoreModule", false, DisplayName = "'@IgnoreModule")]
-    [DataRow("Ignore", true, DisplayName = "'@Ignore, with file-level statements")]
-    [DataRow("IgnoreModule", true, DisplayName = "'@IgnoreModule, with file-level statements")]
-    public void InAFileOfBlocks_AnAnnotationOnTheFirstLine_AboveABlocksHeader_SuppressesInThatBlock(string name, bool fileLevelStatements)
+    [DataRow("Ignore", DisplayName = "'@Ignore")]
+    [DataRow("IgnoreModule", DisplayName = "'@IgnoreModule")]
+    public void InAFileOfBlocks_AnAnnotationOnTheFirstLine_AboveABlocksHeader_SuppressesInThatBlock(string name)
     {
-        var parse = Parse(fileLevelStatements,
+        var parse = ParseBlocks(
             $"'@{name} RDC01001",   // 0
             "Class Account",
             "    Public Sub Deposit()",
@@ -224,7 +225,7 @@ public sealed class IgnoreAnnotationsTests
     [TestMethod]
     public void InAFileOfBlocks_IgnoreModuleAboveABlocksHeader_SuppressesInThatBlock()
     {
-        var parse = Parse(
+        var parse = ParseBlocks(
             "Public Sub Own()",         // 0
             "End Sub",
             "'@IgnoreModule RDC01001",  // 2
@@ -246,7 +247,7 @@ public sealed class IgnoreAnnotationsTests
     [TestMethod]
     public void InAFileOfBlocks_IgnoreModuleOutsideEveryBlock_SuppressesInTheFilesOwnModule()
         => CollectionAssert.AreEqual(new[] { "RDC01001@4" }, Published(
-            Parse("'@IgnoreModule RDC01001", "Public Sub Own()", "End Sub", "Class Account", "    Public Sub Deposit()", "    End Sub", "End Class"),
+            ParseBlocks("'@IgnoreModule RDC01001", "Public Sub Own()", "End Sub", "Class Account", "    Public Sub Deposit()", "    End Sub", "End Class"),
             found: [Finding("RDC01001", 1), Finding("RDC01001", 4)]));
 
     private static string SuppressionMessagesOf(string key)
