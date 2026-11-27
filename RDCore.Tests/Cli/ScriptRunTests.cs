@@ -293,6 +293,21 @@ public sealed class ScriptRunTests
         Assert.AreEqual(string.Empty, inProject.Output);
     }
 
+    // a script names WScript in a project that has modules other than scripts, as it does in a project of scripts (RD-VBAL §2.3.1.3), whichever module
+    // the run starts from; WScript.ScriptName is the file it started from.
+    [TestMethod]
+    [DataRow("Program.bas", DisplayName = "a run started from a module that is no script")]
+    [DataRow("Start.vbs", DisplayName = "a run started from a script")]
+    public async Task AScriptOfAProjectWithOtherModules_NamesWScript_AsTheFileTheRunStartedFrom(string file)
+    {
+        const string program = "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Greet\r\nEnd Sub\r\n";
+        const string greeting = "Sub Greet()\r\nWScript.Echo \"hi from \" & WScript.ScriptName\r\nEnd Sub\r\n";
+        var (exit, output, error) = await RunInProjectAsync(file, [("Program.bas", program), ("Lib.vbs", greeting), ("Start.vbs", "Greet\r\n")]);
+
+        Assert.AreEqual(ProgramRunner.Completed, exit, error);
+        Assert.AreEqual(Lines($"hi from {file}"), output);
+    }
+
     // two scripts of a project: each calls a procedure of the other's.
     private static readonly (string File, string Text)[] ScriptsOfTools =
     [

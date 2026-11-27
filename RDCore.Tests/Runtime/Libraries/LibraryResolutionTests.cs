@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Workspace;
 using static RDCore.Tests.Runtime.Libraries.LibraryFixtures;
 using RDCore.Runtime.LanguageCore.Services;
 
@@ -81,8 +82,11 @@ public sealed class LibraryResolutionTests
         };
 
     private static ScopeTreeSymbolResolver ResolverOfReferences(string[] references, params LibraryDescription[] available)
+        => ResolverOfLoaded(ReferencedLibraries.Load(
+            new Runtime.Libraries.InMemoryLibrarySource(available), references.Select(name => new LibraryIdentity(name)), ["VBA"]));
+
+    private static ScopeTreeSymbolResolver ResolverOfLoaded(ReferencedLibraries libraries)
     {
-        var libraries = ReferencedLibraries.Load(new Runtime.Libraries.InMemoryLibrarySource(available), references.Select(name => new LibraryIdentity(name)), ["VBA"]);
         Assert.IsEmpty(libraries.Problems);
 
         List<Symbol> symbols =
@@ -165,6 +169,26 @@ public sealed class LibraryResolutionTests
 
         Assert.IsInstanceOfType<VBProjectSymbol>(resolver.ResolveQualifier("Widgets", ScopeKind.Global, Program.Uri).Symbol);
         Assert.IsNull(resolver.ResolveValue("Parts", ScopeKind.Local, Program.Uri).Symbol, "the members of a class are the members of an object, not names of the project");
+    }
+
+    // both of Windows Script Host's libraries carry a copy of the Scripting runtime's FileSystemObject. In a project that has a script among other modules
+    // they come after the references of its .rdproj (RD-VBAL §2.3.1.3), so a listed Scripting keeps its class, and a script still names WScript.
+    [TestMethod]
+    public void InAProjectWithAScriptAmongOtherModules_FileSystemObjectIsTheListedScriptings_AndWScriptIsWindowsScriptHosts()
+    {
+        var project = new RDCoreProject
+        {
+            Modules = [new RDCoreModule { RelativeUri = "Program.bas" }, new RDCoreModule { RelativeUri = "Lib.vbs" }],
+            References = [new RDCoreReference { Name = "Scripting" }],
+        };
+        var source = new DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+
+        var resolver = ResolverOfLoaded(LibrarySymbolProvider.Load(source, project, SupportedLanguages.RDVBA));
+
+        Assert.AreEqual("IHost", LibraryOf(VBProjectSymbol.ResolveQualifiedType(resolver, "IHost", "FileSystemObject", Program.Uri)),
+            "Windows Script Host's library has a FileSystemObject of its own: without it, the test tells nothing");
+        Assert.AreEqual("Scripting", LibraryOf(VBProjectSymbol.ResolveQualifiedType(resolver, null, "FileSystemObject", Program.Uri)));
+        Assert.AreEqual("IHost", LibraryOf(resolver.ResolveValue("WScript", ScopeKind.Local, Program.Uri)));
     }
 
     [TestMethod]
