@@ -30,6 +30,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const string NameMember = "Name";
     private const string IndexMember = "Index";
     private const string ContainerMember = "Container";
+    private const string ControlClass = "Control";
     private const string FontProperty = "Font";
     private const string StdFontClass = "stdole.StdFont";
 
@@ -550,8 +551,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         var typeName = handle.Component.Class.TypeName;
         if (handle.Form.IsVisualBasic)
         {
+            // VB's Control is the class of every control of a form, a menu included, and not of the form itself (measured in VB6).
             return string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
-                ? VisualBasicClasses.TryGetValue(typeName, out var ported) && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(className, ControlClass, StringComparison.OrdinalIgnoreCase)
+                    ? !handle.IsForm
+                    : VisualBasicClasses.TryGetValue(typeName, out var ported)
+                        && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
                 : null;
         }
 
