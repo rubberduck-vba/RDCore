@@ -26,7 +26,7 @@ RDCore exécute et analyse du code **VBA** et **Visual Basic 6** hors de l'édit
 |Comprendre un problème que RDCore signale|[Diagnostics](diagnostics/index.md)|
 
 ---
-## Pour les contributeurs
+## La plateforme
 
 - [Bâtir sur RDCore](building-on-rdcore.fr.md) : contribuer, compiler la plateforme, et écrire une extension ou un client.
 - [**RD-VBAL**](specs/rd-vbal.md) : la spécification du langage et de la plateforme RD-VBA, en anglais.

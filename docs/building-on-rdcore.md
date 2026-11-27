@@ -1,7 +1,7 @@
 # Building on RDCore
 <sup>_Ce document est disponible en [français](building-on-rdcore.fr.html)_</sup>
 
-This page is for contributors, and for anyone building an extension or a client on the platform. To use RDCore, see [Getting started](getting-started.md).
+This page covers contributing to RDCore, building the platform, and writing an extension or a client for it. To use RDCore, see [Getting started](getting-started.md).
 
 ---
 ## Contributing
