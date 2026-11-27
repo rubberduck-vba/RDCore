@@ -180,6 +180,8 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
             _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
         },
+        // MS-VBAL §5.2.3.4: a member of an enumeration is a Long.
+        VBEnumType => In(json, VBLongType.TypeInfo),
         _ when json is null => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
         VBNumericType number when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.Number => Coerced(ValueConversions.ToNumeric(

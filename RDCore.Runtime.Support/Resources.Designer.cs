@@ -387,6 +387,33 @@ namespace RDCore.Runtime.Support {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to the program has no standard module named {0}.
+        /// </summary>
+        public static string Host_NoSuchModule {
+            get {
+                return ResourceManager.GetString("Host_NoSuchModule", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} declares no public procedure named {1}.
+        /// </summary>
+        public static string Host_NoSuchProcedure {
+            get {
+                return ResourceManager.GetString("Host_NoSuchProcedure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to the program ended with an End statement.
+        /// </summary>
+        public static string Host_TheProgramEnded {
+            get {
+                return ResourceManager.GetString("Host_TheProgramEnded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to the statement ended the program.
         /// </summary>
         public static string Host_TheStatementEndedTheProgram {
