@@ -17,6 +17,8 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.Symbols;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -309,12 +311,36 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         bool unattended = false)
         => StartAsync(pipeline, entryPoint, debug: false, token, immediate: false, streamOutput: false, unattended, new ProgramStart(arguments, printed));
 
+    /// <summary>
+    /// Runs one procedure of the program by itself, as a host that serves the program's procedures calls one: not under a debugger, with nobody to answer a
+    /// dialog, its arguments made in the session as it starts, and what it returned taken where it ran.
+    /// </summary>
+    /// <param name="pipeline">What runs it. Composed for this invocation with <paramref name="token"/>: the invocation is interrupted through it.</param>
+    /// <param name="procedure">The procedure to run.</param>
+    /// <param name="bind">
+    /// Makes the arguments, one for each parameter of <paramref name="procedure"/>, before it runs; or gives the run-time error that refuses the invocation.
+    /// </param>
+    /// <param name="returned">
+    /// Takes the value the procedure returned, before anything else runs in the session; gives the run-time error the value is instead, when it cannot be
+    /// taken. A <c>Sub</c> returns no value, and is not given to it.
+    /// </param>
+    /// <param name="token">The cancellation of the invocation, which <paramref name="pipeline"/> was composed with.</param>
+    /// <returns>
+    /// How it ended, as a run ends. An invocation that its arguments refuse, or whose value cannot be taken, ends as a run-time error that ends nothing: the
+    /// session is as the procedure left it. An invocation while a program runs is refused, and a program that is suspended is let go of.
+    /// </returns>
+    public Task<ExecuteResult> InvokeAsync(
+        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind,
+        Func<VBTypedValue, VBRuntimeErrorInfo?> returned, CancellationToken token)
+        => StartAsync(pipeline, procedure, debug: false, token, immediate: false, streamOutput: false, unattended: true, started: null,
+            invoked: session => InvokeToTheEnd(session, pipeline, procedure, bind, returned, token));
+
     // what a command line starts a program with, and where it says what the program prints.
     private sealed record class ProgramStart(IReadOnlyList<string> Arguments, Action<string> Printed);
 
     private Task<ExecuteResult> StartAsync(
         RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate, bool streamOutput, bool unattended,
-        ProgramStart? started)
+        ProgramStart? started, Func<IRuntimeSession, ExecuteResult>? invoked = null)
     {
         var session = provider.Session;
         lock (_sync)
@@ -359,7 +385,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         // an edit made while it runs or waits takes no value from it (HeldDefinitions).
         HeldDefinitions.Hold(session);
 
-        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnectionAsync(() => RunToTheEnd(session, pipeline, entryPoint, token, started));
+        return invoked is not null
+            ? OffTheConnectionAsync(() => invoked(session))
+            : debug
+                ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token)
+                : OffTheConnectionAsync(() => RunToTheEnd(session, pipeline, entryPoint, token, started));
     }
 
     /// <summary>
@@ -1035,7 +1065,22 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <remarks>
     /// A program that waits is ended first, as a run ends it.
     /// </remarks>
-    public Task<ExecuteResult> ResetAsync()
+    public Task<ExecuteResult> ResetAsync() => ResetCoreAsync(terminates: null, CancellationToken.None);
+
+    /// <summary>
+    /// Resets the session as <see cref="ResetAsync()"/> does, each <c>Terminate</c> run by <paramref name="pipeline"/>, which <paramref name="token"/>
+    /// interrupts: between two of its instructions, or before the next one runs.
+    /// </summary>
+    /// <param name="pipeline">What runs the <c>Terminate</c> handlers: composed with <paramref name="token"/>.</param>
+    /// <param name="token">Cuts the reset short. The session is wiped all the same, and its objects are let go of with no <c>Terminate</c> run.</param>
+    /// <returns>
+    /// As <see cref="ResetAsync()"/> returns; <see cref="ExecutionOutcome.Interrupted"/> when <paramref name="token"/> cut the reset short, whatever a
+    /// <c>Terminate</c> left unhandled.
+    /// </returns>
+    public Task<ExecuteResult> ResetAsync(RuntimeExecutionPipeline pipeline, CancellationToken token)
+        => ResetCoreAsync(pipeline.Expressions.Bindings, token);
+
+    private Task<ExecuteResult> ResetCoreAsync(ICallableBindingFactory? terminates, CancellationToken token)
     {
         var session = provider.Session;
         lock (_sync)
@@ -1065,19 +1110,30 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
         session.Halt.Clear();
         HeldDefinitions.Hold(session);
-        return OffTheConnectionAsync(() => ResetToTheStart(session));
+
+        // a Terminate runs through the session's lifecycle (ClassLifecycle), with the bindings of the pipeline it was made of, and stops where that
+        // pipeline's cancellation stops it: this reset's, and not the last run's.
+        if (terminates is not null)
+        {
+            session.Lifecycle = new ClassLifecycle(session, terminates);
+        }
+
+        return OffTheConnectionAsync(() => ResetToTheStart(session, token));
     }
 
     // the error a Terminate left unhandled is reported before the wipe clears the session's error state, which says where it was raised.
-    private ExecuteResult ResetToTheStart(IRuntimeSession session)
+    private ExecuteResult ResetToTheStart(IRuntimeSession session, CancellationToken token)
     {
         var output = new RuntimeOutputBuffer();
         provider.Output.Target = output;
         try
         {
-            var result = SessionWipe.Release(session) is { } unhandled
-                ? Report(RuntimeSemanticsEvaluationResult.Error(unhandled), session, output, CancellationToken.None)
-                : new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
+            var unhandled = SessionWipe.Release(session);
+            var result = token.IsCancellationRequested
+                ? new ExecuteResult { Outcome = ExecutionOutcome.Interrupted, Output = output.Lines, ErrorMessage = Resources.Host_TheProgramWasInterrupted }
+                : unhandled is not null
+                    ? Report(RuntimeSemanticsEvaluationResult.Error(unhandled), session, output, CancellationToken.None)
+                    : new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
             session.Halt.Clear();
             SessionWipe.End(session);
             session.Errors.ClearUntrappable();
@@ -1174,6 +1230,48 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Finished(session);
         }
     }
+
+    private ExecuteResult InvokeToTheEnd(
+        IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure,
+        Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind, Func<VBTypedValue, VBRuntimeErrorInfo?> returned,
+        CancellationToken token)
+    {
+        var output = new RuntimeOutputBuffer();
+        provider.Output.Target = output;
+        try
+        {
+            var (arguments, refusal) = bind(session);
+            if (refusal is not null)
+            {
+                return Refusal(refusal, output);
+            }
+
+            var invocation = pipeline.RunProgram(procedure, session.Symbols.Resolver, arguments!, token);
+            if (invocation is { IsSuccess: true, Result: { } value } && session.Halt.Pending is null && procedure is VBReturningMemberSymbol
+                && returned(value) is { } untaken)
+            {
+                return Refusal(untaken, output);
+            }
+
+            return ReportEnd(invocation, session, output, token);
+        }
+        finally
+        {
+            Finished(session);
+        }
+    }
+
+    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's type):
+    // the program raised nothing, and nothing of it ends.
+    private static ExecuteResult Refusal(VBRuntimeErrorInfo error, RuntimeOutputBuffer output) => new()
+    {
+        Outcome = ExecutionOutcome.RuntimeError,
+        Output = output.Lines,
+        ErrorNumber = error.ErrorId,
+        ErrorMessage = error.Description,
+        ErrorCode = error.ToDiagnosticCode(),
+        ErrorTitle = error.AsErrorInfo.ToDiagnosticTitle(),
+    };
 
     // ---- a run under a debugger ----
 
