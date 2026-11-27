@@ -346,9 +346,9 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     // a list's items changed, or may have: the program's pictures that no item has any more are let go of.
     private static void KeepItemPictures(RDFormsObject handle)
     {
-        if (handle.Component.Class.Has(VBProperties.ItemIcon))
+        if (handle.Component.Class.Has(Properties.ItemIcon))
         {
-            handle.Form.Pictures.KeepItems(handle.Component, handle.Component.Get(VBProperties.ItemIcon));
+            handle.Form.Pictures.KeepItems(handle.Component, handle.Component.Get(Properties.ItemIcon));
         }
     }
 
