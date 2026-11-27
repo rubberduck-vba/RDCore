@@ -57,7 +57,9 @@ internal sealed class SemanticsDescriptionService(
             return new DescribeResult();
         }
 
-        var semantics = await diagnostics.SemanticsAsync(documentUri, token);
+        // what is written at a position is in the module whose lines hold it: a block's, or the document's own.
+        var written = await ModuleAtAsync(documentUri, module.ToModulePosition(position), token);
+        var semantics = await diagnostics.SemanticsAsync(written, token);
         var expression = semantics is null ? null : ExpressionDescription.At(semantics, module.ToModulePosition(position));
         expression = expression is null ? null : expression with { Range = module.ToTextRange(expression.Range).ToSourceRange() };
 
@@ -66,11 +68,9 @@ internal sealed class SemanticsDescriptionService(
             return new DescribeResult { Expression = expression, Range = expression?.Range };
         }
 
-        // the facts of a declaration are the host's of the module it is written in, which is the document's own when the definition is there.
+        // the facts of a declaration are the host's of the module it is written in: the one the position is in when the definition is there.
         var definition = composed.Definitions(documentUri, position).FirstOrDefault();
-        var declaring = definition is null || definition.TargetUri.ToUri().AbsoluteUri == documentUri.AbsoluteUri
-            ? semantics
-            : await diagnostics.SemanticsAsync(definition.TargetUri.ToUri(), token);
+        var declaring = definition is null ? semantics : await DeclaringAsync(composed, definition, written, semantics, token);
         var fact = declaring?.Declarations.FirstOrDefault(declaration => new SemanticId(declaration.Symbol) == named.Symbol.SemanticId);
 
         var hover = SymbolHover.Of(named.Symbol);
@@ -82,6 +82,21 @@ internal sealed class SemanticsDescriptionService(
         };
 
         return new DescribeResult { Symbol = symbol, Expression = expression, Range = named.Range.ToSourceRange() };
+    }
+
+    // the module a position of a document's module is in (RDCoreDocument.ModuleAt): the block whose range holds it, or the document's own.
+    private async Task<Uri> ModuleAtAsync(Uri documentUri, SourcePosition position, CancellationToken token)
+        => new RDCoreDocument(documentUri, await parsing.ParseDocumentAsync(documentUri, token)).ModuleAt(position);
+
+    // the semantics of the module a definition is written in, which are those already asked for when it is the module the position is in.
+    private async Task<ModuleSemanticsDto?> DeclaringAsync(
+        RenameWorkspace composed, LocationLink definition, Uri written, ModuleSemanticsDto? semantics, CancellationToken token)
+    {
+        var target = definition.TargetUri.ToUri();
+        var start = definition.TargetSelectionRange.Start;
+        var at = composed.DocumentOf(target) is { Module: var module } ? module.ToModulePosition(start) : new SourcePosition(start.Line, start.Character);
+        var declaring = await ModuleAtAsync(target, at, token);
+        return declaring == written ? semantics : await diagnostics.SemanticsAsync(declaring, token);
     }
 
     public async Task<ModuleOutline?> OutlineAsync(Uri documentUri, CancellationToken token)

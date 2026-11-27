@@ -71,13 +71,14 @@ internal interface IDocumentDiagnosticsService
     Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 
     /// <summary>
-    /// What the environment host's static pass found out about the module a document is (<see cref="AnalysisPhase.Static"/>), which does not wait for its code
-    /// to be evaluated.
+    /// What the environment host's static pass found out about a module of a document (<see cref="AnalysisPhase.Static"/>), which does not wait for its code
+    /// to be evaluated: the document's own module, or the module of one of its blocks (RD-VBAL §5.1).
     /// </summary>
-    /// <param name="documentUri">The document.</param>
+    /// <param name="module">The module's address: the document's URI, or a block's under it (<see cref="RDCoreDocument.BlockUri(Uri, string)"/>).</param>
     /// <param name="token">A token that cancels the request.</param>
-    /// <returns>The module's semantics; <see langword="null"/> when the host does not have the document as a module, or could not answer.</returns>
-    Task<ModuleSemanticsDto?> SemanticsAsync(Uri documentUri, CancellationToken token);
+    /// <returns>The module's semantics; <see langword="null"/> when the host does not have the document as a module, the document has no such block, or the
+    /// host could not answer.</returns>
+    Task<ModuleSemanticsDto?> SemanticsAsync(Uri module, CancellationToken token);
 }
 
 /// <summary>
@@ -168,15 +169,21 @@ internal sealed class DocumentDiagnosticsService(
         return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress) ?? throw IncomingDocumentChanges.ContentModified();
     }
 
-    public async Task<ModuleSemanticsDto?> SemanticsAsync(Uri documentUri, CancellationToken token)
+    public async Task<ModuleSemanticsDto?> SemanticsAsync(Uri module, CancellationToken token)
     {
+        var documentUri = RDCoreDocument.FileOf(module);
         if (Resolve(documentUri) is not { } document || !IsHostModule(document))
         {
             return null;
         }
 
+        // the host has a module under the name RD-VBA gives it: a block's is its header's.
         var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
-        var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+        if (new RDCoreDocument(documentUri, parseResult).NameOf(module) is not { } moduleName)
+        {
+            return null;
+        }
+
         return await SemanticsOfAsync(moduleName, SemanticsRootOf(document, isHostModule: true) is { } root ? SymbolUri.Module(root, moduleName) : null, AnalysisPhase.Static, token);
     }
 

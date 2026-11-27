@@ -65,9 +65,32 @@ public sealed class AssistantToolsWireTests
         End Sub
         """;
 
+    // a file of blocks: its own module, Shell, on lines 0 to 3, and the Logger block from its header on line 4 to its end on line 9.
+    private const string Blocks = """
+        Attribute VB_Name = "Shell"
+        Public Sub Run()
+            strLine = "y"
+        End Sub
+        Module Logger
+        Public strLine As String
+        Public Sub Log()
+            strLine = "x"
+        End Sub
+        End Module
+        """;
+
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
 
     private static readonly Uri Title = SymbolUri.Member(SymbolUri.Module(Root, "Helpers"), "strTitle");
+
+    private static readonly Uri Logger = SymbolUri.Module(Root, "Logger");
+
+    private static readonly Uri Line = SymbolUri.Member(Logger, "strLine");
+
+    // strLine as the host's static pass finds it written on a line of Blocks.bas, in the module the line is in.
+    private static ExpressionFactDto LineWrittenOn(int line)
+        => new(new SyntaxNodeId(Document("Blocks.bas").ToString(), [line]), new SourceLocation(Document("Blocks.bas"), new SourceRange(line, 4, line, 11)),
+            "String", ExpressionClassification.Variable, Line, default, null);
 
     // the workspace's first load as the test holds it: the server holds no document until the load is released, and the tools wait on it.
     private sealed class HeldLoad
@@ -102,7 +125,12 @@ public sealed class AssistantToolsWireTests
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
-        var loaded = new[] { new WorkspaceDocument("Module1.bas", Root, Module1, version: 1), new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1) };
+        var loaded = new[]
+        {
+            new WorkspaceDocument("Module1.bas", Root, Module1, version: 1),
+            new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1),
+            new WorkspaceDocument("Blocks.bas", Root, Blocks, version: 1),
+        };
         WorkspaceDocument[] All() => load.IsReleased ? loaded : [];
         documents.GetAllDocuments().Returns(_ => All());
         documents.TryGetDocument(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call =>
@@ -152,6 +180,17 @@ public sealed class AssistantToolsWireTests
                 [new ExpressionFactDto(new SyntaxNodeId(Document("Module1.bas").ToString(), [0, 1]), new SourceLocation(Document("Module1.bas"), new SourceRange(2, 4, 2, 12)),
                     "String", ExpressionClassification.Variable, Title, default, null)])],
             []));
+
+        // Blocks.bas: the file's own module declares nothing and writes strLine on line 2; the Logger block's module declares it, and writes it on line 7.
+        diagnostics.SemanticsAsync(Document("Blocks.bas"), Arg.Any<CancellationToken>()).Returns(new ModuleSemanticsDto(
+            SymbolUri.Module(Root, "Shell"), true, [],
+            [new ProcedureSemanticsDto(SymbolUri.Member(SymbolUri.Module(Root, "Shell"), "Run"), true, [], [LineWrittenOn(2)])],
+            []));
+        diagnostics.SemanticsAsync(RDCoreDocument.BlockUri(Document("Blocks.bas"), "Logger"), Arg.Any<CancellationToken>()).Returns(new ModuleSemanticsDto(
+            Logger, true, [],
+            [new ProcedureSemanticsDto(SymbolUri.Member(Logger, "Log"), true, [], [LineWrittenOn(7)])],
+            [new DeclarationFactDto(Line, "strLine", DeclarationKind.Variable, AccessModifier.Public, false,
+                new SourceLocation(Document("Blocks.bas"), new SourceRange(5, 7, 5, 14)), new DeclarationReferences(0, 2, 0))]));
 
         var semantics = new SemanticsDescriptionService(workspace, diagnostics, documents, parsing, new IntrinsicSymbolResolver(), options);
         var symbols = Substitute.For<ISymbolSyncService>();
@@ -367,6 +406,25 @@ public sealed class AssistantToolsWireTests
         Assert.AreEqual(ExpressionClassification.Variable, described.Expression?.Classification);
         Assert.AreEqual(new SourceRange(2, 4, 2, 12), described.Expression?.Range);
         Assert.AreEqual(new SourceRange(2, 4, 2, 12), described.Range);
+    }
+
+    // a file of blocks is several modules: what is written at a position has the facts of the module whose lines hold it, and the name's declaration those of
+    // the module it is declared in - the block's, when the name is written in the file's own module.
+    [TestMethod]
+    [Timeout(600_000, CooperativeCancellation = true)]
+    [DataRow(7, DisplayName = "a name written in the block")]
+    [DataRow(2, DisplayName = "a name of the block's, written in the file's own module")]
+    public async Task Describe_InAFileOfBlocks_HasTheFactsOfTheModuleAPositionIsIn_AndOfTheModuleThatDeclaresTheName(int line)
+    {
+        var described = await AskAsync<DescribeResult>(
+            advertised: false, new SemanticsDescribeRequest { Uri = Document("Blocks.bas"), Position = new SourcePosition(line, 6) });
+
+        var symbol = described.Symbol!;
+        Assert.AreEqual("strLine", symbol.Name);
+        Assert.AreEqual(new DeclarationReferences(0, 2, 0), symbol.References, "the facts of the declaration, in the block's module");
+        Assert.AreEqual(Document("Blocks.bas"), symbol.Location?.Uri);
+        Assert.AreEqual(new SourcePosition(5, 7), symbol.Location?.Range.Start);
+        Assert.AreEqual(new SourceRange(line, 4, line, 11), described.Expression?.Range, "the expression, in the module that holds the line");
     }
 
     [TestMethod]

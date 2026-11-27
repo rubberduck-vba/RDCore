@@ -688,6 +688,49 @@ public sealed class DocumentDiagnosticsServiceTests
         await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
     }
 
+    // the host has a block's module by the block's name, at its address under the root: a block is asked for by its address under its file, and an address
+    // that is no block of the file is no module.
+    [TestMethod]
+    public async Task ABlocksModule_IsAskedOfTheHostByItsName_AndAnAddressThatIsNoBlockOfTheFile_IsNone()
+    {
+        var backup = Backup("Class Logger\r\nEnd Class\r\n");
+        ModulesAre(backup);
+        _documents.WorkspaceRoot.Returns(Root);
+        var logger = SymbolUri.Module(Root, "Logger");
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(logger, true, [], [], [])])));
+        var file = backup.Id.Uri.ToUri();
+
+        var ofTheBlock = await Sut().SemanticsAsync(RDCoreDocument.BlockUri(file, "Logger"), CancellationToken.None);
+        var ofNoBlock = await Sut().SemanticsAsync(RDCoreDocument.BlockUri(file, "Other"), CancellationToken.None);
+
+        Assert.AreEqual(logger, ofTheBlock?.Module);
+        Assert.IsNull(ofNoBlock);
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(Arg.Any<HostSemanticsParams>(), Arg.Any<CancellationToken>());
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Logger" && request.ModuleUri!.AbsoluteUri == logger.AbsoluteUri),
+            Arg.Any<CancellationToken>());
+    }
+
+    // a file's own module is the host's by the name its source gives it (Attribute VB_Name), and by its file's name when the source gives none.
+    [TestMethod]
+    [DataRow("Named", "Named", DisplayName = "named by its source")]
+    [DataRow(null, "Own", DisplayName = "named by its file")]
+    public async Task AFilesOwnModule_IsAskedOfTheHostByTheNameItsSourceGivesIt_OrItsFilesName(string? declared, string expected)
+    {
+        var own = StandardModule("Own", declared);
+        ModulesAre(own);
+        _documents.WorkspaceRoot.Returns(Root);
+        var module = SymbolUri.Module(Root, expected);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(module, true, [], [], [])])));
+
+        var semantics = await Sut().SemanticsAsync(own.Id.Uri.ToUri(), CancellationToken.None);
+
+        Assert.AreEqual(module, semantics?.Module);
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == expected && request.ModuleUri!.AbsoluteUri == module.AbsoluteUri),
+            Arg.Any<CancellationToken>());
+    }
+
     // a monitor of the program the host runs, which says it waits in break mode or not, as the host says when it is asked.
     private static (EditStatusMonitor Monitor, Func<bool, Task> Say) ProgramThatWaits(WorkspaceRefresh refresh)
     {
