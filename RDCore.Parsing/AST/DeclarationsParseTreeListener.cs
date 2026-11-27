@@ -1040,7 +1040,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         CurrentBuilder.AddChild(
-            AsDebugStatement(GetCurrentNodeId(), location, callee, context.argumentList(), arguments)
+            AsDebugStatement(GetCurrentNodeId(), location, callee, context.lExpression(), context.argumentList(), arguments)
             ?? new CallStatementNode(GetCurrentNodeId(), location, callee, arguments, context.CALL() is not null));
     }
 
@@ -1056,19 +1056,35 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // A Debug.Print with arguments is a syntax error the parse recovered from: it read the output list to the
     // last item it could, and what is after it as the arguments of a call (`Debug.Print 1; 2 +` is a print of
     // `1;` and an argument `2 +`, unbuilt). They are the items the statement is written with, kept as items: see AsPrintItems.
+    //
+    // The statement keeps where Debug and its member are written, which is what a hover on either binds: the owner and the member of the callee, and for
+    // Debug.Print, whose callee keeps no place for its Print, the printMethod of the callee as the parse read it.
     private StatementNode? AsDebugStatement(
-        SyntaxNodeId identity, SourceLocation location, ExpressionNode callee, VBAParser.ArgumentListContext? list, ImmutableArray<ExpressionNode> arguments)
+        SyntaxNodeId identity, SourceLocation location, ExpressionNode callee, VBAParser.LExpressionContext? written, VBAParser.ArgumentListContext? list,
+        ImmutableArray<ExpressionNode> arguments)
         => callee switch
         {
             ObjectPrintExpressionNode print when IsDebugObject(print.Owner)
-                => new DebugPrintStatementNode(identity, location, [.. print.Items, .. AsPrintItems(list, arguments)]),
+                => new DebugPrintStatementNode(identity, location, [.. print.Items, .. AsPrintItems(list, arguments)])
+                {
+                    ObjectRange = print.Owner.Location.Range,
+                    MemberRange = (written as VBAParser.ObjectPrintExprContext)?.printMethod()?.SourceRange,
+                },
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode member, Arguments: [var argument] }
                 when IsDebugMember(member, Tokens.Assert)
-                => new DebugAssertStatementNode(identity, location, argument),
+                => new DebugAssertStatementNode(identity, location, argument)
+                {
+                    ObjectRange = member.Owner!.Location.Range,
+                    MemberRange = member.Member.Location.Range,
+                },
 
             MemberAccessExpressionNode member when IsDebugMember(member, Tokens.Assert) && arguments is [var argument]
-                => new DebugAssertStatementNode(identity, location, argument),
+                => new DebugAssertStatementNode(identity, location, argument)
+                {
+                    ObjectRange = member.Owner!.Location.Range,
+                    MemberRange = member.Member.Location.Range,
+                },
 
             _ => null,
         };
