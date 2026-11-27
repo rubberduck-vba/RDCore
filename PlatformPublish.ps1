@@ -301,7 +301,7 @@ $PlatformSettings = @'
   "Configuration": {
     "Platform": {
       "Extensions": {
-        "Allowed": [ "RDCore.Diagnostics" ],
+        "Allowed": [ "RDCore.Diagnostics", "RDCore.Web" ],
         "Blocked": []
       }
     }
