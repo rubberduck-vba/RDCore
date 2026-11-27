@@ -23,16 +23,17 @@ namespace RDCore.Runtime.Execution.Hosting;
 //
 //   Scripting.Dictionary   an object, its keys Strings (any other key is 13); a JSON object is a new Dictionary that compares its keys binary.
 //   array                  any array, a multi-dimensional one as nested arrays, the first dimension outermost, its bounds dropped; a JSON array is a
-//                          Variant() from 0, and a nested one a Variant() in it.
-//   Date                   ISO 8601 text with no offset (2026-11-26T14:30:00); text with an offset or a zone is 13.
+//                          Variant() from 0, and a nested one a Variant() in it; for an array of another element type, 13.
+//   Date                   ISO 8601 text to the second, with no offset (2026-11-26T14:30:00); any other text, one with an offset or a zone
+//                          included, is 13. In a Variant, such text stays a String.
 //   Currency, Decimal      a number, every digit of it.
 //   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 94 in any other type.
 //   Collection             an array of its members; any other object is 13.
 //   a number in a Variant  what a literal of the same digits is (MS-VBAL §3.3.2): Integer, then Long, then Double past Long's magnitude; with a fraction or
 //                          an exponent, Double.
 //
-// Into any other type, a JSON value is let-coerced from that value of the language, as an assignment is (MS-VBAL §5.5.1.2), with the errors it raises. A
-// value that does not convert, either way, is 13, as a failed let-coercion is.
+// Into any other type, a JSON value is let-coerced from that value of the language, as an assignment is (MS-VBAL §5.5.1.2), with the errors it raises:
+// 13 for text that is not a number, 6 past the type's range. A value that has no conversion at all, either way, is 13.
 internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver resolver)
 {
     private const string Moment = "yyyy'-'MM'-'dd'T'HH':'mm':'ss";
