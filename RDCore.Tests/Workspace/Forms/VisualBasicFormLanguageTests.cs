@@ -612,7 +612,12 @@ public sealed class VisualBasicFormLanguageTests
     [TestMethod]
     public async Task WhatRDVBAAddsToVB_IsUsedByAForm_AsVB6sOwnMembersAre()
         => Assert.IsEmpty(await ErrorsAsync(FormWithLabelAndList(
-            "Private Sub Form_Load()", "    Label1.Opacity = 0.5", "    Label1.Caption = \"a\"", "    Set List1.ItemIcon(0) = Nothing", "    Debug.Print TypeName(List1.ItemIcon(0)); List1.ListCount", "End Sub")));
+            "Private Sub Form_Load()",
+            "    Label1.Opacity = 0.5",
+            "    Label1.Caption = \"a\"",
+            "    Set List1.ItemIcon(0) = Nothing",
+            "    Debug.Print TypeName(List1.ItemIcon(0)); List1.ListCount",
+            "End Sub")));
 
     [TestMethod]
     [DataRow("Label1", "Opacity")]
