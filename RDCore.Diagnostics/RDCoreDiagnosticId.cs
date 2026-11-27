@@ -101,6 +101,7 @@ public enum RDCoreDiagnosticId
     PublicControlFieldAccess = 412, // [RD2:PublicControlFieldAccessInspection] UserForm1.TextBox1.Text in another module: a control used outside its form
     MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
     ModuleAnnotationHasAShortForm = 416, // '@ModuleDescription or '@IgnoreModule of a block's module: '@Description or '@Ignore above its header
+    FolderAnnotationNotTheFilesFolder = 417, // '@Folder naming a folder other than the file's under the project's root, which the legacy Code Explorer shows
     IgnoreNamesNoDiagnostic = 418, // '@Ignore Nonsense: an argument that names nothing the annotation can suppress; the language server reports it
 
     // symbol traversals [0000]

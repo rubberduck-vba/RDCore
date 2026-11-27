@@ -2134,6 +2134,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("RedundantModuleOption_Message", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The file is in the folder &quot;{0}&quot; of its project, which this &apos;@Folder does not name. Rubberduck&apos;s Code Explorer shows the module in the folder the annotation names, once the project is imported into MS-VBA..
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_Message {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The file is at the root of its project, which no &apos;@Folder names. Rubberduck&apos;s Code Explorer shows the module in the folder the annotation names, once the project is imported into MS-VBA..
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_RootMessage {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_RootMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;@Folder(&quot;{0}&quot;).
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_Fix {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_Fix", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove &apos;@Folder.
+        /// </summary>
+        public static string FolderAnnotationNotTheFilesFolder_RootFix {
+            get {
+                return ResourceManager.GetString("FolderAnnotationNotTheFilesFolder_RootFix", resourceCulture);
+            }
+        }
 
         /// <summary>
         ///   Looks up a localized string similar to Assign the condition to &apos;{0}&apos;.

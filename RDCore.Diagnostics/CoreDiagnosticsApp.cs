@@ -109,6 +109,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, RedundantByRefModifierAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantModuleOptionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ModuleAnnotationShortFormAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, FolderAnnotationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BooleanAssignedInIfElseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnreachableCaseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ParamArrayOptionBaseAnalyzer>();

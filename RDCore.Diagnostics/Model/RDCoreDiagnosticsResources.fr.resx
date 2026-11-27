@@ -831,6 +831,18 @@
   <data name="RedundantModuleOption_Fix" xml:space="preserve">
     <value>Supprimer {0}</value>
   </data>
+  <data name="FolderAnnotationNotTheFilesFolder_Message" xml:space="preserve">
+    <value>Le fichier est dans le dossier "{0}" de son projet, que ce '@Folder ne nomme pas. L'explorateur de code de Rubberduck affiche le module dans le dossier que nomme l'annotation, une fois le projet importé dans MS-VBA.</value>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_RootMessage" xml:space="preserve">
+    <value>Le fichier est à la racine de son projet, qu'aucun '@Folder ne nomme. L'explorateur de code de Rubberduck affiche le module dans le dossier que nomme l'annotation, une fois le projet importé dans MS-VBA.</value>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_Fix" xml:space="preserve">
+    <value>Écrire '@Folder("{0}")</value>
+  </data>
+  <data name="FolderAnnotationNotTheFilesFolder_RootFix" xml:space="preserve">
+    <value>Supprimer '@Folder</value>
+  </data>
   <data name="StrOfAFraction_Message" xml:space="preserve">
     <value>&apos;{0}&apos; d&apos;un nombre entre -1 et 1 n&apos;écrit aucun zéro avant le point décimal dans MS-VBA (&quot; .5&quot;), alors que MS-VBAL §6.1.2.3.1.20 écrit &quot; 0.5&quot;.</value>
   </data>

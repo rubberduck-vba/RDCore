@@ -170,6 +170,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.SuspiciousPredeclaredInstanceAccess, 410),
         (RDCoreDiagnosticId.ImplementedInterfaceMember, 411),
         (RDCoreDiagnosticId.PublicControlFieldAccess, 412),
+        (RDCoreDiagnosticId.FolderAnnotationNotTheFilesFolder, 417),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
         (RDCoreDiagnosticId.EmptyIfBlock, 1003),

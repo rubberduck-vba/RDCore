@@ -546,6 +546,8 @@
   href: rdc00413.md
 - name: "RDC00416: Module annotation has a short form"
   href: rdc00416.md
+- name: "RDC00417: Folder annotation not the file's folder"
+  href: rdc00417.md
 - name: "RDC00418: Ignore annotation names no diagnostic"
   href: rdc00418.md
 - name: "RDC01001: Use meaningful identifier names"

@@ -320,6 +320,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00412](rdc00412.md)|Control used outside its form|A control of a form, used by code in another module|
 |[RDC00413](rdc00413.md)|Module variable used in one procedure|A variable of the module that only one procedure uses|
 |[RDC00416](rdc00416.md)|Module annotation has a short form|A `'@ModuleDescription` or `'@IgnoreModule` of a block's module, written `'@Description` or `'@Ignore` above the block's header|
+|[RDC00417](rdc00417.md)|Folder annotation not the file's folder|A `'@Folder` that does not name the file's folder under the project's root|
 |[RDC00418](rdc00418.md)|Ignore annotation names no diagnostic|An argument of `'@Ignore` or `'@IgnoreModule` that suppresses nothing|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
