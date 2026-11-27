@@ -970,7 +970,7 @@ internal sealed class CodeActions(
     private static IReadOnlyList<RefactorNotice> ChangesOf(RefactorPrepareResult prepared)
         => [.. prepared.Notices.Where(notice => notice.Kind is RefactorNoticeKind.Change)];
 
-    // the changes an action was offered with (WithChanges): the document they were found in is the one it resolves, as it is of the version it was offered for.
+    // the changes an action was offered with (WithChanges): they hold for the document it resolves, which is of the version it was offered for.
     private static IReadOnlyList<RefactorNotice> ChangesOf(JObject offered)
         => offered[ChangesDataKey] is JArray changes
             ? [.. changes.OfType<JObject>().Select(change => new RefactorNotice
