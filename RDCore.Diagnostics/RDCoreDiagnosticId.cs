@@ -100,6 +100,7 @@ public enum RDCoreDiagnosticId
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
     PublicControlFieldAccess = 412, // [RD2:PublicControlFieldAccessInspection] UserForm1.TextBox1.Text in another module: a control used outside its form
     MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
+    ModuleAnnotationHasAShortForm = 416, // '@ModuleDescription or '@IgnoreModule of a block's module: '@Description or '@Ignore above its header
     IgnoreNamesNoDiagnostic = 418, // '@Ignore Nonsense: an argument that names nothing the annotation can suppress; the language server reports it
 
     // symbol traversals [0000]
