@@ -129,7 +129,7 @@ internal sealed class DocumentDiagnosticsService(
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
         var reports = await ProvidersAsync(providers, documentUri, [payloadJson], token, progress);
 
-        return (Aggregate(reports), providers.Length);
+        return (IgnoreAnnotations.Apply(documentUri, parseResult, Aggregate(reports), phase, Disabled), providers.Length);
     }
 
     // how much of an analysis is done once the module is parsed, and once the semantic model is there: the providers take the rest of it, each their share.
@@ -214,6 +214,7 @@ internal sealed class DocumentDiagnosticsService(
             var cached = parsing.TryGetCached(documentUri, out var parsed) ? parsed : null;
             IReadOnlyList<Diagnostic> own =
                 [.. tellsEdits ? EditsNotApplied(document, cached) : [], .. RefusalsOf(RefusedOf(document, token), document, phase)];
+            own = cached is not null ? IgnoreAnnotations.Apply(documentUri, cached, own, phase, Disabled) : own;
             return DocumentDiagnosticsResult.Fresh(version, own.Count == 0 ? [] : InTheTextOf(document, own), generation);
         }
 
@@ -260,8 +261,9 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        IReadOnlyList<Diagnostic> found =
-            [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. RefusalsOf(refused, document, phase)];
+        // what the annotations suppress is dropped once every provider has answered: the analyzers ran, and their findings are not published.
+        var found = IgnoreAnnotations.Apply(documentUri, parseResult,
+            [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. RefusalsOf(refused, document, phase)], phase, Disabled);
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 

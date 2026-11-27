@@ -471,6 +471,23 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual(2, result.Diagnostics.Count);
     }
 
+    // the annotation's codes are dropped once every provider has answered, whichever found them; a language error is published whatever it says.
+    [TestMethod]
+    public async Task WhatAnIgnoreModuleAnnotationNames_IsNotPublished_WhicheverProviderFoundIt()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), "'@IgnoreModule RDC00101, XYZ00042\r\nPublic Sub Foo()\r\nEnd Sub"));
+        ProvidersAre(
+            Provider("RDCore.Diagnostics", 1, Diag(1, code: "RDC00101"), Diag(1)),
+            Provider(Manifest("Vendor", nameof(DiagnoseDocument), prefix: "XYZ"), 1, Diag(2, code: "XYZ00042")));
+
+        var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "VBC01027" }, result.Diagnostics.Select(diagnostic => diagnostic.Code!.Value.String).ToArray());
+    }
+
     [TestMethod]
     public async Task OverlappingDiagnosticsAcrossProviders_AreDeduped()
     {
