@@ -104,9 +104,9 @@ public sealed class FormPictureTests
             "Debug.Print Err.Number & \" \" & (o.Picture Is img.Picture) & \" \" & (ExampleView.Picture Is p)"));
 
     // MS-VBAL §5.4.3.8 and §5.5.1.2.13 let-coerce an object assigned without Set to a property of a class type through its default member (Handle, a Long),
-    // which raises 424; MS-VBA gives the property the object itself (observed in Excel).
+    // which raises 424; MS-VBA gives the property the object itself (observed in Excel), and so does RD-VBA (RD-VBAL §5.4.3.8, An object as the value of a
+    // property).
     [TestMethod]
-    [Ignore("an object let-assigned to a property of a class type is let-coerced through its default member: MS-VBA gives the property the object")]
     public async Task APicture_IsGivenWithoutSet_AsWithIt()
         => Printed(["0 True"], await RunAsync(false,
             "Set p = LoadPicture(D & \"pic.gif\"): img.Picture = p: Debug.Print Err.Number & \" \" & (img.Picture Is p)"));

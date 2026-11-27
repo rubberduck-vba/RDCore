@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
@@ -9,6 +11,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
@@ -24,6 +27,8 @@ namespace RDCore.Runtime.StdLib;
 /// </remarks>
 internal sealed class StdCollection : IStdCollectionClass, IStdLibReceiverBound
 {
+    private const string CollectionClass = "Collection";
+
     // the value is what the member is; the cell holds it, and is what the objects in it are held by.
     private sealed record Member(string? Key, VBTypedValue Value, IBindingHandle Cell);
 
@@ -219,6 +224,15 @@ internal sealed class StdCollection : IStdCollectionClass, IStdLibReceiverBound
 
         return value;
     }
+
+    // whether an object of classModule is a Collection: the library's class of that name.
+    internal static bool IsCollection(VBClassModuleSymbol classModule)
+        => classModule.GetProperty(SymbolProperties.Library) == StandardLibrary.LibraryName
+            && classModule.Name.Equals(CollectionClass, StringComparison.OrdinalIgnoreCase);
+
+    // the values of the members of a collection, in order: none for one that nothing was added to.
+    internal IReadOnlyList<VBTypedValue> ValuesOf(IObjectInstance collection)
+        => _members.TryGetValue(collection, out var members) ? [.. members.Items.Select(member => member.Value)] : [];
 
     private bool TryGetMembers(out Members members)
     {

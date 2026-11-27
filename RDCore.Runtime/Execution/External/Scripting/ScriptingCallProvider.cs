@@ -171,6 +171,17 @@ public sealed partial class ScriptingCallProvider(IRuntimeSession session) : IEx
         return new VBObjectValue(identity);
     }
 
+    // a Dictionary made for a value from outside the program (JsonValues), empty and comparing its keys binary: an instance of the library's class where
+    // the program references it, a late-bound one where it does not, as CreateObject makes.
+    internal static (VBObjectValue Object, ScriptingDictionary Dictionary) NewDictionary(IRuntimeSession session, IRuntimeSymbolResolver resolver)
+    {
+        var dictionary = new ScriptingDictionary(session);
+        return (new ScriptingCallProvider(session).Made(DictionaryClass, dictionary, resolver), dictionary);
+    }
+
+    // whether a declared type of classModule holds a Dictionary: the library's class of that name.
+    internal static bool IsDictionaryClass(VBClassModuleSymbol classModule) => CreatableClass(classModule) == DictionaryClass;
+
     private object? New(string className)
     {
         ScriptingObjects.Of(session);
