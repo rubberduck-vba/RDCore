@@ -1,8 +1,9 @@
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Execution.Hosting;
+using RDCore.Runtime.Execution.Hosting.Json;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -36,7 +37,7 @@ public sealed class JsonValuesTests
             SourceRange.Empty, SourceRange.Empty, AccessModifier.Implicit);
 
     // runs the body, which leaves the value in V, and writes V as JSON.
-    private static (VBRuntimeErrorInfo? Error, string? Json) Written(params string[] body)
+    private static (IVBRaisableError? Error, string? Json) Written(params string[] body)
     {
         var (session, outcome) = RuntimeSourceHarness.Run(fileSystem: null, [V, C], output: null, standardLibrary: true, body);
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
@@ -53,7 +54,7 @@ public sealed class JsonValuesTests
         return json!;
     }
 
-    private static void AssertError(VBRuntimeErrorId expected, VBRuntimeErrorInfo? error)
+    private static void AssertError(VBRuntimeErrorId expected, IVBRaisableError? error)
     {
         Assert.IsNotNull(error, "the value converted");
         Assert.AreEqual((int)expected, error.ErrorId, error.Verbose);
@@ -264,7 +265,7 @@ public sealed class JsonValuesTests
         AssertError(VBRuntimeErrorId.TypeMismatch, Written("Set V = New Collection", "V.Add V").Error);
     }
 
-    // f. reading public properties would run Property Get code: an object that is neither a Dictionary nor a Collection has no JSON value.
+    // f. a library's object that is neither a Dictionary nor a Collection has no JSON value (an instance of a class of the workspace has: JsonInstancesTests).
     [TestMethod]
     public void AnotherObject_IsATypeMismatch()
         => AssertError(VBRuntimeErrorId.TypeMismatch, Written("Set V = CreateObject(\"Scripting.FileSystemObject\")").Error);

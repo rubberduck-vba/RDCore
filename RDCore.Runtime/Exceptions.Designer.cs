@@ -686,11 +686,11 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to An object that is neither a Dictionary nor a Collection has no JSON value..
+        ///   Looks up a localized string similar to An object that is not a Dictionary, a Collection or an instance of a class of the workspace has no JSON value..
         /// </summary>
-        internal static string JsonValues_NeitherDictionaryNorCollection_Verbose {
+        internal static string JsonValues_ObjectHasNoJson_Verbose {
             get {
-                return ResourceManager.GetString("JsonValues_NeitherDictionaryNorCollection_Verbose", resourceCulture);
+                return ResourceManager.GetString("JsonValues_ObjectHasNoJson_Verbose", resourceCulture);
             }
         }
         
@@ -763,6 +763,15 @@ namespace RDCore.Runtime {
         internal static string JsonValues_ValueNotType_Verbose {
             get {
                 return ResourceManager.GetString("JsonValues_ValueNotType_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The program ended while the object's member '{0}' was read..
+        /// </summary>
+        internal static string JsonValues_MemberEnded_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_MemberEnded_Verbose", resourceCulture);
             }
         }
         

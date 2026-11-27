@@ -322,7 +322,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// </param>
     /// <param name="returned">
     /// Takes the value the procedure returned, before anything else runs in the session; gives the run-time error the value is instead, when it cannot be
-    /// taken. A <c>Sub</c> returns no value, and is not given to it.
+    /// taken, which code it runs to take it may raise (an object's <c>Property Get</c>). A <c>Sub</c> returns no value, and is not given to it.
     /// </param>
     /// <param name="token">The cancellation of the invocation, which <paramref name="pipeline"/> was composed with.</param>
     /// <returns>
@@ -331,7 +331,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// </returns>
     public Task<ExecuteResult> InvokeAsync(
         RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind,
-        Func<VBTypedValue, VBRuntimeErrorInfo?> returned, CancellationToken token)
+        Func<VBTypedValue, IVBRaisableError?> returned, CancellationToken token)
         => StartAsync(pipeline, procedure, debug: false, token, immediate: false, streamOutput: false, unattended: true, started: null,
             invoked: session => InvokeToTheEnd(session, pipeline, procedure, bind, returned, token));
 
@@ -1234,7 +1234,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     private ExecuteResult InvokeToTheEnd(
         IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure,
-        Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind, Func<VBTypedValue, VBRuntimeErrorInfo?> returned,
+        Func<IRuntimeSession, (IRuntimeValue[]? Arguments, VBRuntimeErrorInfo? Refusal)> bind, Func<VBTypedValue, IVBRaisableError?> returned,
         CancellationToken token)
     {
         var output = new RuntimeOutputBuffer();
@@ -1248,8 +1248,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             }
 
             var invocation = pipeline.RunProgram(procedure, session.Symbols.Resolver, arguments!, token);
+            // the value is converted after the procedure has run, and a conversion can run more of the program (an object's Property Get): an End in it
+            // ends the invocation as an End in the procedure does.
             if (invocation is { IsSuccess: true, Result: { } value } && session.Halt.Pending is null && procedure is VBReturningMemberSymbol
-                && returned(value) is { } untaken)
+                && returned(value) is { } untaken && session.Halt.Pending is null)
             {
                 return Refusal(untaken, output);
             }
@@ -1262,9 +1264,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         }
     }
 
-    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's type):
-    // the program raised nothing, and nothing of it ends.
-    private static ExecuteResult Refusal(VBRuntimeErrorInfo error, RuntimeOutputBuffer output) => new()
+    // a run-time error met at the edge of an invocation, as MS-VBA raises one at a call (a named argument no parameter has, a value of no parameter's
+    // type), or raised by the code that taking its value runs (a Property Get of the object returned): nothing of the program ends.
+    private static ExecuteResult Refusal(IVBRaisableError error, RuntimeOutputBuffer output) => new()
     {
         Outcome = ExecutionOutcome.RuntimeError,
         Output = output.Lines,
