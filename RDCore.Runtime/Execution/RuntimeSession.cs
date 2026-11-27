@@ -364,14 +364,12 @@ internal sealed class SessionHalt : ISessionHalt
 }
 
 /// <summary>
-/// Tracks each live object's roots — the <see cref="IBindingHandle"/>s currently holding a reference
-/// to it. The reference count is the roots list's own <c>Count</c>, not a separately maintained
-/// integer: a second counter can only drift from the list it's supposed to mirror (and did — see the
-/// disabled consistency check this replaced), so the list is the single source of truth.
+/// Tracks each live object's roots: the <see cref="IBindingHandle"/>s currently holding a reference to it (<see cref="ObjectHolders"/>). The reference
+/// count is how many times they hold it, read from the holders themselves: a counter kept beside them could drift from them.
 /// </summary>
 internal sealed class SessionObjects : ISessionObjects
 {
-    private readonly Dictionary<VBRuntimeObjectId, List<IBindingHandle>> _roots = [];
+    private readonly Dictionary<VBRuntimeObjectId, ObjectHolders> _roots = [];
     private readonly HashSet<VBRuntimeObjectId> _terminating = [];
     private readonly Dictionary<VBRuntimeObjectId, List<EventSubscription>> _subscribers = [];
     private readonly List<Action<VBRuntimeObjectId>> _destroying = [];
@@ -418,7 +416,7 @@ internal sealed class SessionObjects : ISessionObjects
     public VBRuntimeObjectId CreateObject()
     {
         var id = new VBRuntimeObjectId();
-        _roots[id] = [];
+        _roots[id] = new ObjectHolders();
         return id;
     }
 
@@ -437,33 +435,11 @@ internal sealed class SessionObjects : ISessionObjects
             return 0;
         }
 
-        var held = IndexOfRoot(roots, handle);
-        if (held >= 0)
-        {
-            roots.RemoveAt(held);
-        }
-
+        roots.Remove(handle);
         return roots.Count;
     }
 
-    public bool IsHeldBy(VBRuntimeObjectId instance, IBindingHandle handle)
-        => _roots.TryGetValue(instance, out var roots) && IndexOfRoot(roots, handle) >= 0;
-
-    // a handle is a root by identity: handles are records, and two variables holding the same object compare equal by value while being two references.
-    // Searched without a predicate, which would be made for each reference counted, from the last: the cell that lets go of an object is
-    // most often the last that took it - a parameter, a local, a temporary.
-    private static int IndexOfRoot(List<IBindingHandle> roots, IBindingHandle handle)
-    {
-        for (var i = roots.Count - 1; i >= 0; i--)
-        {
-            if (ReferenceEquals(roots[i], handle))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
+    public bool IsHeldBy(VBRuntimeObjectId instance, IBindingHandle handle) => _roots.TryGetValue(instance, out var roots) && roots.Contains(handle);
 
     public int RefCount(VBRuntimeObjectId instance) => _roots.TryGetValue(instance, out var roots) ? roots.Count : 0;
 
