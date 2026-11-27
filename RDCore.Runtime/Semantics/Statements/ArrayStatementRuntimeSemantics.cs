@@ -442,9 +442,10 @@ public sealed record class ArrayStatementRuntimeSemantics(
         return Store(session, context, redim, target, isKnown ? resized : (VBArrayValue)resized.AsIndeterminate());
     }
 
-    // only the last dimension's upper bound moves, and the last subscript varies slowest (MS-VBAL §5.4.2.4.1), so an element still in the bounds is at
-    // the flat index it was at, and the kept ones are the first of either array. Each cell made is moved there; an element with no cell holds the default,
-    // as a cell the resized array makes holds it, unless the elements without one are not known: then each kept element is given its cell.
+    // only the last dimension's upper bound moves (MS-VBAL §5.4.3.3), and the elements are stored in the order MS-VBAL §5.4.2.4.1 enumerates them, the
+    // last subscript varying slowest, so an element still in the bounds is at the flat index it was at, and the kept ones are the first of either array.
+    // Each cell made is moved there; an element with no cell holds the default, as a cell the resized array makes holds it, unless the elements without
+    // one are not known: then each kept element is given its cell.
     private static void Kept(VBArrayValue array, VBArrayValue resized)
     {
         var kept = Math.Min(array.Length, resized.Length);
