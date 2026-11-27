@@ -25,18 +25,32 @@ namespace RDCore.LanguageServer.Services.Refactoring;
 
 public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, string? Other = null, Uri? Module = null, SourcePosition Position = default)
 {
+    // the document of the part of the module the position is in (RenameModule.Document), which a locator names it by; null where it is not known.
+    public Uri? Document { get; init; }
+
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
-        => RefactoringTitles.RenameRefusal(Kind, Name, Other, Module is null ? null : (locate ?? DefaultLocation)(Module, Position), culture);
+        => RefactoringTitles.RenameRefusal(
+            Kind, Name, Other, Module is null ? null : locate is null ? DefaultLocation(Module, Position) : locate(Document ?? Module, Position), culture);
 
     private static string DefaultLocation(Uri module, SourcePosition position)
         => $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
 }
 
 // a line label is no symbol: Symbols is empty, and the label is renamed in its procedure.
-public sealed record class RenameTarget(string Name, Uri Module, SourceRange Range, ImmutableArray<SemanticId> Symbols, bool IsLabel = false);
+public sealed record class RenameTarget(string Name, Uri Module, SourceRange Range, ImmutableArray<SemanticId> Symbols, bool IsLabel = false)
+{
+    // the document of the part of the module the range is in (RenameModule.Document); null where it is not known.
+    public Uri? Document { get; init; }
+}
 
 // MS-VBAL §6.1.2.8.1.1, §5.6.12
-public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false);
+// the document is that of the part of the module the range is in (RenameModule.Document); null where it is not known.
+public readonly record struct RenameEdit(
+    Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false, Uri? Document = null)
+{
+    // what names the part it edits (RenameModule.Key).
+    public string Key => RenameModule.KeyOf(Module, Document ?? Module);
+}
 
 public sealed record class RenamePreparation(RenameTarget? Target, RenameRefusal? Refusal);
 
@@ -59,15 +73,23 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 // MS-VBAL §5.6.10, §5.6.12
 public static class SymbolRename
 {
-    public static RenamePreparation Prepare(RenameContext context, Uri module, SourcePosition position)
+    // the document names the part of a module of parts (RD-VBAL §5.1) the position is in; null for the first part at the address. The target is of that part.
+    public static RenamePreparation Prepare(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } labelled
+        var source = context.Modules.FirstOrDefault(candidate => candidate.Is(module, document));
+        var prepared = PrepareIn(context, module, position, source);
+        return prepared.Target is { } target && source is not null ? prepared with { Target = target with { Document = source.Document } } : prepared;
+    }
+
+    private static RenamePreparation PrepareIn(RenameContext context, Uri module, SourcePosition position, RenameModule? source)
+    {
+        if (source is { } labelled
             && LabelRename.At(labelled, position) is { } label)
         {
             return new(new RenameTarget(label.Name, module, label.Here, [], IsLabel: true), null);
         }
 
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
+        if (source is null)
         {
             return new(null, new RenameRefusal(RenameRefusalKind.NoName, string.Empty));
         }
@@ -232,14 +254,15 @@ public static class SymbolRename
     // a Type and an Enum are module members; a module is the type of its class (MS-VBAL §5.2.3.3, §5.2.3.4, §5.2.4.1).
     private static bool IsType(Symbol symbol) => symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
 
-    public static IReadOnlyList<RenameTarget> TargetsIn(RenameContext context, Uri module, SourceRange range)
+    // the document names the part of a module of parts the range is in (RD-VBAL §5.1), as for Prepare.
+    public static IReadOnlyList<RenameTarget> TargetsIn(RenameContext context, Uri module, SourceRange range, Uri? document = null)
     {
         if (range.IsEmpty)
         {
-            return Prepare(context, module, range.Start).Target is { } here ? [here] : [];
+            return Prepare(context, module, range.Start, document).Target is { } here ? [here] : [];
         }
 
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } source)
         {
             return [];
         }
@@ -247,7 +270,7 @@ public static class SymbolRename
         var targets = new List<RenameTarget>();
         foreach (var start in NameOccurrences.DeclarationsIn(source, range))
         {
-            if (Prepare(context, module, start).Target is { } target && !targets.Any(offered => offered.Symbols.Intersect(target.Symbols).Any()))
+            if (Prepare(context, module, start, document).Target is { } target && !targets.Any(offered => offered.Symbols.Intersect(target.Symbols).Any()))
             {
                 targets.Add(target);
             }
@@ -310,7 +333,7 @@ public static class SymbolRename
         var inStrings = new List<NameOccurrence>();
         foreach (var unknown in old.Unknown)
         {
-            if (raisedNames.Any(raised => raised.Module.AbsoluteUri == unknown.Module?.AbsoluteUri && raised.Range.Start == unknown.Range.Start))
+            if (raisedNames.Any(raised => RenameModule.KeyOf(raised.Module, raised.Document) == unknown.Key && raised.Range.Start == unknown.Range.Start))
             {
                 continue;
             }
@@ -327,7 +350,10 @@ public static class SymbolRename
 
             if (unknown.Kind == OccurrenceKind.Member || symbols.Any(symbol => RenameBinding.ChainIndex(unknown.Scope, symbol) < int.MaxValue))
             {
-                return Refused(new(RenameRefusalKind.Unresolved, target.Name, Module: unknown.Module, Position: unknown.Range.Start));
+                return Refused(new(RenameRefusalKind.Unresolved, target.Name, Module: unknown.Module, Position: unknown.Range.Start)
+                {
+                    Document = unknown.Document,
+                });
             }
         }
 
@@ -341,7 +367,7 @@ public static class SymbolRename
             return Refused(conflict);
         }
 
-        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName))
+        var named = raisedNames.Select(raised => new RenameEdit(raised.Module, raised.Range, newName, Document: raised.Document))
             .Concat(DesignerEdits(context, symbols, newName)).ToList();
         if (BindingEdits(context, symbols, newName, named) is { } taken)
         {
@@ -349,19 +375,21 @@ public static class SymbolRename
         }
 
         var edits = renamed
-            .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
-            .OrderBy(occurrence => occurrence.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(occurrence => (occurrence.Key, occurrence.Range))
+            .OrderBy(occurrence => occurrence.Key, StringComparer.Ordinal)
             .ThenBy(occurrence => occurrence.Range.Start)
-            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName))
+            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, Document: occurrence.Document))
             .Concat(inStrings
-                .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
-                .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsInString: true)))
+                .DistinctBy(occurrence => (occurrence.Key, occurrence.Range))
+                .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsInString: true, Document: occurrence.Document)))
             .Concat(lateBound
-                .DistinctBy(site => (site.Occurrence.Module.AbsoluteUri, site.Occurrence.Range))
-                .Select(site => new RenameEdit(site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == RenameBinding.LateBoundMatch.Backed)))
+                .DistinctBy(site => (site.Occurrence.Key, site.Occurrence.Range))
+                .Select(site => new RenameEdit(
+                    site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == RenameBinding.LateBoundMatch.Backed,
+                    Document: site.Occurrence.Document)))
             .Concat(named)
-            .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
-            .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(edit => (edit.Key, edit.Range))
+            .OrderBy(edit => edit.Key, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start);
         return new([.. edits], null) { Control = UserFormControlOf(context, symbols) };
     }
@@ -380,41 +408,47 @@ public static class SymbolRename
             .FirstOrDefault(unknown => unknown.Kind is OccurrenceKind.Name && unknown.Scope is { } scope && RenameBinding.IsTheType(context, type, scope.Uri))
             is { Module: not null } unresolved)
         {
-            return Refused(new(RenameRefusalKind.Unresolved, type.Name, Module: unresolved.Module, Position: unresolved.Range.Start));
+            return Refused(new(RenameRefusalKind.Unresolved, type.Name, Module: unresolved.Module, Position: unresolved.Range.Start)
+            {
+                Document = unresolved.Document,
+            });
         }
 
         var sites = TypeSites(context, type, type.Name).ToList();
-        foreach (var (module, range, scope, isValue) in sites)
+        foreach (var (module, range, scope, isValue, document) in sites)
         {
             // where the type is named, the new name must mean nothing else: no other type, as near or nearer, and no value before a member of an Enum.
             var meant = context.Resolver.ResolveType(newName, ScopeKind.Local, scope.Uri).Symbol;
             if (meant is not null && meant.SemanticId != type.SemanticId && RenameBinding.ChainIndex(scope, meant) <= RenameBinding.ChainIndex(scope, type))
             {
-                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(meant), module, range.Start));
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(meant), module, range.Start) { Document = document });
             }
 
             if (isValue && context.Resolver.ResolveValue(newName, ScopeKind.Local, scope.Uri).Symbol is { } value)
             {
-                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(value), module, range.Start));
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(value), module, range.Start) { Document = document });
             }
         }
 
         // where the code names a type by the new name already, it must not mean this one once it is renamed.
-        foreach (var (module, range, scope, _) in TypeSites(context, type: null, newName))
+        foreach (var (module, range, scope, _, document) in TypeSites(context, type: null, newName))
         {
             var meant = context.Resolver.ResolveType(newName, ScopeKind.Local, scope.Uri).Symbol;
             var nearest = RenameBinding.ChainIndex(scope, type);
             if (nearest < int.MaxValue && (meant is null || nearest <= RenameBinding.ChainIndex(scope, meant)))
             {
-                return Refused(new(RenameRefusalKind.Conflict, newName, meant is null ? newName : NameOccurrences.Describe(meant), module, range.Start));
+                return Refused(new(RenameRefusalKind.Conflict, newName, meant is null ? newName : NameOccurrences.Describe(meant), module, range.Start)
+                {
+                    Document = document,
+                });
             }
         }
 
         return new([.. sites
-            .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
-            .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(site => (RenameModule.KeyOf(site.Module, site.Document ?? site.Module), site.Range))
+            .OrderBy(site => RenameModule.KeyOf(site.Module, site.Document ?? site.Module), StringComparer.Ordinal)
             .ThenBy(site => site.Range.Start)
-            .Select(site => new RenameEdit(site.Module, site.Range, newName))], null);
+            .Select(site => new RenameEdit(site.Module, site.Range, newName, Document: site.Document))], null);
     }
 
     // where a name is written as a type's: its declaration, an As clause, the qualifier of an Enum's member (a value's place). With no type, every place the
@@ -423,7 +457,8 @@ public static class SymbolRename
     private static bool IsDefaultInstanceOf(RenameContext context, SemanticId binding, Symbol type)
         => NameOccurrences.SymbolOf(context, binding) is VBPredeclaredInstanceSymbol { ClassModule: var predeclaring } && predeclaring.SemanticId == type.SemanticId;
 
-    private static IEnumerable<(Uri Module, SourceRange Range, LexicalScope Scope, bool IsValue)> TypeSites(RenameContext context, Symbol? type, string name)
+    private static IEnumerable<(Uri Module, SourceRange Range, LexicalScope Scope, bool IsValue, Uri? Document)> TypeSites(
+        RenameContext context, Symbol? type, string name)
     {
         bool Means(LexicalScope scope)
             => type is null
@@ -436,12 +471,12 @@ public static class SymbolRename
             {
                 if (type is not null && (binding == type.SemanticId || IsDefaultInstanceOf(context, binding, type)))
                 {
-                    yield return (occurrence.Module, occurrence.Range, occurrence.Scope, occurrence.Kind is OccurrenceKind.Name);
+                    yield return (occurrence.Module, occurrence.Range, occurrence.Scope, occurrence.Kind is OccurrenceKind.Name, occurrence.Document);
                 }
             }
             else if (occurrence.Kind is OccurrenceKind.Name && occurrence.Scope is { } scope && Means(scope))
             {
-                yield return (occurrence.Module, occurrence.Range, scope, true);
+                yield return (occurrence.Module, occurrence.Range, scope, true, occurrence.Document);
             }
         }
 
@@ -452,7 +487,7 @@ public static class SymbolRename
                 var scope = NameOccurrences.ScopeOf(context, source, range.Start);
                 if (string.Equals(written, name, StringComparison.OrdinalIgnoreCase) && Means(scope))
                 {
-                    yield return (source.Module, range, scope, false);
+                    yield return (source.Module, range, scope, false, source.Document);
                 }
             }
         }
@@ -532,7 +567,10 @@ public static class SymbolRename
             if (nearest < int.MaxValue && NameOccurrences.SymbolOf(context, occurrence.Binding!.Value) is { } meant
                 && nearest <= RenameBinding.ChainIndex(occurrence.Scope, meant))
             {
-                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(meant), occurrence.Module, occurrence.Range.Start));
+                return Refused(new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(meant), occurrence.Module, occurrence.Range.Start)
+                {
+                    Document = occurrence.Document,
+                });
             }
         }
 
@@ -562,8 +600,8 @@ public static class SymbolRename
         }
 
         return new([.. edits
-            .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
-            .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(edit => (edit.Key, edit.Range))
+            .OrderBy(edit => edit.Key, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start)], null) { Module = module.Uri };
     }
 
@@ -587,7 +625,9 @@ public static class SymbolRename
             .Where(occurrence => occurrence.Binding is { } binding && accessors.Contains(binding)))
         {
             var start = occurrence.Range.Start;
-            edits.Add(new RenameEdit(occurrence.Module, new SourceRange(start.Line, start.Character + offset, start.Line, start.Character + offset + length), part));
+            edits.Add(new RenameEdit(
+                occurrence.Module, new SourceRange(start.Line, start.Character + offset, start.Line, start.Character + offset + length), part,
+                Document: occurrence.Document));
         }
 
         return null;
@@ -640,22 +680,25 @@ public static class SymbolRename
         => context.Modules.Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module))).OfType<VBClassModuleSymbol>();
 
     // the names the RaiseEvent statements of its class write, which mean a renamed event (MS-VBAL §5.4.2.20).
-    private static IEnumerable<(Uri Module, SourceRange Range)> RaisedNamesOf(RenameContext context, IReadOnlyList<Symbol> symbols)
+    // in each part of the class (RD-VBAL §5.1), with the document of the part.
+    private static IEnumerable<(Uri Module, SourceRange Range, Uri Document)> RaisedNamesOf(RenameContext context, IReadOnlyList<Symbol> symbols)
     {
         foreach (var raised in symbols.OfType<VBEventMemberSymbol>())
         {
             var at = NameOccurrences.ModuleOf(raised.Uri);
-            if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
-                || NameOccurrences.SymbolOf(context, new SemanticId(raised.ParentUri)) is not VBClassModuleSymbol owner)
+            if (NameOccurrences.SymbolOf(context, new SemanticId(raised.ParentUri)) is not VBClassModuleSymbol owner)
             {
                 continue;
             }
 
-            foreach (var (name, range) in RaisedNames(source))
+            foreach (var source in context.Modules.Where(candidate => candidate.Is(at, null)))
             {
-                if (owner.FindEvent(name)?.SemanticId == raised.SemanticId)
+                foreach (var (name, range) in RaisedNames(source))
                 {
-                    yield return (source.Module, range);
+                    if (owner.FindEvent(name)?.SemanticId == raised.SemanticId)
+                    {
+                        yield return (source.Module, range, source.Document);
+                    }
                 }
             }
         }
@@ -776,7 +819,7 @@ public static class SymbolRename
             return Refused(new(RenameRefusalKind.Reserved, newName));
         }
 
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == target.Module.AbsoluteUri) is not { } source
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(target.Module, target.Document)) is not { } source
             || LabelRename.At(source, target.Range.Start) is not { } label)
         {
             return Refused(new(RenameRefusalKind.NoName, string.Empty));
@@ -784,11 +827,12 @@ public static class SymbolRename
 
         if (label.Others.FirstOrDefault(other => string.Equals(other.Name, newName, StringComparison.OrdinalIgnoreCase)) is { Name: { } taken } conflict)
         {
-            return Refused(new(RenameRefusalKind.Conflict, newName, $"{taken}:", target.Module, conflict.At));
+            return Refused(new(RenameRefusalKind.Conflict, newName, $"{taken}:", target.Module, conflict.At) { Document = source.Document });
         }
 
         // a name written in brackets stays in brackets.
-        return new([.. label.Occurrences.Select(name => new RenameEdit(target.Module, name.Range, name.IsBracketed ? $"[{newName}]" : newName))], null);
+        return new([.. label.Occurrences.Select(name => new RenameEdit(
+            target.Module, name.Range, name.IsBracketed ? $"[{newName}]" : newName, Document: source.Document))], null);
     }
 
     private static bool IsOwnProject(Symbol symbol) => symbol is VBProjectSymbol && symbol.GetProperty(SymbolProperties.Library) is null;
@@ -828,8 +872,8 @@ public static class SymbolRename
 
         var qualifiers = NameOccurrences.Find(context, project.Name, context.Modules).Occurrences
             .Where(occurrence => occurrence.Binding == project.SemanticId && occurrence.Kind is not OccurrenceKind.Declaration)
-            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName));
-        return new([.. qualifiers.OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal).ThenBy(edit => edit.Range.Start)], null) { Project = project.Name };
+            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, Document: occurrence.Document));
+        return new([.. qualifiers.OrderBy(edit => edit.Key, StringComparer.Ordinal).ThenBy(edit => edit.Range.Start)], null) { Project = project.Name };
     }
 
     // a control is named in its form's designer block too: a Visual Basic 6.0 form's is the module's text, where the rename edits it; a UserForm's

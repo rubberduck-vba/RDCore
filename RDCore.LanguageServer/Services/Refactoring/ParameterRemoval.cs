@@ -57,9 +57,12 @@ public sealed record class ParameterRemovalRefusal(ParameterRemovalRefusalKind K
 {
     private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Refactoring.ParameterRemovalMessages", typeof(ParameterRemovalRefusal).Assembly);
 
+    // the document of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document), which a locator names it by; null where it is not known.
+    public Uri? Document { get; init; }
+
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
     {
-        var where = Module is null ? string.Empty : (locate ?? DefaultLocation)(Module, Position);
+        var where = Module is null ? string.Empty : locate is null ? DefaultLocation(Module, Position) : locate(Document ?? Module, Position);
         var format = Messages.GetString($"RemoveParameter_{Kind}", culture ?? CultureInfo.CurrentUICulture) ?? Kind.ToString();
         return string.Format(culture ?? CultureInfo.CurrentUICulture, format, Name, Other, where);
     }
@@ -72,7 +75,11 @@ public sealed record class ParameterRemovalRefusal(ParameterRemovalRefusalKind K
 }
 
 // the parameter at a position: the procedure it is a parameter of, and where it is in its list.
-public sealed record class ParameterRemovalTarget(string Name, Uri Module, SourceRange Range, SemanticId Procedure, int Index);
+public sealed record class ParameterRemovalTarget(string Name, Uri Module, SourceRange Range, SemanticId Procedure, int Index)
+{
+    // the document of the part of the module the range is in (RD-VBAL §5.1, RenameModule.Document); null where it is not known.
+    public Uri? Document { get; init; }
+}
 
 public sealed record class ParameterRemovalPlan(ImmutableArray<RenameEdit> Edits, ParameterRemovalRefusal? Refusal)
 {
@@ -83,9 +90,11 @@ public sealed record class ParameterRemovalPlan(ImmutableArray<RenameEdit> Edits
 // would change what the code does is refused: a use of the parameter, an argument whose evaluation does something, a call the edit cannot find.
 public static class ParameterRemoval
 {
-    public static (ParameterRemovalTarget? Target, ParameterRemovalRefusal? Refusal) Prepare(RenameContext context, Uri module, SourcePosition position)
+    // the document names the part of a module of parts (RD-VBAL §5.1) the position is in; null for the first part at the address.
+    public static (ParameterRemovalTarget? Target, ParameterRemovalRefusal? Refusal) Prepare(
+        RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(module, document)) is not { } source
             || NameOccurrences.NameAt(source, position) is not { } name)
         {
             return (null, new(ParameterRemovalRefusalKind.NoParameter, string.Empty));
@@ -100,7 +109,7 @@ public static class ParameterRemoval
             return (null, new(ParameterRemovalRefusalKind.NoParameter, name));
         }
 
-        return (new ParameterRemovalTarget(parameter.Name, module, here.Range, procedure.SemanticId, index), null);
+        return (new ParameterRemovalTarget(parameter.Name, module, here.Range, procedure.SemanticId, index) { Document = source.Document }, null);
     }
 
     public static ParameterRemovalPlan Plan(RenameContext context, ParameterRemovalTarget target)
@@ -136,8 +145,8 @@ public static class ParameterRemoval
         }
 
         return new([.. edits
-            .DistinctBy(edit => (edit.Module.AbsoluteUri, edit.Range))
-            .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(edit => (edit.Key, edit.Range))
+            .OrderBy(edit => edit.Key, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start)], null);
     }
 
@@ -218,8 +227,7 @@ public static class ParameterRemoval
         }
 
         var parameter = parameters[index];
-        var at = NameOccurrences.ModuleOf(member.Uri);
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is not { } source
+        if (context.PartOf(member) is not { } source
             || DeclarationOf(source, parameter) is not { } declaration)
         {
             return new(ParameterRemovalRefusalKind.NotDeclaredByWorkspace, member.Name);
@@ -235,17 +243,20 @@ public static class ParameterRemoval
         if (named.Occurrences.FirstOrDefault(occurrence => occurrence.Binding == parameter.SemanticId && occurrence.Kind is not OccurrenceKind.Declaration)
             is { Module: not null } use)
         {
-            return new(ParameterRemovalRefusalKind.Used, parameter.Name, Module: use.Module, Position: use.Range.Start);
+            return new(ParameterRemovalRefusalKind.Used, parameter.Name, Module: use.Module, Position: use.Range.Start) { Document = use.Document };
         }
 
         if (named.Unknown.FirstOrDefault(unknown => unknown.Kind is OccurrenceKind.Name && SymbolRename.Contains(declaration.Procedure.SourceLocation.Range, unknown.Range.Start))
             is { Module: not null } unresolved)
         {
-            return new(ParameterRemovalRefusalKind.Unresolved, parameter.Name, Module: unresolved.Module, Position: unresolved.Range.Start);
+            return new(ParameterRemovalRefusalKind.Unresolved, parameter.Name, Module: unresolved.Module, Position: unresolved.Range.Start)
+            {
+                Document = unresolved.Document,
+            };
         }
 
         var list = declaration.Procedure.ParameterListRange!.Value;
-        edits.Add(EditOf(source.Module, ListEdits.RemoveItem(source.Source, Inside(list), index)));
+        edits.Add(EditOf(source, ListEdits.RemoveItem(source.Source, Inside(list), index)));
         return CallEdits(context, member, parameter, index, edits);
     }
 
@@ -259,8 +270,8 @@ public static class ParameterRemoval
             {
                 CallProblemKind.CalledByName => new(ParameterRemovalRefusalKind.CalledByName, parameter.Name, member.Name, missed.Module, missed.Position),
                 CallProblemKind.LateBound => new(ParameterRemovalRefusalKind.LateBound, parameter.Name, member.Name, missed.Module, missed.Position),
-                _ => new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: missed.Module, Position: missed.Position),
-            };
+                _ => new ParameterRemovalRefusal(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: missed.Module, Position: missed.Position),
+            } with { Document = missed.Document };
         }
 
         foreach (var (source, callee, call, bindingOf) in sites)
@@ -276,19 +287,22 @@ public static class ParameterRemoval
             var argument = call.Arguments[removed] is NamedArgumentNode { Value: var value } ? value : call.Arguments[removed];
             if (!IsInert(context, argument, bindingOf))
             {
-                return new(ParameterRemovalRefusalKind.Evaluated, parameter.Name, Module: source.Module, Position: argument.Location.Range.Start);
+                return new(ParameterRemovalRefusalKind.Evaluated, parameter.Name, Module: source.Module, Position: argument.Location.Range.Start)
+                {
+                    Document = source.Document,
+                };
             }
 
             if (call.List is not { } list)
             {
-                return new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee);
+                return new(ParameterRemovalRefusalKind.Unresolved, member.Name, Module: source.Module, Position: callee) { Document = source.Document };
             }
 
             // a call left with no argument loses its parentheses (F (a), Call F(a), x = F(a)): F () is not a statement.
             var leftEmpty = !ListEdits.ItemsOf(source.Source, list).Where((item, at) => at != removed && item.End != item.Start).Any();
             edits.Add(leftEmpty && call.Parentheses is { } parentheses
-                ? new RenameEdit(source.Module, parentheses, string.Empty)
-                : EditOf(source.Module, ListEdits.RemoveItem(source.Source, list, removed)));
+                ? new RenameEdit(source.Module, parentheses, string.Empty, Document: source.Document)
+                : EditOf(source, ListEdits.RemoveItem(source.Source, list, removed)));
         }
 
         return null;
@@ -305,7 +319,7 @@ public static class ParameterRemoval
             {
                 if (RenameBinding.IsCalledBy(context, [member], unknown))
                 {
-                    return ([], new(CallProblemKind.CalledByName, unknown.Module, unknown.Range.Start));
+                    return ([], new(CallProblemKind.CalledByName, unknown.Module, unknown.Range.Start, unknown.Document));
                 }
 
                 continue;
@@ -313,22 +327,22 @@ public static class ParameterRemoval
 
             if (unknown.Kind is OccurrenceKind.Member || RenameBinding.ChainIndex(unknown.Scope, member) < int.MaxValue)
             {
-                return ([], new(CallProblemKind.Unresolved, unknown.Module, unknown.Range.Start));
+                return ([], new(CallProblemKind.Unresolved, unknown.Module, unknown.Range.Start, unknown.Document));
             }
         }
 
         if (found.Occurrences.FirstOrDefault(occurrence => RenameBinding.LateBoundMatchOf(context, [member], occurrence) != RenameBinding.LateBoundMatch.None)
             is { Module: not null } lateBound)
         {
-            return ([], new(CallProblemKind.LateBound, lateBound.Module, lateBound.Range.Start));
+            return ([], new(CallProblemKind.LateBound, lateBound.Module, lateBound.Range.Start, lateBound.Document));
         }
 
         var sites = new List<CallSite>();
         foreach (var group in found.Occurrences
             .Where(occurrence => occurrence.Binding == member.SemanticId && occurrence.Kind is OccurrenceKind.Name or OccurrenceKind.Member && occurrence.Node is not null)
-            .GroupBy(occurrence => occurrence.Module.AbsoluteUri))
+            .GroupBy(occurrence => occurrence.Key))
         {
-            var source = context.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key);
+            var source = context.Modules.First(candidate => candidate.Key == group.Key);
             var calls = CallsIn(source);
             var bindingOf = NameOccurrences.BindingsOf(context, source);
             foreach (var occurrence in group)
@@ -375,7 +389,8 @@ public static class ParameterRemoval
     }
 
     // a place where an edit of the calls to a procedure could miss one.
-    internal sealed record class CallProblem(CallProblemKind Kind, Uri Module, SourcePosition Position);
+    // the document is that of the part of the module the position is in (RD-VBAL §5.1, RenameModule.Document); null where it is not known.
+    internal sealed record class CallProblem(CallProblemKind Kind, Uri Module, SourcePosition Position, Uri? Document = null);
 
     // the calls of a module, by the node that names what they call: a name, or the member of a member access.
     private static Dictionary<SyntaxNode, Call> CallsIn(RenameModule source)
@@ -441,7 +456,8 @@ public static class ParameterRemoval
         return null;
     }
 
-    internal static RenameEdit EditOf(Uri module, SDK.Platform.Protocol.RefactorTextEdit edit) => new(module, edit.Range, edit.NewText);
+    internal static RenameEdit EditOf(RenameModule source, SDK.Platform.Protocol.RefactorTextEdit edit)
+        => new(source.Module, edit.Range, edit.NewText, Document: source.Document);
 
     // the parameters a procedure's declaration writes, in order: a class member's implicit Me, its parameter 0, is none of them.
     internal static ImmutableArray<VBParameterSymbol> ParametersOf(Symbol symbol)

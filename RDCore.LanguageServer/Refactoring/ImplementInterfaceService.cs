@@ -116,7 +116,8 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
     private async Task<Planned?> PlannedAsync(Uri documentUri, SourceRange range, CancellationToken token)
     {
         if (await rename.ComposeAsync(token) is not { } workspace
-            || workspace.DocumentOf(documentUri) is not ({ } part, { } module)
+            || workspace.DocumentAt(documentUri, new OmniSharp.Extensions.LanguageServer.Protocol.Models.Position(range.Start.Line, range.Start.Character))
+                is not ({ } part, { } module)
             || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
             || part.Context.Modules.FirstOrDefault(candidate => candidate.Key == module.Key) is not { } source)
         {

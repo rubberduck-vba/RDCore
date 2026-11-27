@@ -105,7 +105,9 @@ public sealed class InterfaceCallReferencesTests
         => Described(context, SymbolLenses.ReferencesOf(context, ModuleUri(module), At(context, module, line, text)));
 
     private static string[] ReferencesOf(RenameContext context, string module, string line, string text, bool includeDeclaration = true)
-        => Described(context, Found(SymbolNavigation.ReferencesAt, context, module, line, text, includeDeclaration).Sites);
+        => Described(context, Found(
+            (at, module, position, declared) => SymbolNavigation.ReferencesAt(at, module, position, declared),
+            context, module, line, text, includeDeclaration).Sites);
 
     private static SymbolNavigationTarget Found(Func<RenameContext, Uri, SourcePosition, bool, SymbolNavigationTarget?> navigate, RenameContext context,
         string module, string line, string text, bool includeDeclaration = true)
