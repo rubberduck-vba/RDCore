@@ -205,7 +205,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
-            Declarations = DeclarationUsage.Of(
+            // the module's, as its parts make them (ModuleAssembly): an option that one part states holds in the code of every part.
+            Directives = module is VBModuleSymbol { Directives: var directives } ? directives : null,
+            Declarations =DeclarationUsage.Of(
                 declared, procedureModels,
                 module is VBClassModuleSymbol classModule ? MemberRoles.BindingsOf(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
                 symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, session.Symbols.Scopes, module.Uri), byRefArguments, declarationFacts,
