@@ -1,7 +1,7 @@
 # Bâtir sur RDCore
 <sup>_This document is available in [English](building-on-rdcore.html)_</sup>
 
-Cette page s'adresse aux contributeurs, et à quiconque crée une extension ou un client sur la plateforme. Pour utiliser RDCore, voyez [Démarrage](getting-started.fr.md).
+Cette page traite de la contribution à RDCore, de la compilation de la plateforme, et de l'écriture d'une extension ou d'un client pour celle-ci. Pour utiliser RDCore, voyez [Démarrage](getting-started.fr.md).
 
 ---
 ## Contribuer
