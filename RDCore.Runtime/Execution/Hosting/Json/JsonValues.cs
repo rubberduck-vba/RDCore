@@ -16,7 +16,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace RDCore.Runtime.Execution.Hosting;
+namespace RDCore.Runtime.Execution.Hosting.Json;
 
 // the JSON value of a value of the language, and the value of the language a JSON value is, for a parameter of a declared type: what a program invoked by
 // name is given as its arguments, and gives back as its result.
