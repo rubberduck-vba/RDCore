@@ -212,6 +212,30 @@ public sealed class ModuleAssemblyTests
         Assert.IsTrue(Single(modules, "Helpers").Directives.PrivateModule);
     }
 
+    // MS-VBAL §5.2.1: a module of parts has one set of options, which one part states for the code of every part, whichever part it is.
+    [TestMethod]
+    [DataRow("Option Base 1", false, DisplayName = "Option Base, stated in the plain part")]
+    [DataRow("Option Base 1", true, DisplayName = "Option Base, stated in the Partial part")]
+    [DataRow("Option Compare Text", true, DisplayName = "Option Compare, stated in the Partial part")]
+    [DataRow("Option Explicit", true, DisplayName = "Option Explicit, stated in the Partial part")]
+    [DataRow("Option Private Module", true, DisplayName = "Option Private Module, stated in the Partial part")]
+    public void TheOptionsOfAModuleOfParts_AreWhatAnyOfItsPartsStates(string option, bool inThePartialPart)
+    {
+        var plain = $"Attribute VB_Name = \"Helpers\"|{(inThePartialPart ? string.Empty : option)}|Public Sub Add(ParamArray values())|End Sub";
+        var partial = $"Partial Module Helpers|{(inThePartialPart ? option : string.Empty)}|Public Sub Report()|End Sub|End Module";
+
+        var (modules, refused) = ModuleAssembly.Of(
+            [.. PartsOf(First, "Helpers", ModuleType.StdModule, plain), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)]);
+
+        Assert.IsEmpty(refused);
+        var stated = PartsOf(First, "Helpers", ModuleType.StdModule, $"Attribute VB_Name = \"Helpers\"|{option}").Single()
+            .Parse.SyntaxTree.GetModuleDirectives();
+        var directives = Single(modules, "Helpers").Directives;
+        Assert.AreNotEqual(ModuleDirectives.None, stated, "the option is stated");
+        Assert.AreEqual((stated.Base, stated.Compare, stated.Explicit, stated.PrivateModule),
+            (directives.Base, directives.Compare, directives.Explicit, directives.PrivateModule));
+    }
+
     // the module of a file, and of a block, that is the only part of its name keeps its parse, and a file's has the directives its tree states.
     [TestMethod]
     [DataRow("Attribute VB_Name = \"Account\"|Option Explicit|Option Private Module|Option Base 1", ModuleType.StdModule, DisplayName = "a standard module")]
