@@ -6,7 +6,7 @@ namespace RDCore.Runtime.Execution.External;
 /// The one policy the platform ships with: whether a <c>Declare</c>'d library import may be called at all.
 /// </summary>
 /// <remarks>
-/// 🎯 Reads <c>IRuntimeEnvironmentProfile.AllowDllImports</c>, which an administrator sets and a workspace
+/// 🎯 Reads the rule of <c>LibraryImports</c> in <c>IRuntimeEnvironmentProfile.ExecutionPolicy</c>, which an administrator sets and a workspace
 /// cannot. It is deliberately blunt — every library import or none — because it is the answer that needs no
 /// extension installed to work, and because the refusal path has to be exercisable on a platform where
 /// nobody has written a policy yet.
@@ -25,7 +25,7 @@ public sealed class DllImportPolicyInterceptor : IExternalCallInterceptor
 {
     /// <inheritdoc/>
     public ExternalCallDecision Intercept(ExternalCallRequest request, IRuntimeSession session)
-        => request.IsLibraryImport && !session.Environment.AllowDllImports
+        => request.IsLibraryImport && session.Environment.ExecutionPolicy.LibraryImports.Refuses
             ? ExternalCallDecision.Block("library imports are disabled for this environment")
             : ExternalCallDecision.Allow;
 }
