@@ -214,7 +214,7 @@ internal sealed class ProgramDebugAdapter(
     private int ToLine(long clientLine) => (int)(_linesStartAt1 ? clientLine - 1 : clientLine);
 
     // the module a line of a file is in: the block that holds it, or the file's own.
-    private static string ModuleAt(DebugFile file, int line) => file.NameOf(file.Document.ModuleAt(new SourcePosition(line, 0)));
+    private static string ModuleAt(RDCoreDocument file, int line) => file.NameOf(file.ModuleAt(new SourcePosition(line, 0)))!;
 
     // a file is named as the client named it when it has: the same file, written as the workspace has it, may not be one the client recognizes.
     private Source? SourceOf(string module)
@@ -390,7 +390,7 @@ internal sealed class ProgramDebugAdapter(
         // has its breakpoints cleared. Each answers for its own, which are put back in the order they were asked for.
         var set = new DebugBreakpoint[requested.Length];
         var modules = requested.Select(breakpoint => ModuleAt(file, breakpoint.Line)).ToArray();
-        foreach (var module in file.Modules)
+        foreach (var module in file.ModuleUris.Select(address => file.NameOf(address)!))
         {
             var at = Enumerable.Range(0, requested.Length).Where(index => string.Equals(modules[index], module, StringComparison.Ordinal)).ToArray();
             var result = await debugging.SetBreakpointsAsync(module, [.. at.Select(index => requested[index])], cancellationToken);

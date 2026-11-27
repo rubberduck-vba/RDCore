@@ -67,12 +67,13 @@ public sealed class ProgramDebugAdapterTests
                 return true;
             });
             Workspace.TryGetPath(Arg.Is<string>(name => name != "Prog"), out Arg.Any<string>()).Returns(false);
-            Workspace.TryGetFile(Path, out Arg.Any<DebugFile?>()).Returns(call =>
+            // Prog.bas, a file of one module named by the file.
+            Workspace.TryGetFile(Path, out Arg.Any<RDCoreDocument?>()).Returns(call =>
             {
-                call[1] = new DebugFile("Prog", new RDCoreDocument(FileUri, new ModuleParseResult()));
+                call[1] = new RDCoreDocument(FileUri, new ModuleParseResult());
                 return true;
             });
-            Workspace.TryGetFile(Arg.Is<string>(path => path != Path), out Arg.Any<DebugFile?>()).Returns(false);
+            Workspace.TryGetFile(Arg.Is<string>(path => path != Path), out Arg.Any<RDCoreDocument?>()).Returns(false);
             Debugging.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
                 .Returns(call => Task.FromResult(new DebugBreakpointsResult
                 {
@@ -474,10 +475,9 @@ public sealed class ProgramDebugAdapterTests
     public async Task ABreakpoint_InAFileOfBlocks_IsSetInTheModuleWhoseLinesHoldIt()
     {
         await using var session = new Session();
-        session.Workspace.TryGetFile(Path, out Arg.Any<DebugFile?>()).Returns(call =>
+        session.Workspace.TryGetFile(Path, out Arg.Any<RDCoreDocument?>()).Returns(call =>
         {
-            call[1] = new DebugFile("Prog",
-                new RDCoreDocument(FileUri, new ModuleParseResult { BlockModules = [Block("Helpers", 10, 20), Block("Account", 30, 40)] }));
+            call[1] = new RDCoreDocument(FileUri, new ModuleParseResult { BlockModules = [Block("Helpers", 10, 20), Block("Account", 30, 40)] });
             return true;
         });
         await session.StartAsync();
