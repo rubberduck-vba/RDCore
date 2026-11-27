@@ -354,6 +354,15 @@
   <data name="JsonValues_MemberEnded_Verbose" xml:space="preserve">
     <value>The program ended while the object's member '{0}' was read.</value>
   </data>
+  <data name="JsonValues_MemberGivenEnded_Verbose" xml:space="preserve">
+    <value>The program ended while the object's member '{0}' was given its value.</value>
+  </data>
+  <data name="JsonValues_InitializeEnded_Verbose" xml:space="preserve">
+    <value>The program ended while an object of the class '{0}' was initialized.</value>
+  </data>
+  <data name="JsonValues_KeyGivenTwice_Verbose" xml:space="preserve">
+    <value>The keys '{0}' and '{1}' name the same member of the class '{2}'.</value>
+  </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed.</value>
   </data>

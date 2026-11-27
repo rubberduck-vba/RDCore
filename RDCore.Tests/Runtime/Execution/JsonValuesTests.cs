@@ -78,9 +78,9 @@ public sealed class JsonValuesTests
     }
 
     // reads json as the declared type in a session where nothing runs.
-    private static (VBRuntimeErrorInfo? Error, VBTypedValue? Value) Value(string json, Func<IRuntimeSession, VBType> declared)
+    private static (IVBRaisableError? Error, VBTypedValue? Value) Value(string json, Func<IRuntimeSession, VBType> declared)
     {
-        (VBRuntimeErrorInfo?, VBTypedValue?) read = default;
+        (IVBRaisableError?, VBTypedValue?) read = default;
         RuntimeSourceHarness.Run(fileSystem: null, [], output: null, standardLibrary: true, session =>
         {
             var error = new JsonValues(session, session.Symbols.Resolver).FromJson(JsonNode.Parse(json), declared(session), out var value);
@@ -123,9 +123,10 @@ public sealed class JsonValuesTests
             Read("""{"a":1,"A":"x","n":null}""", 
                 body: "Debug.Print TypeName(V) & \" \" & V.Count & \" \" & V.CompareMode & \" \" & V(\"a\") & \" \" & V(\"A\") & \" \" & IsNull(V(\"n\"))"));
 
-    // a. what an Object or a Dictionary is declared to hold, and no other class.
+    // a. what an Object or a Dictionary is declared to hold, and no other class of a library: a class of the workspace is a New object of it
+    // (JsonInstancesTests).
     [TestMethod]
-    public void AJsonObject_IsADictionaryForAnObject_AndATypeMismatchForAnotherClass()
+    public void AJsonObject_IsADictionaryForAnObject_AndATypeMismatchForAnotherLibraryClass()
     {
         Assert.IsFalse(((VBObjectValue)Converted("""{"a":1}""", VBObjectType.TypeInfo)).IsNothing());
 

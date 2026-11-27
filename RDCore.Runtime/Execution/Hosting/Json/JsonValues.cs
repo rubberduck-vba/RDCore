@@ -31,7 +31,8 @@ namespace RDCore.Runtime.Execution.Hosting.Json;
 //   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 13 in an array or a UDT, 94 in any other type (MS-VBAL
 //                          §5.5.1.2.10; a fixed-size array is not a let target, for null as for any value).
 //   Collection             an array of its members.
-//   an instance            of a class of the workspace: an object of its public members, read as CallByName reads them (JsonValues.Instances.cs).
+//   an instance            of a class of the workspace: an object of its public members, read as CallByName reads them (JsonValues.Instances.cs); a
+//                          JSON object is a New object of the class, given each key's value as CallByName gives a member one.
 //                          Any other object is 13.
 //   a number in a Variant  what a literal of the same digits is (MS-VBAL §3.3.2): Integer, then Long, then Double past Long's magnitude; with a fraction or
 //                          an exponent, Double.
@@ -67,8 +68,9 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
         }
     }
 
-    // the value of the declared type that json is; the error it is instead, when it is none.
-    public VBRuntimeErrorInfo? FromJson(JsonNode? json, VBType declared, out VBTypedValue? value)
+    // the value of the declared type that json is; the error it is instead, when it is none, or the error a member it gives a value to raised, as the
+    // member raised it.
+    public IVBRaisableError? FromJson(JsonNode? json, VBType declared, out VBTypedValue? value)
     {
         value = null;
         try
@@ -79,6 +81,10 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
         catch (Refused refused)
         {
             return VBRuntimeErrorInfo.For(refused.Error, default, refused.Message);
+        }
+        catch (Raised raised)
+        {
+            return raised.Error;
         }
     }
 
@@ -193,6 +199,7 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
         {
             null => VBObjectValue.Nothing,
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
+            JsonObject record when declared is VBClassType { Symbol: var classModule } && IsWorkspaceClass(classModule) => Instance(record, classModule),
             _ => throw Mismatch(Verbose(Exceptions.JsonValues_KindNotType_Verbose, KindOf(json), declared.Name)),
         },
         // MS-VBAL §5.2.3.4: a member of an enumeration is a Long.
