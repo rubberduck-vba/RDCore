@@ -51,8 +51,9 @@ public sealed class BlockModulesNavigationTests
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
+    // a workspace that allows blocks in a module file.
     private readonly IOptions<SdkAppOptions> _options
-        = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba", FileLevelStatements = true } });
 
     public BlockModulesNavigationTests()
     {
@@ -61,12 +62,13 @@ public sealed class BlockModulesNavigationTests
         _documents.GetAllDocuments().Returns([backup]);
         _documents.IsOpen(Arg.Any<TextDocumentIdentifier>()).Returns(true);
         var uri = backup.Id.Uri.ToUri();
-        var parse = new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(backup));
+        var parser = new ModuleParser(workspaceOptions: Options.Create(_options.Value.Workspace));
+        var parse = parser.Parse(uri, ParsingClientService.ModuleSourceOf(backup));
         _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = backup; return true; });
         _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(parse));
         _parsing.TryGetCached(uri, out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+            .Returns(call => Task.FromResult(parser.Parse(call.Arg<Uri>(), call.Arg<string>())));
     }
 
     private static readonly Uri Document = DocumentUri.From(Path.Combine(Root, "Backup.bas")).ToUri();

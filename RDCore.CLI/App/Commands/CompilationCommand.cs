@@ -52,7 +52,7 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
             try
             {
                 workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? parsed.Value.Path!, token,
-                    ansiCodePage: runner.Environment.AnsiCodePage);
+                    ansiCodePage: runner.Environment.AnsiCodePage, workspace: runner.Workspace);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
             {

@@ -92,11 +92,12 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         }
     }
 
-    // the source of a document a test gives one, as it is parsed; any other is the module the test names, with a Sub Main.
+    // the source of a document a test gives one, as it is parsed in a workspace that allows blocks in a module file; any other is the module the test
+    // names, with a Sub Main.
     private readonly Dictionary<Uri, string> _sources = [];
 
-    private ModuleParseResult Parse(Uri uri)
-        => new ModuleParser().Parse(uri, _sources.TryGetValue(uri, out var source) ? source : $"Attribute VB_Name = \"{_declaredName}\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+    private ModuleParseResult Parse(Uri uri) => FileLevelStatementsOn.Parser()
+        .Parse(uri, _sources.TryGetValue(uri, out var source) ? source : $"Attribute VB_Name = \"{_declaredName}\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
 
     // a document of the workspace, listed with the source it is parsed as.
     private void List(string name, string folder, string body, string header = "")

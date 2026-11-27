@@ -4,11 +4,19 @@ This section corresponds to [**MS-VBAL §5.1** Module Body Structure](https://le
 
 ## Several modules in one file
 
-MS-VBAL defines the body of one module (`procedural-module-body`, `class-module-body`). **RD-VBA addition**, in every dialect: a source file may also
-declare modules in blocks, each with a body of its own. What is outside every block is the file's own module.
+MS-VBAL defines the body of one module (`procedural-module-body`, `class-module-body`). **RD-VBA addition**, where a file may have statements outside
+its procedures: a source file may also declare modules in blocks, each with a body of its own. What is outside every block is the file's own module.
+
+|File|Has blocks|
+|---|---|
+|A `.vbs`, in any workspace|Always.|
+|A module of a VBA or VB6 workspace|Only with the `Workspace.FileLevelStatements` setting on. Without it, a block's header and end lines are lines of the file's own module, and a syntax error there, as in MS-VBA.|
+
+With the setting on, a VBA or VB6 module is a script, and has a `(Script)` entry point, only when it writes a statement outside its procedures; a class
+module never is one. A `.vbs` is always a script.
 
 ```vb
-' Backup.bas: the file's own module, and two modules declared in blocks
+' Backup.bas, the FileLevelStatements setting on: the file's own module, and two modules declared in blocks
 Public Sub Main()
     Logger.Log "start"
 End Sub
@@ -56,8 +64,7 @@ End Class
 
 > [!NOTE]
 > **Not implemented.** Rename, navigation and the refactorings other than Inline, Extract Method and Encapsulate Field read each part of a module
-> as a module of its own. VBA and VB6 have no blocks. No diagnostic reports a block in a VBA or VB6 workspace, and no code action extracts a block
-> into a module file of its own.
+> as a module of its own. No code action extracts a block into a module file of its own.
 
 ### Implementation
 

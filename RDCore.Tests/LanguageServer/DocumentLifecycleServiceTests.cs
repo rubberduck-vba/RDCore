@@ -893,9 +893,9 @@ public sealed class DocumentLifecycleServiceTests
 
     private void TheParseOfTheDocumentIsCached(Uri document) => TheParseOfTheDocumentIs(document, "Public Sub Foo()\r\nEnd Sub");
 
-    private void TheParseOfTheDocumentIs(Uri document, string text)
+    private void TheParseOfTheDocumentIs(Uri document, string text, ModuleParser? parser = null)
     {
-        var parse = new ModuleParser().Parse(document, text);
+        var parse = (parser ?? new ModuleParser()).Parse(document, text);
         _parsing.TryGetCached(document, out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
     }
 
@@ -930,13 +930,15 @@ public sealed class DocumentLifecycleServiceTests
         _refresh.Received(1).Changed();
     }
 
-    // a document of blocks is the text of each of its modules, and takes each out of the host: its own, then each block's.
+    // a document of blocks is the text of each of its modules, and takes each out of the host: its own, then each block's. The workspace allows blocks in a
+    // module file.
     [TestMethod]
     public async Task ADocumentOfBlocksThatIsNotAFile_TakesEachOfItsModulesOutOfTheHost_OnceClosed()
     {
         _sut.Opened(Mod1, "a", 1);
         await _sut.WhenRefreshedAsync(Mod1);
-        TheParseOfTheDocumentIs(Mod1, "Public Sub Foo()\r\nEnd Sub\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n");
+        TheParseOfTheDocumentIs(Mod1, "Public Sub Foo()\r\nEnd Sub\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n",
+            FileLevelStatementsOn.Parser());
 
         await _sut.ClosedAsync(Mod1);
 
