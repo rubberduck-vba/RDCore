@@ -27,7 +27,8 @@ namespace RDCore.Runtime.Execution.Hosting;
 //   Date                   ISO 8601 text to the second, with no offset (2026-11-26T14:30:00); any other text, one with an offset or a zone
 //                          included, is 13. In a Variant, such text stays a String.
 //   Currency, Decimal      a number, every digit of it.
-//   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 94 in any other type.
+//   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 13 in an array or a UDT, 94 in any other type (MS-VBAL
+//                          §5.5.1.2.10; a fixed-size array is not a let target, for null as for any value).
 //   Collection             an array of its members; any other object is 13.
 //   a number in a Variant  what a literal of the same digits is (MS-VBAL §3.3.2): Integer, then Long, then Double past Long's magnitude; with a fraction or
 //                          an exponent, Double.
@@ -181,7 +182,9 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
             _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
         },
-        _ when json is null => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
+        // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94.
+        _ when json is null && declared is not (VBArrayType or VBUserDefinedType)
+            => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
         VBNumericType number when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.Number => Coerced(ValueConversions.ToNumeric(
             declared is IFixedPointNumericType ? Exact(raw) : Number(raw), number), declared),
