@@ -357,6 +357,9 @@
   <data name="JsonValues_MemberGivenEnded_Verbose" xml:space="preserve">
     <value>Le programme a pris fin pendant l'affectation du membre '{0}' de l'objet.</value>
   </data>
+  <data name="JsonValues_CollectionAddEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant l'ajout d'un élément au nouvel objet '{0}'.</value>
+  </data>
   <data name="JsonValues_InitializeEnded_Verbose" xml:space="preserve">
     <value>Le programme a pris fin pendant l'initialisation d'un objet de la classe '{0}'.</value>
   </data>

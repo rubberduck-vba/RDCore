@@ -97,6 +97,14 @@ public sealed class JsonInstancesTests
             "Private Sub Class_Initialize()",
             "End",
             "End Sub")),
+        ("Basket", ModuleWorkspace.ClassModule("Basket",
+            "Private mItems() As Customer",
+            "Public Property Get Items() As Customer()",
+            "Items = mItems",
+            "End Property",
+            "Public Property Let Items(value() As Customer)",
+            "mItems = value",
+            "End Property")),
         ("Tracked", ModuleWorkspace.ClassModule("Tracked",
             "Public Id As Long",
             "Private Sub Class_Terminate()",
@@ -153,6 +161,19 @@ public sealed class JsonInstancesTests
         "End Sub",
         "Public Sub Keep(ByVal it As Tracked)",
         "Set Kept = it",
+        "End Sub",
+        "Public Function Names(items() As Customer) As String",
+        "Names = TypeName(items) & \"|\" & TypeName(items(0)) & \"|\" & UBound(items) & \"|\" & items(0).Name & \"|\" & items(1).Name",
+        "End Function",
+        "Public Function InTheBasket(ByVal basket As Basket) As String",
+        "Dim items() As Customer",
+        "items = basket.Items",
+        "InTheBasket = TypeName(items) & \"|\" & UBound(items) & \"|\" & items(0).Name",
+        "End Function",
+        "Public Function Size(items() As Variant) As String",
+        "Size = TypeName(items) & \"|\" & UBound(items) & \"|\" & items(1)",
+        "End Function",
+        "Public Sub TakeAll(items() As Tracked)",
         "End Sub",
         "Public Function TerminatedCount() As Long",
         "TerminatedCount = Terminated",
@@ -282,6 +303,34 @@ public sealed class JsonInstancesTests
     public Task AnEndInClassInitialize_EndsTheInvocationAsHalted()
         => WithMachineAsync(async machine =>
             Assert.AreEqual(ExecutionOutcome.Halted, (await Invoke(machine, "Arrive", """{"it":{}}""")).Outcome));
+
+    // a JSON array for an array of a class is an array of exactly that class, each element a New object of it (TypeName of an array of objects is
+    // Object() whatever its class: ArrayOfObjectsTests).
+    [TestMethod]
+    public Task AJsonArray_ForAnArrayOfAClass_IsAnArrayOfNewInstances()
+        => WithMachineAsync(async machine
+            => AssertReturned("\"Object()|Customer|1|a|b\"", await Invoke(machine, "Names", """{"items":[{"Name":"a"},{"name":"b"}]}""")));
+
+    // a JSON array for an array parameter of Variants is a Variant() from 0.
+    [TestMethod]
+    public Task AJsonArray_ForAnArrayOfVariants_IsAVariantArray()
+        => WithMachineAsync(async machine
+            => AssertReturned("\"Variant()|1|x\"", await Invoke(machine, "Size", """{"items":[1,"x"]}""")));
+
+    // a member that is an array is given one through its Property Let, which takes a dynamic array of exactly its element type.
+    [TestMethod]
+    public Task AnArrayMember_IsGivenAnArrayOfItsElementType()
+        => WithMachineAsync(async machine
+            => AssertReturned("\"Object()|0|duck\"", await Invoke(machine, "InTheBasket", """{"basket":{"Items":[{"Name":"duck"}]}}""")));
+
+    // the objects of an array are let go of when the invocation is over, as one given by itself is.
+    [TestMethod]
+    public Task TheObjectsOfAnArray_AreLetGoOf_WhenTheInvocationIsOver()
+        => WithMachineAsync(async machine =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, (await Invoke(machine, "TakeAll", """{"items":[{"Id":1},{"Id":2}]}""")).Outcome);
+            AssertReturned("2", await Invoke(machine, "TerminatedCount"));
+        });
 
     // the object is held until the invocation is over, then let go of as a New object a statement made is: one the program kept stays, and one it kept
     // nothing of is destroyed, its Class_Terminate running.

@@ -357,6 +357,9 @@
   <data name="JsonValues_MemberGivenEnded_Verbose" xml:space="preserve">
     <value>The program ended while the object's member '{0}' was given its value.</value>
   </data>
+  <data name="JsonValues_CollectionAddEnded_Verbose" xml:space="preserve">
+    <value>The program ended while an element was added to the new '{0}'.</value>
+  </data>
   <data name="JsonValues_InitializeEnded_Verbose" xml:space="preserve">
     <value>The program ended while an object of the class '{0}' was initialized.</value>
   </data>

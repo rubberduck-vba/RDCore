@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution.External.Scripting;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.Runtime.StdLib;
@@ -8,6 +9,7 @@ using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -24,13 +26,15 @@ namespace RDCore.Runtime.Execution.Hosting.Json;
 //
 //   Scripting.Dictionary   an object, its keys Strings (any other key is 13); a JSON object is a new Dictionary that compares its keys binary.
 //   array                  any array, a multi-dimensional one as nested arrays, the first dimension outermost, its bounds dropped; a JSON array is a
-//                          Variant() from 0, and a nested one a Variant() in it; for an array of another element type, 13.
+//                          Variant() from 0, and a nested one a Variant() in it. For a dynamic array of another element type, a JSON array is an
+//                          array of exactly that type from 0, each element converted to it. A fixed-size array, which is not a let target, and an
+//                          array of a UDT are 13.
 //   Date                   ISO 8601 text to the second, with no offset (2026-11-26T14:30:00); any other text, one with an offset or a zone
 //                          included, is 13. In a Variant, such text stays a String.
 //   Currency, Decimal      a number, every digit of it.
 //   Empty, Null, Nothing   null; null is Null in a Variant, Nothing in an object, 13 in an array or a UDT, 94 in any other type (MS-VBAL
 //                          §5.5.1.2.10; a fixed-size array is not a let target, for null as for any value).
-//   Collection             an array of its members.
+//   Collection             an array of its members; a JSON array is a New Collection of its elements, each what a Variant holds of it.
 //   an instance            of a class of the workspace: an object of its public members, read as CallByName reads them (JsonValues.Instances.cs); a
 //                          JSON object is a New object of the class, given each key's value as CallByName gives a member one.
 //                          Any other object is 13.
@@ -200,6 +204,8 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
             null => VBObjectValue.Nothing,
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
             JsonObject record when declared is VBClassType { Symbol: var classModule } && IsWorkspaceClass(classModule) => Instance(record, classModule),
+            JsonArray list when declared is VBClassType { Symbol: var classModule } && StdCollection.IsCollection(classModule)
+                => Collection(list, classModule),
             _ => throw Mismatch(Verbose(Exceptions.JsonValues_KindNotType_Verbose, KindOf(json), declared.Name)),
         },
         // MS-VBAL §5.2.3.4: a member of an enumeration is a Long.
@@ -208,7 +214,9 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
         // which is not a let target, is 13 too.
         _ when json is null && declared is not (VBArrayType or VBUserDefinedType)
             => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, Verbose(Exceptions.JsonValues_NullNotType_Verbose, declared.Name)),
-        VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
+        // a fixed-size array is not a let target: a JSON array for one is 13, the last arm's error.
+        VBResizableArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
+        VBResizableArrayType { ItemType: not VBUserDefinedType and var item } when json is JsonArray list => Array(list, item),
         VBNumericType number when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.Number => Coerced(ValueConversions.ToNumeric(
             declared is IFixedPointNumericType ? Exact(raw) : Number(raw), number), declared),
         VBDateType when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.String => Date(raw.GetValue<string>()),
@@ -301,7 +309,50 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
             array.TrySetElement(ElementCells.OfVariant(new VBVariantValue(Natural(list[index]))), index);
         }
 
-        return array;
+        return Bound(array);
+    }
+
+    // an array made here, bound to its runtime value as a variable's array is: what an array parameter or a Property Let is given is that value.
+    private static VBResizableArrayValue Bound(VBResizableArrayValue array)
+        => (VBResizableArrayValue)array.WithRuntimeValue(SymbolAddressTable.BoxedValue(array));
+
+    // an array of exactly the declared element type, in the cells a declared array of it has: a Property Let of an array takes only a dynamic array of its
+    // own element type, and a Variant() given to it is 13 (observed in Excel). An element that does not convert is the array's error.
+    private VBResizableArrayValue Array(JsonArray list, VBType itemType)
+    {
+        (int, int)[] dimensions = [(0, list.Count - 1)];
+        var cells = ElementCells.Of(itemType);
+        var array = itemType is VBByteType
+            ? new VBResizableByteArrayValue(dimensions, cells)
+            : new VBResizableArrayValue(dimensions, itemType, elementCell: cells);
+        for (var index = 0; index < list.Count; index++)
+        {
+            ElementCells.Store(array, cells, In(list[index], itemType).RuntimeValue, isKnown: true, index);
+        }
+
+        return Bound(array);
+    }
+
+    // a New Collection, each element added to it as Add adds an item: called by name, what a Variant holds of the element (an object a Dictionary).
+    private VBObjectValue Collection(JsonArray list, VBClassModuleSymbol classModule)
+    {
+        var created = RuntimeExpressionEvaluator.CreateObject(session, classModule);
+        if (!created.IsSuccess || created.Result is not VBObjectValue collection)
+        {
+            throw Unwound(created.ErrorInfo, Verbose(Exceptions.JsonValues_InitializeEnded_Verbose, classModule.Name));
+        }
+
+        var interaction = new StdInteraction(session);
+        foreach (var item in list)
+        {
+            var added = interaction.CallByName(collection, new VBStringValue("Add"), VBCallType.VBMethod, new VBVariantValue(Natural(item)));
+            if (!added.IsSuccess)
+            {
+                throw Unwound(added.ErrorInfo, Verbose(Exceptions.JsonValues_CollectionAddEnded_Verbose, classModule.Name));
+            }
+        }
+
+        return collection;
     }
 
     private static string KindOf(JsonNode? json) => json switch
