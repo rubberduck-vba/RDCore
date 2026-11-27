@@ -650,6 +650,132 @@ namespace RDCore.Runtime {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A Date that is not a day from January 1, 100 to December 31, 9999 has no JSON value..
+        /// </summary>
+        internal static string JsonValues_DateOutOfRange_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_DateOutOfRange_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A value of type '{0}' has no JSON value..
+        /// </summary>
+        internal static string JsonValues_TypeHasNoJson_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_TypeHasNoJson_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A number that is not finite has no JSON value..
+        /// </summary>
+        internal static string JsonValues_NotFinite_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NotFinite_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An element of an array cannot be read..
+        /// </summary>
+        internal static string JsonValues_ElementUnreadable_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_ElementUnreadable_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An object that holds itself has no JSON value..
+        /// </summary>
+        internal static string JsonValues_HoldsItself_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_HoldsItself_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An object that is neither a Dictionary nor a Collection has no JSON value..
+        /// </summary>
+        internal static string JsonValues_NeitherDictionaryNorCollection_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NeitherDictionaryNorCollection_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A Dictionary key of type '{0}' is not a JSON name..
+        /// </summary>
+        internal static string JsonValues_KeyNotAName_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyNotAName_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A JSON {0} is not a '{1}'..
+        /// </summary>
+        internal static string JsonValues_KindNotType_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KindNotType_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A JSON null is not a '{0}'..
+        /// </summary>
+        internal static string JsonValues_NullNotType_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NullNotType_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A JSON {0} has no value in the language..
+        /// </summary>
+        internal static string JsonValues_KindHasNoValue_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KindHasNoValue_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The JSON number {0} has no Double..
+        /// </summary>
+        internal static string JsonValues_NoDouble_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NoDouble_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The JSON number {0} has no Decimal..
+        /// </summary>
+        internal static string JsonValues_NoDecimal_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NoDecimal_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The text '{0}' is not ISO 8601 date and time with no offset..
+        /// </summary>
+        internal static string JsonValues_NotIsoDate_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NotIsoDate_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The JSON value is not a '{0}'..
+        /// </summary>
+        internal static string JsonValues_ValueNotType_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_ValueNotType_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed..
         /// </summary>
         internal static string VBDeclare_HostStopped_Verbose {

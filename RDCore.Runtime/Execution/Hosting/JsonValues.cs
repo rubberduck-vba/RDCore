@@ -91,14 +91,14 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         VBDecimalValue @decimal => JsonValue.Create(@decimal.Value),
         VBDateValue date => ValueConversions.TryMomentOf(date, out var moment)
             ? JsonValue.Create(moment.ToString(Moment, CultureInfo.InvariantCulture))
-            : throw Mismatch("A Date that is not a day from January 1, 100 to December 31, 9999 has no JSON value."),
+            : throw Mismatch(Exceptions.JsonValues_DateOutOfRange_Verbose),
         VBStringValue text => JsonValue.Create(text.Value ?? string.Empty),
         VBObjectValue reference => reference.IsNothing() ? null : OutObject(reference.Value, way),
         VBArrayValue array => OutArray(array, 0, new int[array.Rank], way),
-        _ => throw Mismatch($"A value of type '{value.TypeInfo.Name}' has no JSON value."),
+        _ => throw Mismatch(Verbose(Exceptions.JsonValues_TypeHasNoJson_Verbose, value.TypeInfo.Name)),
     };
 
-    private static Refused NoNumber() => Mismatch("A number that is not finite has no JSON value.");
+    private static Refused NoNumber() => Mismatch(Exceptions.JsonValues_NotFinite_Verbose);
 
     // the elements of one dimension at the subscripts before it, each an array of the next dimension's.
     private JsonArray OutArray(VBArrayValue array, int dimension, int[] subscripts, HashSet<VBRuntimeObjectId> way)
@@ -115,7 +115,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             subscripts[dimension] = subscript;
             result.Add(dimension < array.Rank - 1
                 ? OutArray(array, dimension + 1, subscripts, way)
-                : Out(array[subscripts] ?? throw Mismatch("An element of an array cannot be read."), way));
+                : Out(array[subscripts] ?? throw Mismatch(Exceptions.JsonValues_ElementUnreadable_Verbose), way));
         }
 
         return result;
@@ -125,7 +125,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
     {
         if (!way.Add(identity))
         {
-            throw Mismatch("An object that holds itself has no JSON value.");
+            throw Mismatch(Exceptions.JsonValues_HoldsItself_Verbose);
         }
 
         try
@@ -147,7 +147,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
                 return members;
             }
 
-            throw Mismatch("An object that is neither a Dictionary nor a Collection has no JSON value.");
+            throw Mismatch(Exceptions.JsonValues_NeitherDictionaryNorCollection_Verbose);
         }
         finally
         {
@@ -163,7 +163,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         {
             if (Unwrapped(key) is not VBStringValue name)
             {
-                throw Mismatch($"A Dictionary key of type '{Unwrapped(key).TypeInfo.Name}' is not a JSON name.");
+                throw Mismatch(Verbose(Exceptions.JsonValues_KeyNotAName_Verbose, Unwrapped(key).TypeInfo.Name));
             }
 
             dictionary.Item(key, out var item);
@@ -180,12 +180,12 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         {
             null => VBObjectValue.Nothing,
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
-            _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
+            _ => throw Mismatch(Verbose(Exceptions.JsonValues_KindNotType_Verbose, KindOf(json), declared.Name)),
         },
         // MS-VBAL §5.5.1.2.10: Null let to a resizable array or a UDT is 13, the last arm's error; to any other type, 94. A fixed-size array,
         // which is not a let target, is 13 too.
         _ when json is null && declared is not (VBArrayType or VBUserDefinedType)
-            => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
+            => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, Verbose(Exceptions.JsonValues_NullNotType_Verbose, declared.Name)),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
         VBNumericType number when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.Number => Coerced(ValueConversions.ToNumeric(
             declared is IFixedPointNumericType ? Exact(raw) : Number(raw), number), declared),
@@ -197,7 +197,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             VBDateType => ValueConversions.ToDate(Natural(json)),
             _ => ValueConversions.ToText(Natural(json)),
         }, declared),
-        _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
+        _ => throw Mismatch(Verbose(Exceptions.JsonValues_KindNotType_Verbose, KindOf(json), declared.Name)),
     };
 
     // the value a JSON value is, as a Variant holds it.
@@ -213,7 +213,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             JsonValueKind.Number => Number(value),
             _ => new VBStringValue(value.GetValue<string>()),
         },
-        _ => throw Mismatch($"A JSON {KindOf(json)} has no value in the language."),
+        _ => throw Mismatch(Verbose(Exceptions.JsonValues_KindHasNoValue_Verbose, KindOf(json))),
     };
 
     // MS-VBAL §3.3.2: an integer literal is an Integer, a Long past Integer's magnitude, and a Double past Long's; the sign is not part of the literal, so
@@ -237,7 +237,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         }
 
         var real = double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
-        return double.IsFinite(real) ? new VBDoubleValue(real) : throw Mismatch($"The JSON number {text} has no Double.");
+        return double.IsFinite(real) ? new VBDoubleValue(real) : throw Mismatch(Verbose(Exceptions.JsonValues_NoDouble_Verbose, text));
     }
 
     // a number for a Currency or a Decimal, every digit of it: through a Double, digits past its fifteenth would be lost.
@@ -246,19 +246,19 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         var text = value.ToJsonString();
         return decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var exact)
             ? new VBDecimalValue(exact)
-            : throw new Refused(VBRuntimeErrorId.Overflow, $"The JSON number {text} has no Decimal.");
+            : throw new Refused(VBRuntimeErrorId.Overflow, Verbose(Exceptions.JsonValues_NoDecimal_Verbose, text));
     }
 
     // ISO 8601 with no offset: a Date has no zone (MS-VBAL §2.1), and reading an offset would depend on the zone the program runs in.
     private static VBDateValue Date(string text)
         => DateTime.TryParseExact(text, Moment, CultureInfo.InvariantCulture, DateTimeStyles.None, out var moment)
             ? new VBDateValue(moment.ToOADate())
-            : throw Mismatch($"The text '{text}' is not ISO 8601 date and time with no offset.");
+            : throw Mismatch(Verbose(Exceptions.JsonValues_NotIsoDate_Verbose, text));
 
     private static VBTypedValue Coerced(ValueConversionResult conversion, VBType declared)
         => conversion.IsSuccess
             ? conversion.Value!
-            : throw new Refused(conversion.Error ?? VBRuntimeErrorId.TypeMismatch, $"The JSON value is not a '{declared.Name}'.");
+            : throw new Refused(conversion.Error ?? VBRuntimeErrorId.TypeMismatch, Verbose(Exceptions.JsonValues_ValueNotType_Verbose, declared.Name));
 
     private VBObjectValue Dictionary(JsonObject record)
     {
@@ -306,4 +306,6 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
     }
 
     private static Refused Mismatch(string verbose) => new(VBRuntimeErrorId.TypeMismatch, verbose);
+
+    private static string Verbose(string format, params object[] arguments) => string.Format(CultureInfo.CurrentCulture, format, arguments);
 }
