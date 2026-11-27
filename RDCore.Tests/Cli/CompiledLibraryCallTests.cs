@@ -87,6 +87,29 @@ public sealed class CompiledLibraryCallTests
             "    Next",
             "End Function"), [("Rounded", 0)]);
 
+    // MS-VBAL §6.1.2.10.1.8, §5.6.9.3: Sgn of an operation of Doubles is the sign of its 80 bits. 1E-200 * 1E-200 is 1E-400, past the least Double but
+    // not the least extended value: stored as a Double it is 0, but its sign is 1, as VBA7 gives it; its negation's is -1, and the difference of two of
+    // them is 0. Each sign, plus 1, is a digit: 2, 0 and 1, for each pass, read where a Variant holds it, where it is converted to a String, and where it
+    // is an operand of a Long.
+    [TestMethod]
+    public async Task ASgnOfAnExtendedIntermediate_IsTheSignOfItsEightyBits()
+        => StringAssert.Contains(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Signs(1E-200, 1E-200)",
+            "    Debug.Print Held(1E-200, 1E-200)",
+            "End Sub",
+            "Private Function Signs(ByVal A As Double, ByVal B As Double) As Long",
+            "    Dim I As Long",
+            "    For I = 1 To 2",
+            "        Signs = Signs * 1000 + (Sgn(A * B) + 1) * 100 + (Sgn(-A * B) + 1) * 10 + (Sgn(A * B - A * B) + 1)",
+            "    Next",
+            "End Function",
+            "Private Function Held(ByVal A As Double, ByVal B As Double) As String",
+            "    Dim V As Variant",
+            "    V = Sgn(-A * B)",
+            "    Held = CStr(Sgn(A * B)) & V & Sgn(A * B - A * B)",
+            "End Function"), [("Signs", 0)]), "| 201201 ; 1-10 |");
+
     // Rnd qualified by its module and its project, and by itself, after a seed set: each draw is made once, whichever engine makes the instruction, so the
     // numbers are the interpreter's in order.
     [TestMethod]

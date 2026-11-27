@@ -229,6 +229,25 @@ public readonly struct Extended
         return new Extended(applied.Value, applied.Pending);
     }
 
+    /// <summary>
+    /// <c>Sgn</c> of an extended value (<strong>MS-VBAL §6.1.2.10.1.8</strong>): -1, 0 or 1, the sign of its 80 bits as MS-VBA gives it, so a product too
+    /// small for a <c>Double</c> is not 0. The value is not stored; what is pending, and a NaN, an invalid operation, is the error it raises.
+    /// </summary>
+    /// <param name="value">The value it is given.</param>
+    /// <param name="result">The sign; 0 when it raises.</param>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static PayloadStatus Sign(Extended value, out long result)
+    {
+        var sign = ExtendedIntermediates.SignOf(new WideValue(value.Wide, VBDoubleType.TypeInfo, value._pending), out var error);
+        result = sign?.Integral ?? 0;
+        return error switch
+        {
+            null => PayloadStatus.Ok,
+            VBRuntimeErrorId.DivisionByZero => PayloadStatus.DivisionByZero,
+            _ => PayloadStatus.Overflow,
+        };
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Extended AddWide(Extended left, Extended right)
         => new(Float80.Add(left.Wide, right.Wide, out var raised), left._pending | right._pending | raised);
