@@ -1069,10 +1069,20 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (refused, true);
         }
 
-        return returnsToBeIndexed
-            ? (InvokeProcedure(session, context, found.Member, [], found.Receiver, call: qualified), false)
-            : (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver, reachedThrough: ReachedThrough(qualified, context),
-                call: indexExpression), true);
+        if (!returnsToBeIndexed)
+        {
+            return (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver,
+                reachedThrough: ReachedThrough(qualified, context), call: indexExpression), true);
+        }
+
+        // called late, on an Object or a Variant, the arguments go to IDispatch with the member: an object it returns takes them, at its default member, and
+        // what is no object is error 451, as of a default member (CallDefaultMember; recorded in Excel).
+        var returned = InvokeProcedure(session, context, found.Member, [], found.Receiver, call: qualified);
+        return returned.IsSuccess && UnwrappedOwner(returned.Result!) is not VBObjectValue
+            && DeclaredTypeOfOwner(session, context, qualified.Owner ?? context.EnclosingWithTargetExpression) is VBObjectType or VBVariantType
+                ? (RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                    indexExpression.Location, "The member takes no arguments, and what it returned is not an object to give them to.")), true)
+                : (returned, false);
     }
 
     private RuntimeSemanticsEvaluationResult AccessMember(
