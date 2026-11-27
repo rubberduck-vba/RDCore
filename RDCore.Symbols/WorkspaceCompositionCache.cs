@@ -1,6 +1,7 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
@@ -48,12 +49,13 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
     /// <param name="implicitScope">Where a name that is not declared is declared.</param>
     /// <param name="libraries">The symbols of the libraries the project references.</param>
     /// <param name="documentHosts">What host document each document module is the code of, by its name.</param>
+    /// <param name="directives">The directives of each module of parts, by its name, which its tree does not state.</param>
     public WorkspaceComposition GetOrCompose(
         Uri workspaceRoot, IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules, ISymbolResolver fallback,
         string? projectName = null, ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null,
-        IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
+        IReadOnlyDictionary<string, DocClassType>? documentHosts = null, IReadOnlyDictionary<string, ModuleDirectives>? directives = null)
     {
-        var key = new Key(workspaceRoot.AbsoluteUri, projectName, implicitScope, fallback, libraries, modules, documentHosts);
+        var key = new Key(workspaceRoot.AbsoluteUri, projectName, implicitScope, fallback, libraries, modules, documentHosts, directives);
         lock (_sync)
         {
             for (var node = _recent.First; node is not null; node = node.Next)
@@ -68,7 +70,8 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
         }
 
         // a workspace is composed outside the lock: two requests that miss compose it each, and the one stored last is kept.
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(workspaceRoot, modules, fallback, projectName, implicitScope, libraries, documentHosts);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            workspaceRoot, modules, fallback, projectName, implicitScope, libraries, documentHosts, directives);
         lock (_sync)
         {
             Composed++;
@@ -85,13 +88,14 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
     // what a composition is made of; the parses, the libraries and the resolver are compared as the objects they are.
     private sealed record class Key(
         string Root, string? ProjectName, ImplicitDeclarationScope ImplicitScope, ISymbolResolver Fallback, IReadOnlyList<Symbol>? Libraries,
-        IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> Modules, IReadOnlyDictionary<string, DocClassType>? DocumentHosts)
+        IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> Modules, IReadOnlyDictionary<string, DocClassType>? DocumentHosts,
+        IReadOnlyDictionary<string, ModuleDirectives>? Directives)
     {
         public bool IsMadeOfTheSame(Key other)
         {
             if (Root != other.Root || ProjectName != other.ProjectName || ImplicitScope != other.ImplicitScope
                 || !ReferenceEquals(Fallback, other.Fallback) || !ReferenceEquals(Libraries, other.Libraries) || Modules.Count != other.Modules.Count
-                || !SameHosts(DocumentHosts, other.DocumentHosts))
+                || !SameHosts(DocumentHosts, other.DocumentHosts) || !SameDirectives(Directives, other.Directives))
             {
                 return false;
             }
@@ -113,5 +117,11 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
         private static bool SameHosts(IReadOnlyDictionary<string, DocClassType>? hosts, IReadOnlyDictionary<string, DocClassType>? other)
             => (hosts?.Count ?? 0) == (other?.Count ?? 0)
                 && (hosts ?? new Dictionary<string, DocClassType>()).All(entry => other is not null && other.TryGetValue(entry.Key, out var super) && super == entry.Value);
+
+        // the directives too: each request assembles its own.
+        private static bool SameDirectives(IReadOnlyDictionary<string, ModuleDirectives>? directives, IReadOnlyDictionary<string, ModuleDirectives>? other)
+            => (directives?.Count ?? 0) == (other?.Count ?? 0)
+                && (directives ?? new Dictionary<string, ModuleDirectives>()).All(entry => other is not null && other.TryGetValue(entry.Key, out var stated)
+                    && stated == entry.Value);
     }
 }

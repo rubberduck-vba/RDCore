@@ -344,4 +344,25 @@ public sealed class FoldingRangeProjectorTests
 
         Assert.IsEmpty(Blocks(ranges));
     }
+
+    // a file of blocks folds each of its modules, and each block from its header to its end, as a member folds.
+    [TestMethod]
+    public void AFileOfBlocks_FoldsEachModule_AndEachBlock()
+    {
+        // a .bas has blocks in a workspace that allows statements outside procedures.
+        var parse = FileLevelStatementsOn.Parser().Parse(TestUri.TestModuleUri(), string.Join("\r\n",
+            "Attribute VB_Name = \"Backup\"",
+            "Public Sub Run()",
+            "End Sub",
+            "Class Account",
+            "Public Sub Deposit()",
+            "    Dim i As Long",
+            "End Sub",
+            "End Class"));
+
+        var ranges = FoldingRangeProjector.Project(parse).ToList();
+
+        CollectionAssert.AreEquivalent(new[] { (1, 2), (3, 7), (4, 6) }, ranges.Select(range => (range.StartLine, range.EndLine)).ToArray());
+        Assert.IsTrue(ranges.All(range => range.Kind == FoldingRangeKind.Region));
+    }
 }

@@ -16,6 +16,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
@@ -23,6 +24,7 @@ using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -1047,5 +1049,131 @@ public sealed class DocumentDiagnosticsServiceTests
         var result = await Sut().GetPhaseAsync(first.Id.Uri.ToUri(), phase, CancellationToken.None);
 
         Assert.HasCount(told, ConflictsIn(result));
+    }
+
+    // 0 the file's own module; 2 the Account block's header, 3 its code; 6 the Helpers block's header, 7 its code, and a syntax error on 8.
+    private const string FileOfBlocks = "Public Sub Main()\r\nEnd Sub\r\nClass Account\r\nPublic Sub Deposit()\r\nEnd Sub\r\nEnd Class\r\nModule Helpers\r\n"
+        + "Public Sub Run()\r\n    x = (\r\nEnd Sub\r\nEnd Module\r\n";
+
+    private static readonly WorkspaceDocument BackupFile = new("src/Backup.bas", Root, FileOfBlocks, 1);
+
+    private void BackupParses()
+    {
+        WorkspaceHas(BackupFile);
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(FileLevelStatementsOn.Parser().Parse(BackupFile.Id.Uri.ToUri(), FileOfBlocks));
+    }
+
+    private static DiagnoseDocumentPayload PayloadOf(DiagnoseDocumentParams request) => PlatformJson.Deserialize<DiagnoseDocumentPayload>(request.Json);
+
+    private static DiagnoseDocumentPayload[] PayloadsSentTo(IRDCoreClientApp provider) => [.. provider.ReceivedCalls()
+        .Where(call => call.GetMethodInfo().Name == nameof(IRDCoreClientApp.SendRequestAsync))
+        .Select(call => PayloadOf((DiagnoseDocumentParams)call.GetArguments()[0]!))];
+
+    // a file of blocks is the text of several modules (RD-VBAL §5.1): each is sent on its own, addressed by its own URI, with its own part of the parse and
+    // what the host found out about it. A syntax error is in one module's part, so it is told once. What the analysis of each module finds is the document's.
+    [TestMethod]
+    public async Task AFileOfBlocks_IsAnalyzedModuleByModule_AndWhatEachFindsIsTheDocuments()
+    {
+        BackupParses();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        // the provider finds one thing of each module, on the line its code starts on.
+        var provider = Provider("RDCore.Diagnostics", 1);
+        provider.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
+            .Returns(call => new DiagnoseDocumentResult
+            {
+                Diagnostics = new[] { Diag(PayloadOf(call.Arg<DiagnoseDocumentParams>()).ParseResult.SyntaxTree!.SourceLocation.Range.Start.Line) },
+                SourceVersion = 1,
+            });
+        ProvidersAre(provider);
+        var file = BackupFile.Id.Uri.ToUri();
+        var (account, helpers) = (RDCoreDocument.BlockUri(file, "Account"), RDCoreDocument.BlockUri(file, "Helpers"));
+
+        var result = await Sut().GetAsync(file, previousResultId: null, CancellationToken.None);
+
+        var payloads = PayloadsSentTo(provider);
+        CollectionAssert.AreEquivalent(new[] { file, account, helpers }, payloads.Select(payload => payload.DocumentUri).ToArray());
+        var declared = payloads.Single(payload => payload.DocumentUri == account).ParseResult.SyntaxTree!.Children.OfType<MemberDeclarationNode>();
+        CollectionAssert.AreEqual(new[] { "Deposit" }, declared.Select(member => member.Name).ToArray(), "the block's own part of the parse");
+        CollectionAssert.AreEqual(new[] { 0, 0, 1 },
+            payloads.OrderBy(payload => payload.DocumentUri == helpers).Select(payload => payload.ParseResult.SyntaxErrors.Length).ToArray());
+        foreach (var name in new[] { "Backup", "Account", "Helpers" })
+        {
+            await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+                Arg.Is<HostSemanticsParams>(request => request.ModuleName == name), Arg.Any<CancellationToken>());
+        }
+
+        CollectionAssert.AreEquivalent(new[] { 0, 3, 7 }, result.Diagnostics.Select(diagnostic => diagnostic.Range.Start.Line).ToArray());
+    }
+
+    // an edit of a block's module as a whole is told on the module's first line, which is its header.
+    [TestMethod]
+    public async Task AnEditOfABlocksModuleTheProgramThatWaitsDoesNotHave_IsToldOnTheBlocksHeader()
+    {
+        BackupParses();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
+        {
+            Suspended = true,
+            Edits =
+            [
+                new DebugEdit
+                {
+                    Name = "Account", Kind = DebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Account"),
+                },
+            ],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+        Assert.IsTrue(await editStatus.CheckAsync(CancellationToken.None));
+
+        var result = await Sut(editStatus).GetAsync(BackupFile.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        var told = Assert.ContainsSingle(result.Diagnostics.Where(diagnostic => diagnostic.Code?.String == "RDC20001"));
+        Assert.AreEqual(new Range(new Position(2, 0), new Position(2, 13)), told.Range);
+    }
+
+    // a module file, and a document whose Partial block is a part of the file's module.
+    private static (WorkspaceDocument Plain, WorkspaceDocument Block) PartsOfHelpers(string kind)
+        => (StandardModule("A", "Helpers"),
+            new WorkspaceDocument(
+                "src/B.bas", Root, $"Attribute VB_Name = \"B\"\r\nPartial {kind} Helpers\r\nPublic Sub More()\r\nEnd Sub\r\nEnd {kind}\r\n"));
+
+    // RD-VBAL §5.1: a Partial block of a module's name is a part of that module, and no second module of that name: neither document is in conflict, and
+    // what the host has of the module is asked for.
+    [TestMethod]
+    public async Task APartialBlockOfAModulesName_IsInNoConflict_AndTheHostIsAskedOfTheModule()
+    {
+        var (plain, block) = PartsOfHelpers("Module");
+        ModulesAre(plain, block);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        Assert.IsEmpty(ConflictsIn(await Sut().GetAsync(plain.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        Assert.IsEmpty(ConflictsIn(await Sut().GetAsync(block.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None)));
+        await host.Received().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Helpers"), Arg.Any<CancellationToken>());
+    }
+
+    // RD-VBAL §5.1: a part of another kind than the module's is VBC09388, at the kind its header writes, in the part's own document; the module is refused,
+    // so what the host has of it is not asked for.
+    [TestMethod]
+    public async Task APartOfAnotherKind_IsAnErrorAtItsHeader_AndTheHostIsNotAskedOfTheModule()
+    {
+        var (plain, block) = PartsOfHelpers("Class");
+        ModulesAre(plain, block);
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var code = VBCompileErrorId.ModulePartOfAnotherKind.ToCode().ToString();
+
+        var inPlain = await Sut().GetAsync(plain.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var inBlock = await Sut().GetAsync(block.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.IsFalse(inPlain.Diagnostics.Any(diagnostic => diagnostic.Code?.String == code));
+        var error = Assert.ContainsSingle(inBlock.Diagnostics.Where(diagnostic => diagnostic.Code?.String == code));
+        Assert.AreEqual(DiagnosticSeverity.Error, error.Severity);
+        Assert.AreEqual((1, 8), (error.Range.Start.Line, error.Range.Start.Character), "the header's Class");
+        await host.DidNotReceive().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Helpers"), Arg.Any<CancellationToken>());
     }
 }

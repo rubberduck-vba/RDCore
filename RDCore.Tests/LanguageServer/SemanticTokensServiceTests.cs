@@ -45,8 +45,10 @@ public sealed class SemanticTokensServiceTests
 
         _parsing.TokenizeAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new SyntaxTokenizer().Tokenize((string)call[1])));
+        // in a workspace that allows blocks and statements outside procedures in a module file.
         _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], _documents.TryGetDocument((Uri)call[0], out var document) ? document.Text : string.Empty)));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser()
+                .Parse((Uri)call[0], _documents.TryGetDocument((Uri)call[0], out var document) ? document.Text : string.Empty)));
 
         _sut = new SemanticTokensService(_documents, _parsing);
     }
@@ -113,6 +115,19 @@ public sealed class SemanticTokensServiceTests
         _documents.Open(Mod1, "Dim w As Widget", 1);
 
         Assert.AreEqual(TypeIndex("class"), (await TokenAtAsync(0, 9)).Type);
+    }
+
+    // a class block is a class module, named in its header, wherever it is written; a module block is not a type. What a block declares is told apart as what
+    // the file's own module declares is. A name after As is a type by its syntax alone: a bare one is told by what the project declares.
+    [TestMethod]
+    public async Task AClassBlock_IsAType_AndWhatABlockDeclares_IsToldApart()
+    {
+        _documents.Open(Mod1, "Debug.Print Account\r\nDebug.Print Helpers\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nPublic Const Limit = 1\r\n"
+            + "Public Sub Run()\r\n    x = Limit\r\nEnd Sub\r\nEnd Module\r\n", 1);
+
+        Assert.AreEqual(TypeIndex("class"), (await TokenAtAsync(0, 12)).Type, "Account, a class block");
+        Assert.AreNotEqual(TypeIndex("class"), (await TokenAtAsync(1, 12)).Type, "Helpers, a module block");
+        Assert.AreEqual(SemanticTokenLegend.ReadOnly, (await TokenAtAsync(7, 8)).Modifiers, "Limit, a constant of the block");
     }
 
     [TestMethod]

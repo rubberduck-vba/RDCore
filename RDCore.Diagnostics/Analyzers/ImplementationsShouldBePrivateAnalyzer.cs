@@ -8,6 +8,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -57,10 +58,13 @@ internal sealed class ImplementationsShouldBePrivateAnalyzer : IModuleAnalyzer
 
     // Private in place of Public, the declaration's first word, or before a declaration that states no access (MS-VBAL §5.3.1.1); on every accessor of a
     // property. Not when the host does not count the member's references, nor when one of them is in another module: a reference is located in the
-    // document of its module, as the module analyzed is.
+    // file of its module, and is of this one when a procedure of it is where it is written. Another module of the file is a block's, and so is none of
+    // this module's procedures (RDCoreDocument).
     private static EditFix? FixOf(DeclarationFactDto declaration, Uri document, MemberDeclarationNode[] members)
     {
-        if (declaration.ReferencedFrom is not { IsDefault: false } sites || !sites.All(site => site.Location.Uri == document))
+        var file = RDCoreDocument.FileOf(document);
+        if (declaration.ReferencedFrom is not { IsDefault: false } sites
+            || !sites.All(site => site.Location.Uri == file && members.Any(member => Holds(member.SourceLocation.Range, site.Location.Range.Start))))
         {
             return null;
         }
@@ -84,4 +88,6 @@ internal sealed class ImplementationsShouldBePrivateAnalyzer : IModuleAnalyzer
             ? null
             : new EditFix { Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementationsShouldBePrivate_Fix, declaration.Name), Edits = edits };
     }
+
+    private static bool Holds(SourceRange range, SourcePosition position) => range.Start.CompareTo(position) <= 0 && position.CompareTo(range.End) <= 0;
 }

@@ -6,6 +6,7 @@ using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Services.Folding;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Workspace;
@@ -35,7 +36,7 @@ internal sealed class SelectionRangeHandler(
         return new Container<SelectionRange>(request.Positions.Select(position =>
         {
             var at = new SourcePosition(isProgram ? position.Line + BasicProgramText.HeaderLines : position.Line, position.Character);
-            var ranges = parse?.SyntaxTree is { } module ? SyntaxSelection.RangesAt(module, at) : [];
+            var ranges = parse?.SyntaxTree is null ? [] : RangesAt(uri, parse, at);
 
             // the outermost range is the parent of every other: built from it inward.
             SelectionRange? selection = null;
@@ -48,6 +49,15 @@ internal sealed class SelectionRangeHandler(
 
             return selection ?? new SelectionRange { Range = new LspRange(position, position) };
         }));
+    }
+
+    // what a selection grows to in the module at the position: a block's grows to the block, from its header to its end, last.
+    private static IReadOnlyList<SourceRange> RangesAt(Uri file, ModuleParseResult parse, SourcePosition at)
+    {
+        var document = new RDCoreDocument(file, parse);
+        var module = document.ModuleAt(at);
+        var ranges = document.SyntaxTreeOf(module) is { } tree ? SyntaxSelection.RangesAt(tree, at) : [];
+        return parse.BlockModules.FirstOrDefault(block => block.Uri == module) is { } inBlock ? [.. ranges, inBlock.Range] : ranges;
     }
 
     protected override SelectionRangeRegistrationOptions CreateRegistrationOptions(SelectionRangeCapability capability, ClientCapabilities clientCapabilities)

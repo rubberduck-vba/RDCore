@@ -43,7 +43,8 @@ internal sealed class IntegerDataTypeAnalyzer : IModuleAnalyzer
             return [];
         }
 
-        var fixes = context.Semantics is null ? null : new Fixes(module, context.Semantics.Declarations, IsStandardModule(context.Document));
+        // a module is a standard module when the host says it is no class: a block's module is of its header's kind, whatever its file's extension.
+        var fixes = context.Semantics is null ? null : new Fixes(module, context.Semantics.Declarations, isStandardModule: context.Semantics.Class is null);
         return module.Children
             .Where(member => member is not ExternalMemberDeclarationNode)
             .SelectMany(member => ChosenBy(member, context.Semantics))
@@ -92,9 +93,6 @@ internal sealed class IntegerDataTypeAnalyzer : IModuleAnalyzer
         => hint is not null && IntrinsicVBTypes.TryResolveTypeHint(hint, out var type) && type is VBIntegerType
             ? name ?? declaration.Range
             : null;
-
-    private static bool IsStandardModule(Uri document)
-        => string.Equals(Path.GetExtension(document.AbsolutePath), ".bas", StringComparison.OrdinalIgnoreCase);
 
     private static bool Within(SourceRange range, SourcePosition position)
         => range.Start.CompareTo(position) <= 0 && position.CompareTo(range.End) <= 0;

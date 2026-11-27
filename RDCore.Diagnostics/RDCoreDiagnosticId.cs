@@ -69,6 +69,8 @@ public enum RDCoreDiagnosticId
     FunctionReturnValueAlwaysDiscarded = 217, // [RD2:FunctionReturnValueAlwaysDiscardedInspection] a Function that every call of the project calls as a statement: it can be a Sub
     IsMissingOfAVariantThatIsNotOptional = 218, // [RD2:IsMissingOnInappropriateArgumentInspection, IsMissingWithNonArgumentParameterInspection] a required Variant parameter, or a Variant variable
     UnreachableCase = 219, // [RD2:UnreachableCaseInspection] a Case block, or the Case Else, that the Cases before it leave no value of the selector for
+    ParamArrayIgnoresOptionBase = 220, // [RD2:InconsistentParamArrayBaseInspection] a ParamArray parameter in a module with Option Base 1: it is 0-based
+    QualifiedArrayIgnoresOptionBase = 221, // [RD2:InconsistentArrayBaseInspection] a call of VBA.Array in a module with Option Base 1: it is 0-based
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -96,6 +98,7 @@ public enum RDCoreDiagnosticId
     EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public or Global variable of a module, which any code can assign
     SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
     ImplementedInterfaceMember = 411, // [RD2:ImplementedInterfaceMemberInspection] a class the project implements as an interface, with code in a member
+    PublicControlFieldAccess = 412, // [RD2:PublicControlFieldAccessInspection] UserForm1.TextBox1.Text in another module: a control used outside its form
     MoveFieldCloserToUsage = 413, // [RD2:MoveFieldCloserToUsageInspection] a variable of the module that only one procedure refers to: it can be a local
 
     // symbol traversals [0000]
