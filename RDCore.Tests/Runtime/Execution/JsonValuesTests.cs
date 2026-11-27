@@ -212,7 +212,7 @@ public sealed class JsonValuesTests
         Assert.IsTrue(((VBObjectValue)Converted("null", VBObjectType.TypeInfo)).IsNothing());
     }
 
-    // e. what MS-VBA raises when Null is let to a type that is no Variant.
+    // e. what MS-VBA raises when Null is let to a type that is not a Variant.
     [TestMethod]
     [DataRow("Long")]
     [DataRow("String")]
@@ -242,12 +242,12 @@ public sealed class JsonValuesTests
         AssertError(VBRuntimeErrorId.TypeMismatch, Written("Set V = New Collection", "V.Add V").Error);
     }
 
-    // f. reading public properties would run Property Get code: an object that is no Dictionary and no Collection has no JSON value.
+    // f. reading public properties would run Property Get code: an object that is neither a Dictionary nor a Collection has no JSON value.
     [TestMethod]
     public void AnotherObject_IsATypeMismatch()
         => AssertError(VBRuntimeErrorId.TypeMismatch, Written("Set V = CreateObject(\"Scripting.FileSystemObject\")").Error);
 
-    // g. MS-VBAL §3.3.2: the subtype a literal of the same digits has; the sign is no part of the literal.
+    // g. MS-VBAL §3.3.2: the subtype a literal of the same digits has; the sign is not part of the literal.
     [TestMethod]
     [DataRow("5", "Integer", 5d)]
     [DataRow("32767", "Integer", 32767d)]
@@ -266,7 +266,7 @@ public sealed class JsonValuesTests
         Assert.AreEqual(expected, Convert.ToDouble(held.RuntimeValue.BoxedValue, System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    // into a type of its own, a JSON value is let-coerced, with the errors MS-VBA raises: 13 for text that is no number, 6 past the type's range.
+    // into a type of its own, a JSON value is let-coerced, with the errors MS-VBA raises: 13 for text that is not a number, 6 past the type's range.
     [TestMethod]
     [DataRow("\"12\"", 12)]
     [DataRow("true", -1)]

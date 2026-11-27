@@ -89,7 +89,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         VBDecimalValue @decimal => JsonValue.Create(@decimal.Value),
         VBDateValue date => ValueConversions.TryMomentOf(date, out var moment)
             ? JsonValue.Create(moment.ToString(Moment, CultureInfo.InvariantCulture))
-            : throw Mismatch("A Date that is no day from January 1, 100 to December 31, 9999 has no JSON value."),
+            : throw Mismatch("A Date that is not a day from January 1, 100 to December 31, 9999 has no JSON value."),
         VBStringValue text => JsonValue.Create(text.Value ?? string.Empty),
         VBObjectValue reference => reference.IsNothing() ? null : OutObject(reference.Value, way),
         VBArrayValue array => OutArray(array, 0, new int[array.Rank], way),
@@ -145,7 +145,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
                 return members;
             }
 
-            throw Mismatch("An object that is no Dictionary and no Collection has no JSON value.");
+            throw Mismatch("An object that is neither a Dictionary nor a Collection has no JSON value.");
         }
         finally
         {
@@ -161,7 +161,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         {
             if (Unwrapped(key) is not VBStringValue name)
             {
-                throw Mismatch($"A Dictionary key of type '{Unwrapped(key).TypeInfo.Name}' is no JSON name.");
+                throw Mismatch($"A Dictionary key of type '{Unwrapped(key).TypeInfo.Name}' is not a JSON name.");
             }
 
             dictionary.Item(key, out var item);
@@ -178,9 +178,9 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
         {
             null => VBObjectValue.Nothing,
             JsonObject record when declared is VBObjectType || ScriptingCallProvider.IsDictionaryClass(((VBClassType)declared).Symbol) => Dictionary(record),
-            _ => throw Mismatch($"A JSON {KindOf(json)} is no '{declared.Name}'."),
+            _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
         },
-        _ when json is null => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is no '{declared.Name}'."),
+        _ when json is null => throw new Refused(VBRuntimeErrorId.InvalidUseOfNull, $"A JSON null is not a '{declared.Name}'."),
         VBArrayType { ItemType: VBVariantType } when json is JsonArray list => Array(list),
         VBNumericType number when json is JsonValue raw && raw.GetValueKind() == JsonValueKind.Number => Coerced(ValueConversions.ToNumeric(
             declared is IFixedPointNumericType ? Exact(raw) : Number(raw), number), declared),
@@ -192,7 +192,7 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
             VBDateType => ValueConversions.ToDate(Natural(json)),
             _ => ValueConversions.ToText(Natural(json)),
         }, declared),
-        _ => throw Mismatch($"A JSON {KindOf(json)} is no '{declared.Name}'."),
+        _ => throw Mismatch($"A JSON {KindOf(json)} is not a '{declared.Name}'."),
     };
 
     // the value a JSON value is, as a Variant holds it.
@@ -248,12 +248,12 @@ internal sealed class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver
     private static VBDateValue Date(string text)
         => DateTime.TryParseExact(text, Moment, CultureInfo.InvariantCulture, DateTimeStyles.None, out var moment)
             ? new VBDateValue(moment.ToOADate())
-            : throw Mismatch($"The text '{text}' is no ISO 8601 date and time with no offset.");
+            : throw Mismatch($"The text '{text}' is not ISO 8601 date and time with no offset.");
 
     private static VBTypedValue Coerced(ValueConversionResult conversion, VBType declared)
         => conversion.IsSuccess
             ? conversion.Value!
-            : throw new Refused(conversion.Error ?? VBRuntimeErrorId.TypeMismatch, $"The JSON value is no '{declared.Name}'.");
+            : throw new Refused(conversion.Error ?? VBRuntimeErrorId.TypeMismatch, $"The JSON value is not a '{declared.Name}'.");
 
     private VBObjectValue Dictionary(JsonObject record)
     {
