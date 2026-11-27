@@ -257,7 +257,8 @@ public sealed class InlineMemberServiceTests
     }
 
     // a module of parts (RD-VBAL §5.1): Program's plain part declares Add, and its Partial part, a block of Extra.bas, calls it.
-    private const string PlainPart = "Option Explicit\r\nPrivate count As Long\r\n\r\nPrivate Sub Add(ByVal n As Long)\r\n    count = count + n\r\nEnd Sub\r\n";
+    private const string PlainPart
+        = "Option Explicit\r\nPrivate count As Long\r\n\r\nPrivate Sub Add(ByVal n As Long)\r\n    count = count + n\r\nEnd Sub\r\n";
 
     private const string PartialPart = "Partial Module Program\r\nPublic Sub Main()\r\n    Add 20\r\n    Debug.Print count\r\nEnd Sub\r\nEnd Module\r\n";
 
