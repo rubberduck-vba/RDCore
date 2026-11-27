@@ -23,7 +23,7 @@ internal sealed record class ExtractionDuplicate(Uri Module, ExtractionSource So
 {
     /// <summary>
     /// What identifies the duplicate among the others: its module, and the line and the column it starts at, from 1 (<c>Main:12:5</c>). In a module of parts
-    /// (<see cref="IsInAPart"/>), the name of its part's file comes after its module's (<c>Main:Extra.bas:12:5</c>): two parts may start one at one place.
+    /// (<see cref="IsInAPart"/>), the name of its part's file comes after its module's (<c>Main:Extra.bas:12:5</c>), since two parts can each have a duplicate at the same line and column.
     /// </summary>
     public string Id => IsInAPart
         ? $"{SymbolUri.ModuleNameOf(Module)}:{Uri.UnescapeDataString(Document.Segments[^1])}:{Start.Line + 1}:{Start.Character + 1}"
