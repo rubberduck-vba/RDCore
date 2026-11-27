@@ -237,7 +237,8 @@ public sealed class JsonInstancesTests
             Assert.AreEqual(ExecutionOutcome.Halted, (await Invoke(machine, "MakeEnding")).Outcome));
 
     // a JSON object for a parameter of a class is a New object of it: Class_Initialize runs (Origin), then each key gives its value to the member it names,
-    // in any case, through a Property Let (Nick) or to a public variable, an object for an object's (Owner). A member no key names keeps its value (Data);
+    // in any case, through a Property Let (Nick) or to a public variable (Id), a JSON object for a variable of a class (Owner). A member no key names keeps
+    // its value (Data);
     // a key that names a read-only member (Balance), a Friend one (Secret), a method (Shut) or nothing is ignored.
     [TestMethod]
     public Task AJsonObject_IsANewInstance_EachKeyGivingItsValueToTheMemberItNames()

@@ -957,7 +957,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     private static RuntimeSemanticsEvaluationResult Initialized(IRuntimeSession session, RuntimeSemanticsEvaluationResult created)
     {
-
         // the new object is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily): whatever
         // it is assigned to holds it by then, and one nothing kept - `Call (New Widget).Run` - is destroyed then. Its Initialize runs on a live object.
         if (created is { IsSuccess: true, Result: VBObjectValue made })
