@@ -321,7 +321,10 @@ From the highest reference precedence to the lowest, the projects a name can be 
 5. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
    ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA`, by its name or by its type library's identifier, is left out,
    and so is a second reference to a library listed earlier.
-6. The libraries that are loaded only because another library depends on them, in the order they are loaded.
+6. `IHost` and `IWshRuntimeLibrary`, Windows Script Host's libraries, when a module of the project is a script (a `.vbs` module) and its language does not
+   have them among its own, though its `.rdproj` lists no reference to them (`SupportedLanguage.TrailingImplicitReferencesOf`). A library the `.rdproj`
+   lists keeps the place it lists it at.
+7. The libraries that are loaded only because another library depends on them, in the order they are loaded.
 
 A VB6 project has two implicit references, in this order:
 
@@ -334,6 +337,14 @@ A VB6 project has two implicit references, in this order:
 They come right after the `VBA` library, as the References dialog of the VB6 IDE orders them, so a name the `VBA`
 library and `VBRUN` both declare is the `VBA` library's: `vbCancel` is the `VbMsgBoxResult` member `2`, where
 `VBRUN`'s `DragConstants` member is `0`. RD-VBA and RDCore BASIC have none.
+
+A VBScript project, one whose modules are all scripts (`.vbs`), has two implicit references, in this order: `IHost`, the
+type library of `wscript.exe`, whose `WScript` object every script names, and `IWshRuntimeLibrary`, the Windows Script
+Host Object Model (`wshom.ocx`), whose `WshShell` a script creates with `CreateObject("WScript.Shell")`. A project that
+has a script among other modules has the same two, after the references of its `.rdproj` (item 6 above), so that a
+script names `WScript` there as it does in a project of scripts. Both libraries carry copies of the Scripting runtime's
+`FileSystemObject`, `File`, `Folder`, `Drive` and `TextStream`; coming after the listed references, they do not shadow
+them: in a project that lists `Scripting`, `FileSystemObject` is Scripting's.
 
 The `VBA` library therefore comes before every library a project lists. A library that declares a name the `VBA`
 library also declares, such as a class `Collection`, a function `Left` or a constant `vbCancel`, does not shadow it:
@@ -348,8 +359,8 @@ so that **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics
 `ScopeTreeSymbolResolver` consults the reference precedence within one tier of the lookup order above: the tier comes
 first, and the reference precedence decides only among the candidates of one tier. The symbols of a referenced library
 carry its reference precedence (`SymbolProperties.LibraryPriority`, from `ReferencedLibraries.Priorities`): the position
-of its reference among the implicit references (the language's, then `RDForms`) followed by the references of the `.rdproj`, from `1`, with
-the references left out above not counted. A reference whose library fails to load keeps its number, so the libraries
+of its reference among the implicit references (the language's, then `RDForms`) followed by the references of the `.rdproj`, then Windows
+Script Host's (item 6), from `1`, with the references left out above not counted. A reference whose library fails to load keeps its number, so the libraries
 after it keep theirs. The libraries loaded only for another come after every listed one, in the order they are loaded.
 The lower number is the higher reference precedence. The symbols of the `VBA` library carry none, and come before
 every library that does; the symbol of any other library that carries none comes after every library that does, so
