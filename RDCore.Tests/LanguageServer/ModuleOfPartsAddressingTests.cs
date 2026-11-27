@@ -69,14 +69,14 @@ public sealed class ModuleOfPartsAddressingTests
         foreach (var document in documents)
         {
             var uri = document.Id.Uri.ToUri();
-            var parse = new ModuleParser().Parse(uri, document.Text);
+            var parse = FileLevelStatementsOn.Parser().Parse(uri, document.Text);
             _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
             _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(parse));
             _parsing.TryGetCached(uri, document.Version, out Arg.Any<ModuleParseResult>()).Returns(call => { call[2] = parse; return true; });
         }
 
         _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+            .Returns(call => Task.FromResult(FileLevelStatementsOn.Parser().Parse(call.Arg<Uri>(), call.Arg<string>())));
     }
 
     private RenameService Sut()
@@ -85,10 +85,16 @@ public sealed class ModuleOfPartsAddressingTests
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(
                 call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var options = WorkspaceOptions();
         return new RenameService(
             _documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
     }
+
+    // a .bas declares blocks, a Partial one among them, only in a workspace that allows file-level statements (RD-VBAL §5.1).
+    private static IOptions<SdkAppOptions> WorkspaceOptions() => Options.Create(new SdkAppOptions
+    {
+        Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba", FileLevelStatements = true },
+    });
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
 
@@ -203,7 +209,7 @@ public sealed class ModuleOfPartsAddressingTests
     [TestMethod]
     public async Task AnImplementsDirectiveOfAPartialPart_IsImplementedInThatPart()
     {
-        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var options = WorkspaceOptions();
         var answer = await new ImplementInterfaceService(Sut(), _parsing, options).ImplementAsync(
             Document("Extra.bas"), new SourceRange(15, 0, 15, 0), CancellationToken.None);
 
