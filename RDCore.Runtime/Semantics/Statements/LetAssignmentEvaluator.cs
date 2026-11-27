@@ -1304,10 +1304,9 @@ public sealed class LetAssignmentEvaluator(
         }
 
         // the reserved synthetic "__let_op" binary operator - the same shape its own test suite
-        // exercises it with: a throwaway node carrying this statement's own identity/location, operands
+        // exercises it with: a node carrying this statement's own identity/location and kept with it, operands
         // passed directly rather than read back off the node's Children.
-        var syntheticOperator = new VBBinaryOperatorExpressionNode(
-            OperatorSymbolNames.BinaryAssignmentValueOp, statement.Identity, statement.SourceLocation, target, source);
+        var syntheticOperator = LetOperatorSites.Of(statement, statement.Identity, statement.SourceLocation, target, source);
 
         // a Variant, a record or an array can hold objects, and what the variable held is let go of when it is assigned something else: `V = 5`
         // destroys the object V was Set to, if it was the last thing to hold it (MS-VBAL §5.3.1.10).
