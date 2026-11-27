@@ -175,7 +175,7 @@ public static class RecordOperations
             return false;
         }
 
-        if (held.TryReadBytesField(place, EncodingOf(kind), out var integral, out var floating))
+        if (held.TryReadBytesField(place, ScalarKinds.EncodingOf(kind), out var integral, out var floating))
         {
             payload = new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating);
             return true;
@@ -201,7 +201,7 @@ public static class RecordOperations
             return false;
         }
 
-        if (held.TryWriteBytesField(place, EncodingOf(kind), payload.Integral, payload.Floating))
+        if (held.TryWriteBytesField(place, ScalarKinds.EncodingOf(kind), payload.Integral, payload.Floating))
         {
             return true;
         }
@@ -238,20 +238,6 @@ public static class RecordOperations
 
         return held.TryLetFieldAt(place, payload.Typed());
     }
-
-    // how a record holds a field of a kind as bytes (RecordShape): a Date as the Double that is its serial.
-    private static RecordFieldEncoding EncodingOf(ScalarKind kind) => kind switch
-    {
-        ScalarKind.Byte => RecordFieldEncoding.Byte,
-        ScalarKind.Integer => RecordFieldEncoding.Int16,
-        ScalarKind.Long => RecordFieldEncoding.Int32,
-        ScalarKind.LongLong => RecordFieldEncoding.Int64,
-        ScalarKind.Boolean => RecordFieldEncoding.Boolean,
-        ScalarKind.Currency => RecordFieldEncoding.Currency,
-        ScalarKind.Single => RecordFieldEncoding.Single,
-        ScalarKind.Double or ScalarKind.Date => RecordFieldEncoding.Double,
-        _ => RecordFieldEncoding.None,
-    };
 
     // the class of the value of a scalar type, as the type makes one (ScalarPayload.Typed): what a field of the type holds.
     private static Type? ValueClassOf(VBType type) => type switch
