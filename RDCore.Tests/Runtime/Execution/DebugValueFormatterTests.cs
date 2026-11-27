@@ -5,7 +5,7 @@ namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
 /// What the debugger shows of a value: a number as the text it let-coerces to (<strong>MS-VBAL §5.5.1.2.4</strong>), as MS-VBA writes it, and not .NET's;
-/// a string as its literal (<strong>MS-VBAL §3.3.4</strong>).
+/// a string between double quotes, each double quote in it written twice, as its literal is (<strong>MS-VBAL §3.3.4</strong>).
 /// </summary>
 [TestClass]
 public sealed class DebugValueFormatterTests
@@ -49,7 +49,7 @@ public sealed class DebugValueFormatterTests
     public void ALong_IsShownAsItsDigits()
         => Assert.AreEqual("-7", DebugValueFormatter.Describe(new VBLongValue(-7)).Display);
 
-    // a line break is no part of a literal: the debugger shows it as it is, between the double quotes all the same.
+    // a string literal cannot hold a line break: the debugger shows one as it is, between the double quotes all the same.
     [TestMethod]
     [DataRow("hi", "\"hi\"", DisplayName = "a word")]
     [DataRow("say \"hi\"", "\"say \"\"hi\"\"\"", DisplayName = "a double quote inside the text, written twice")]
