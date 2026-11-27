@@ -132,4 +132,33 @@ public sealed class DisabledDiagnosticsTests
         Assert.AreEqual(RefactoringTitles.SettingListNotTaken(), refused.Message);
         await server.DidNotReceiveWithAnyArgs().SendRequest(default(ListSettingValueRequest)!, default);
     }
+
+    [TestMethod]
+    [DataRow(null, DisplayName = "no reason")]
+    [DataRow("", DisplayName = "an empty reason")]
+    public async Task AChangeTheClientDidNotMake_WithoutAReason_AnswersNotApplied(string? reason)
+    {
+        var server = Substitute.For<ILanguageServerFacade>();
+        server.SendRequest(Arg.Any<ListSettingValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ListSettingValueResult { Applied = false, Reason = reason });
+
+        var answer = await new ListSettingValueCommand(server, Expecting(true))
+            .ExecuteAsync(ListSettingValueCommand.ArgumentsOf(Disabling), Substitute.For<IServerCommandContext>(), CancellationToken.None);
+
+        Assert.IsFalse((bool?)answer!["applied"]);
+    }
+
+    [TestMethod]
+    public async Task AChangeTheClientDidNotMake_WithItsReason_IsRefused_WithThatReason()
+    {
+        const string reason = "RDC01002 is not the user's to remove.";
+        var server = Substitute.For<ILanguageServerFacade>();
+        server.SendRequest(Arg.Any<ListSettingValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ListSettingValueResult { Applied = false, Reason = reason });
+
+        var refused = await Assert.ThrowsExactlyAsync<ServerCommandRefusedException>(() => new ListSettingValueCommand(server, Expecting(true))
+            .ExecuteAsync(ListSettingValueCommand.ArgumentsOf(Disabling), Substitute.For<IServerCommandContext>(), CancellationToken.None));
+
+        Assert.AreEqual(reason, refused.Message);
+    }
 }

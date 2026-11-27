@@ -294,6 +294,23 @@ $Manifest = ConvertTo-ManifestJson ([ordered]@{
 $ManifestPath = Join-Path $PlatformRoot "rdcore.json"
 [IO.File]::WriteAllText($ManifestPath, $Manifest, (New-Object Text.UTF8Encoding $false))
 
+# the platform's settings, which every process of the platform reads below its own appsettings.json: the extensions it loads are the platform's, and the
+# same for each of its processes. A user's settings add to the list; a setting only the platform sets is this file's alone.
+$PlatformSettings = @'
+{
+  "Configuration": {
+    "Platform": {
+      "Extensions": {
+        "Allowed": [ "RDCore.Diagnostics" ],
+        "Blocked": []
+      }
+    }
+  }
+}
+'@
+$PlatformSettingsPath = Join-Path $PlatformRoot "platform-settings.json"
+[IO.File]::WriteAllText($PlatformSettingsPath, $PlatformSettings.Replace("`r`n", "`n") + "`n", (New-Object Text.UTF8Encoding $false))
+
 Write-Host ""
 Write-Host "🧩 Generating extension manifests..."
 Write-Host ""

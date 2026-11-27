@@ -40,6 +40,18 @@ internal sealed class ListSettingValueHandler(
             await notifier.Notify(cancellationToken);
         }
 
-        return new ListSettingValueResult { Applied = change is { IsSet: true } };
+        return new ListSettingValueResult { Applied = change is { IsSet: true }, Reason = ReasonOf(change, request) };
     }
+
+    private const string ExtensionsAllowedKey = $"{nameof(SdkAppOptions.Platform)}.{nameof(SdkPlatformOptions.Extensions)}.{nameof(ExtensionsOptions.Allowed)}";
+
+    // an item the user did not add, said in the user's language: an extension's is one they can block instead.
+    private static string? ReasonOf(UserSettingChange? change, ListSettingValueRequest request)
+        => change is { Problem: UserSettingProblem.NotTheUsers, Setting: { } setting }
+            ? string.Format(
+                setting.Key.Equals(ExtensionsAllowedKey, StringComparison.OrdinalIgnoreCase)
+                    ? Resources.Config_NotTheUsers_Extension
+                    : Resources.Config_NotTheUsers,
+                request.Value, setting.Key)
+            : null;
 }
