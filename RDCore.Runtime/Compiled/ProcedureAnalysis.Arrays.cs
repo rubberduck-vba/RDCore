@@ -18,7 +18,7 @@ namespace RDCore.Runtime.Compiled;
 
 // arrays. An array parameter or variable of the activation - not a Static, which outlives it - is held in the cell its frame holds it in
 // (Arrays), and an element of it is found in the array that cell holds, each time it is read or written, as the interpreter's evaluation on payloads finds
-// it (RuntimeExpressionEvaluator.ElementCellOf): a subscript let-coerced to a Long, an element of a scalar kind read and written in the bytes the array holds
+// it (RuntimeExpressionEvaluator.ElementOf): a subscript let-coerced to a Long, an element of a scalar kind read and written in the bytes the array holds
 // it in. What isn't found - a subscript outside its dimension - is the interpreter's, which raises error 9. LBound and UBound read the array's bounds; a
 // ReDim and an Erase of an array variable, and the Let of one to a Variant, are the runtime's statements, run as support calls.
 internal sealed partial class ProcedureAnalysis
@@ -118,7 +118,7 @@ internal sealed partial class ProcedureAnalysis
         return Subscripts(index) is { } subscripts ? new ElementNode(array.Slot, subscripts, kind) : null;
     }
 
-    // each argument a subscript, let-coerced to a Long as ElementCellOf coerces it; a named or an omitted argument is no subscript.
+    // each argument a subscript, let-coerced to a Long as ElementOf coerces it; a named or an omitted argument is no subscript.
     private IReadOnlyList<PayloadNode>? Subscripts(BoundIndex index)
     {
         if (index.Arguments.Length is < 1 or > MaxElementRank)
