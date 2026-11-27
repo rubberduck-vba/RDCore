@@ -11,7 +11,14 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange SelectionRange);
+public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange SelectionRange)
+{
+    // the document of the part of the module the ranges are in (RD-VBAL §5.1, RenameModule.Document); null where it is not known.
+    public Uri? Document { get; init; }
+
+    // what names the part it is in (RenameModule.Key).
+    public string Key => RenameModule.KeyOf(Module, Document ?? Module);
+}
 
 public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites)
 {
@@ -25,18 +32,20 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
             return null;
         }
 
-        var where = locate?.Invoke(first.Module, first.Range.Start) ?? $"{SymbolUri.ModuleNameOf(first.Module)} {first.Range.Start.Line + 1}:{first.Range.Start.Character + 1}";
+        var where = locate?.Invoke(first.Document ?? first.Module, first.Range.Start)
+            ?? $"{SymbolUri.ModuleNameOf(first.Module)} {first.Range.Start.Line + 1}:{first.Range.Start.Character + 1}";
         return SymbolTexts.ReferencesIncomplete(Symbol.Name, where, culture);
     }
 }
 
 // a name is bound the way a rename binds it, so a navigation finds what a rename renames.
 // an #If branch whose state is not known counts as compiled; a late-bound member refers to no known symbol, and leads nowhere.
+// the document of each method names the part of a module of parts (RD-VBAL §5.1) the position is in; null for the first part at the address.
 public static class SymbolNavigation
 {
-    public static SymbolNavigationTarget? DefinitionsAt(RenameContext context, Uri module, SourcePosition position)
+    public static SymbolNavigationTarget? DefinitionsAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position, document) is not { } named)
         {
             return null;
         }
@@ -49,9 +58,9 @@ public static class SymbolNavigation
     }
 
     // the first declaration written, of every #If branch and property procedure: the same whatever branch the precompiler compiles.
-    public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position)
+    public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position, document) is not { } named)
         {
             return null;
         }
@@ -65,26 +74,30 @@ public static class SymbolNavigation
     }
 
     // MS-VBAL §5.3.1.7, §5.6.2.1: every use of the symbol's name, the result a Function or a Property Get assigns or reads in its own body included.
-    public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
-        => NamesOf(context, module, position, includeDeclaration, byAccess: true, includeResults: true);
+    public static SymbolNavigationTarget? ReferencesAt(
+        RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true, Uri? document = null)
+        => NamesOf(context, module, document, position, includeDeclaration, byAccess: true, includeResults: true);
 
     // what uses the symbol, as a lens counts it: its references, except the result a Function or a Property Get assigns or reads in its own body, which is
     // no use of the procedure: one that only sets its result is called by nothing.
-    public static SymbolNavigationTarget? UsersAt(RenameContext context, Uri module, SourcePosition position)
-        => NamesOf(context, module, position, includeDeclaration: false, byAccess: true, includeResults: false);
+    public static SymbolNavigationTarget? UsersAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => NamesOf(context, module, document, position, includeDeclaration: false, byAccess: true, includeResults: false);
 
-    public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position)
-        => NamesOf(context, module, position, includeDeclaration: true, byAccess: false, includeResults: true);
+    public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => NamesOf(context, module, document, position, includeDeclaration: true, byAccess: false, includeResults: true);
 
     // a call through an interface binds to the interface's member (MS-VBAL §5.2.4.2): it is a reference of that member, and of none of the procedures that
     // implement it, which Go to Implementation finds.
     private static SymbolNavigationTarget? NamesOf(
-        RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess, bool includeResults)
+        RenameContext context, Uri module, Uri? document, SourcePosition position, bool includeDeclaration, bool byAccess, bool includeResults)
     {
-        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position, document) is not { } named)
         {
             return null;
         }
+
+        // the part the position is in, whose document the origin is a position of.
+        var here = context.Modules.FirstOrDefault(candidate => candidate.Is(module, document));
 
         var (origin, symbol) = named;
         var together = RenameBinding.DefinedTogether(context, symbol).ToList();
@@ -93,16 +106,17 @@ public static class SymbolNavigation
         var found = NameOccurrences.Find(context, symbol.Name, context.Modules);
         var occurrences = found.Occurrences;
 
-        // how each module's names are used, found once per module.
+        // how each part's names are used, found once per part.
         var assigned = new Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>>(StringComparer.Ordinal);
-        NameAccess AccessOf(Uri at, SourcePosition start)
+        NameAccess AccessOf(Uri at, Uri? written, SourcePosition start)
         {
-            if (!assigned.TryGetValue(at.AbsoluteUri, out var names))
+            var key = RenameModule.KeyOf(at, written ?? at);
+            if (!assigned.TryGetValue(key, out var names))
             {
-                names = context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is { } source
+                names = context.Modules.FirstOrDefault(candidate => candidate.Is(at, written)) is { } source
                     ? NameOccurrences.AssignedIn(source)
                     : new Dictionary<SourcePosition, NameAccess>();
-                assigned[at.AbsoluteUri] = names;
+                assigned[key] = names;
             }
 
             return names.TryGetValue(start, out var access) ? access : NameAccess.Read;
@@ -115,8 +129,8 @@ public static class SymbolNavigation
         if (byAccess && AccessorOf(symbol) is { } declared)
         {
             var declares = occurrences.Any(occurrence => occurrence.Kind == OccurrenceKind.Declaration
-                && occurrence.Module.AbsoluteUri == module.AbsoluteUri && occurrence.Range == origin);
-            called = declares ? declared : AccessOf(module, origin.Start) is var used && used != NameAccess.Result ? used : NameAccess.Read;
+                && occurrence.Key == RenameModule.KeyOf(module, here?.Document ?? module) && occurrence.Range == origin);
+            called = declares ? declared : AccessOf(module, here?.Document, origin.Start) is var used && used != NameAccess.Result ? used : NameAccess.Read;
             accessor = together.FirstOrDefault(defined => AccessorOf(defined) == called)?.SemanticId;
         }
 
@@ -141,14 +155,15 @@ public static class SymbolNavigation
                     OccurrenceKind.Attribute => true,
                     // the result a Function or a Property Get assigns or reads is the procedure's own name, listed as its calls are; a property's is a read,
                     // so a use of its Property Get.
-                    _ => AccessOf(occurrence.Module, occurrence.Range.Start) is var access && (includeResults || access != NameAccess.Result)
+                    _ => AccessOf(occurrence.Module, occurrence.Document, occurrence.Range.Start) is var access
+                        && (includeResults || access != NameAccess.Result)
                         && (called is null || (accessor is not null && (access == NameAccess.Result ? NameAccess.Read : access) == called)),
                 };
             }
 
             if (refers)
             {
-                sites.Add(new SymbolSite(occurrence.Module, occurrence.Range, occurrence.Range));
+                sites.Add(new SymbolSite(occurrence.Module, occurrence.Range, occurrence.Range) { Document = occurrence.Document });
             }
         }
 
@@ -161,7 +176,7 @@ public static class SymbolNavigation
                     if (string.Equals(name, symbol.Name, StringComparison.OrdinalIgnoreCase)
                         && RenameBinding.IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
                     {
-                        sites.Add(new SymbolSite(source.Module, range, range));
+                        sites.Add(new SymbolSite(source.Module, range, range) { Document = source.Document });
                     }
                 }
             }
@@ -170,14 +185,14 @@ public static class SymbolNavigation
         // a name written as the symbol's whose meaning is not known, where the symbol could be what it means, as a rename refuses it.
         var unresolved = found.Unknown
             .Where(unknown => unknown.Kind == OccurrenceKind.Member || together.Any(defined => RenameBinding.ChainIndex(unknown.Scope, defined) < int.MaxValue))
-            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range));
+            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range) { Document = unknown.Document });
         return new SymbolNavigationTarget(origin, symbol, Ordered(sites)) { Unresolved = Ordered(unresolved) };
     }
 
     private static IReadOnlyList<SymbolSite> Ordered(IEnumerable<SymbolSite> sites)
         => [.. sites
-            .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
-            .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
+            .DistinctBy(site => (site.Key, site.Range))
+            .OrderBy(site => site.Key, StringComparer.Ordinal)
             .ThenBy(site => site.Range.Start)];
 
     // what calls a procedure of a property: a read calls its Get, a Let-assignment its Let, a Set-assignment its Set; null for anything else.
@@ -189,9 +204,9 @@ public static class SymbolNavigation
         _ => null,
     };
 
-    public static SymbolNavigationTarget? TypeDefinitionAt(RenameContext context, Uri module, SourcePosition position)
+    public static SymbolNavigationTarget? TypeDefinitionAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position, document) is not { } named)
         {
             return null;
         }
@@ -203,9 +218,9 @@ public static class SymbolNavigation
     }
 
     // MS-VBAL §5.2.4.2
-    public static SymbolNavigationTarget? ImplementationsAt(RenameContext context, Uri module, SourcePosition position)
+    public static SymbolNavigationTarget? ImplementationsAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
     {
-        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position, document) is not { } named)
         {
             return null;
         }
@@ -219,10 +234,11 @@ public static class SymbolNavigation
                 // the ranges are of the directives, one for each name written; the interfaces also have the one every class implements implicitly.
                 var index = implementer.ImplementedInterfaceNames.ToList()
                     .FindIndex(name => string.Equals(name, implemented.Name, StringComparison.OrdinalIgnoreCase));
-                var range = index >= 0 && index < implementer.ImplementedInterfaceLocations.Length
-                    ? implementer.ImplementedInterfaceLocations[index].Range
-                    : default;
-                sites.Add(new SymbolSite(NameOccurrences.ModuleOf(implementer.Uri), range, range));
+                var location = index >= 0 && index < implementer.ImplementedInterfaceLocations.Length
+                    ? implementer.ImplementedInterfaceLocations[index]
+                    : (SourceLocation?)null;
+                var range = location?.Range ?? default;
+                sites.Add(new SymbolSite(NameOccurrences.ModuleOf(implementer.Uri), range, range) { Document = location?.Uri });
             }
         }
         else if (symbol is VBTypeMemberSymbol)
@@ -233,21 +249,18 @@ public static class SymbolNavigation
             }
         }
 
-        return new SymbolNavigationTarget(origin, symbol, [.. sites
-            .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
-            .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
-            .ThenBy(site => site.Range.Start)]);
+        return new SymbolNavigationTarget(origin, symbol, Ordered(sites));
     }
 
     // whether the member named at a position is a member of a class that a class of the workspace implements as an interface.
-    internal static bool IsInterfaceMemberAt(RenameContext context, Uri module, SourcePosition position)
-        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBTypeMemberSymbol member }
+    internal static bool IsInterfaceMemberAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => RenameBinding.SymbolAt(context, module, position, document) is { Symbol: VBTypeMemberSymbol member }
             && NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(member.Uri))) is VBClassModuleSymbol owner
             && ImplementersOf(context, owner).Any();
 
     // the members of interfaces that the procedure named at a position implements (MS-VBAL §5.3.1.9), each with where it is declared.
-    internal static IReadOnlyList<ImplementedMember> ImplementedAt(RenameContext context, Uri module, SourcePosition position)
-        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBTypeMemberSymbol procedure }
+    internal static IReadOnlyList<ImplementedMember> ImplementedAt(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => RenameBinding.SymbolAt(context, module, position, document) is { Symbol: VBTypeMemberSymbol procedure }
             ? [.. InterfaceMembersImplementedBy(context, procedure)
                 .Select(member => (Member: member, Sites: Definitions(member)))
                 .Where(found => found.Sites.Count > 0)
@@ -333,7 +346,8 @@ public static class SymbolNavigation
         }
 
         return [.. declared.AllDefinitions
-            .Select(definition => (new SymbolSite(declaring, definition.Range, definition.SelectionRange), definition.State))
+            .Select(definition => (
+                new SymbolSite(declaring, definition.Range, definition.SelectionRange) { Document = declared.DocumentUri }, definition.State))
             .OrderBy(site => site.Item1.Range.Start)];
     }
 

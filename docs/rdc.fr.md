@@ -141,7 +141,7 @@ Le code de sortie indique comment s'est passée l'exécution :
 |Code de sortie|Signification|
 |---|---|
 |`0`|Le programme s'est terminé : son point d'entrée est revenu, il a exécuté un `End`, ou il a exécuté un `Stop` en `Release`.|
-|`1`|Une erreur d'exécution l'a terminé, ou un `Stop` en `Debug` l'a interrompu, sans débogueur où s'arrêter. La sortie d'erreur indique lequel, avec le numéro et la description de l'erreur.|
+|`1`|Une erreur d'exécution l'a terminé, ou un `Stop` en `Debug` l'a interrompu, sans débogueur où s'arrêter. La sortie d'erreur indique lequel, avec le numéro et la description de l'erreur, et en dessous ce que l'erreur dit de plus, comme le formulaire qu'une exécution sans surveillance a laissé chargé.|
 |`2`|Il n'a pas pu démarrer : aucun point d'entrée, ou un module qui ne se charge pas.|
 
 ### Construire un programme

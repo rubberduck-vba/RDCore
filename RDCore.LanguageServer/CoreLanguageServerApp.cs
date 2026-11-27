@@ -63,7 +63,8 @@ internal sealed class CoreLanguageServerApp(
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
     ILogger<CoreLanguageServerApp> logger,
-    IProjectFileDiagnostics? projectFiles = null)
+    IProjectFileDiagnostics? projectFiles = null,
+    IPlatformAnnotations? annotations = null)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
@@ -102,6 +103,8 @@ internal sealed class CoreLanguageServerApp(
                 // nothing is gated on the extension handshake yet, so no expected capabilities.
                 orchestration.RegisterExtension(extension, factory => factory.Create(CoreServerComponent.Extension,
                     new(), extensionInfo: extension));
+                // the annotations an extension provides are in its manifest, the core extension's among them: completion offers them before it is started.
+                annotations?.Add(extension.AnnotationSet);
             }
             LogIfEnabled(LogLevel.Information, "✅ Registered RDCore platform extensions");
         }

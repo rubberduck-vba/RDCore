@@ -13,6 +13,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.StdLib;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli.Repl;
 using System.IO.Abstractions.TestingHelpers;
@@ -141,7 +142,7 @@ public sealed class BuildCommandTests
         => Command(fileSystem, settings: settings, hasHost: true);
 
     private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true,
-        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null, AppOptions? settings = null)
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null, AppOptions? settings = null, IOptions<SdkAppOptions>? workspace = null)
     {
         var messages = new List<(MessageKind, string)>();
         var writer = Substitute.For<IConsoleMessageWriter>();
@@ -151,7 +152,7 @@ public sealed class BuildCommandTests
             messages.Add((message.Kind, string.Concat(message.Parts.OfType<ConsoleMessageBodyPart>().Select(part => part.Body))));
         });
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
-            libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+            libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), workspace);
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
             runtime => !hasHost ? null : MacOSSignature.IsNeeded(runtime) ? MacHost : Host, settings is null ? null : Options.Create(settings)), messages);
     }
@@ -521,10 +522,20 @@ public sealed class BuildCommandTests
         => BuildAndRunFromAsync(fileSystem, libraries, Root, folder, name, args);
 
     // the program rdc build makes of from, the workspace's folder or a module file, built under name.
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunFromAsync(MockFileSystem fileSystem,
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunFromAsync(MockFileSystem fileSystem,
         RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string from, string folder, string name, params string[] args)
+        => BuildAndRunInAsync(fileSystem, libraries, null, from, folder, name, args);
+
+    // a workspace that allows blocks in a module file: its options, and its program built and run.
+    private static readonly IOptions<SdkAppOptions> BlocksAllowed = Options.Create(new SdkAppOptions { Workspace = FileLevelStatementsOn.Options() });
+
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunWithBlocksAsync(MockFileSystem fileSystem, string folder)
+        => BuildAndRunInAsync(fileSystem, null, BlocksAllowed, Root, folder, "Hello", []);
+
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunInAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, IOptions<SdkAppOptions>? workspace, string from, string folder, string name, string[] args)
     {
-        var (command, messages) = Command(fileSystem, libraries: libraries);
+        var (command, messages) = Command(fileSystem, libraries: libraries, workspace: workspace);
         Assert.AreEqual(0, await command.ExecuteAsync([from, "--name", name, .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
@@ -622,7 +633,7 @@ public sealed class BuildCommandTests
     }
 
     // RD-VBAL §5.1: a Partial block of another file is a part of the module of its name, which rdc run runs as one module: a procedure of one part uses
-    // what is Private to another. Its built program runs it the same.
+    // what is Private to another. Its built program runs it the same. The tests of parts below are of a workspace that allows blocks in a module file.
     [TestMethod]
     public async Task AModuleOfParts_RunsAsOneModule_AndItsBuiltProgramTheSame()
     {
@@ -631,12 +642,12 @@ public sealed class BuildCommandTests
             ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
                 "Partial Module Program", "Private Sub Add(ByVal n As Long)", "    count = count + n", "End Sub", "End Module") + "\r\n"));
 
-        var run = await RunAsync(fileSystem, Root);
+        var run = await RunWithBlocksAsync(fileSystem, Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "42" }, run.Output, run.Error);
         CompiledExecutionTests.RequirePayloads();
-        var built = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+        var built = await BuildAndRunWithBlocksAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
         Assert.AreEqual(0, built.Exit, built.Error);
         CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
     }
@@ -649,7 +660,7 @@ public sealed class BuildCommandTests
             ("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print \"ran\"", "End Sub")),
             ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"", "Partial Class Program", "End Class") + "\r\n"));
 
-        var run = await RunAsync(fileSystem, Root);
+        var run = await RunWithBlocksAsync(fileSystem, Root);
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit, run.Error);
         Assert.IsEmpty(run.Output);
@@ -666,7 +677,7 @@ public sealed class BuildCommandTests
             ("Extra.bas", string.Join("\r\n", "Attribute VB_Name = \"Extra\"",
                 "Partial Module Program", "Private Sub Greet()", "    Debug.Print \"a\"", "    Debug.Print \"b\"", "End Sub", "End Module") + "\r\n"));
 
-        var run = await RunAsync(fileSystem, Root);
+        var run = await RunWithBlocksAsync(fileSystem, Root);
 
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "a", "b" }, run.Output, run.Error);
@@ -684,7 +695,7 @@ public sealed class BuildCommandTests
                 "Partial Module Program", "Private first As Long", "Private second As Long", "Private third As Long", "Private total As Long",
                 "End Module") + "\r\n"));
 
-        var run = await RunAsync(fileSystem, Root);
+        var run = await RunWithBlocksAsync(fileSystem, Root);
 
         Assert.AreEqual(ProgramRunner.Refused, run.Exit, run.Error);
         Assert.IsEmpty(run.Output);
@@ -894,12 +905,22 @@ public sealed class BuildCommandTests
         => RunAsync(fileSystem, libraries, keys, new AppOptions(), args);
 
     // the console's keys are the test's: a script piped to rdc, which the dialogs read a line at a time.
-    private static async Task<(int Exit, string[] Output, string Error)> RunAsync(
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(
         MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, AppOptions settings, params string[] args)
+        => RunInAsync(fileSystem, libraries, keys, settings, null, args);
+
+    // rdc run in a workspace that allows blocks in a module file.
+    private static Task<(int Exit, string[] Output, string Error)> RunWithBlocksAsync(MockFileSystem fileSystem, params string[] args)
+        => RunInAsync(fileSystem, new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), new ScriptedKeys(interactive: false),
+            new AppOptions(), BlocksAllowed, args);
+
+    private static async Task<(int Exit, string[] Output, string Error)> RunInAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, ScriptedKeys keys, AppOptions settings, IOptions<SdkAppOptions>? workspace, string[] args)
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance, libraries);
+        var runner = new BenchRunner(
+            RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance, libraries, workspace);
         var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error, keys,
             Options.Create(settings));
         var exit = await command.ExecuteAsync(args, CancellationToken.None);

@@ -252,9 +252,6 @@
   <data name="VBResume_WithoutError_Verbose" xml:space="preserve">
     <value>Cette instruction Resume s'est exécutée sans erreur active - il n'y a rien dont elle puisse reprendre.</value>
   </data>
-  <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
-    <value>Levée explicitement par une instruction Error.</value>
-  </data>
   <data name="VBProcedureCall_OutOfStackSpace_Verbose" xml:space="preserve">
     <value>Cet appel dépasserait la profondeur maximale de la pile d'appels de la session - probablement une récursion non bornée.</value>
   </data>

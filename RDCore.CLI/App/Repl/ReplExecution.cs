@@ -496,6 +496,12 @@ internal static class ReplExecution
     {
         yield return $"{result.ErrorCode}  {result.ErrorMessage}";
 
+        // what the error says beyond its description, under it.
+        if (result.ErrorVerbose is { } verbose)
+        {
+            yield return verbose;
+        }
+
         if (result.ErrorSource is { Length: > 0 } source)
         {
             yield return string.Format(Resources.Repl_RuntimeError_Source, source);

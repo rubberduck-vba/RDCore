@@ -68,4 +68,24 @@ public sealed class ReferencedLibraryServiceTests
         Assert.AreEqual("5.0", before);
         Assert.AreEqual("3.5", after);
     }
+
+    // a project that has a script references Windows Script Host's libraries without listing them (RD-VBAL §2.3.1.3): one that gains a script loads them.
+    [TestMethod]
+    public void AProjectThatGainsAScript_LoadsWindowsScriptHostsLibraries()
+    {
+        var project = Substitute.For<IProjectFileService>();
+        RDCoreProject Of(params string[] modules)
+            => new() { Name = "Project1", Modules = [.. modules.Select(path => new RDCoreModule { RelativeUri = path })] };
+        project.Project.Returns(
+            new ProjectFile(Path.GetTempPath(), Of("Program.bas")), new ProjectFile(Path.GetTempPath(), Of("Program.bas", "Lib.vbs")));
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { Language = SupportedLanguages.RDVBA.Id } });
+        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var service = new ReferencedLibraryService(project, source, options, NullLogger<ReferencedLibraryService>.Instance);
+
+        var before = service.Libraries.Libraries.Select(library => library.Name).ToArray();
+        var after = service.Libraries.Libraries.Select(library => library.Name).ToArray();
+
+        Assert.IsEmpty(before);
+        CollectionAssert.IsSubsetOf(new[] { "IHost", "IWshRuntimeLibrary" }, after);
+    }
 }

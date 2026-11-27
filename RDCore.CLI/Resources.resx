@@ -725,6 +725,12 @@
   <data name="Config_Deployment" xml:space="preserve">
     <value>{0} is set by the platform's deployment only: it is read before there is a console to change it.</value>
   </data>
+  <data name="Config_NotTheUsers" xml:space="preserve">
+    <value>{0} is in {1} because the platform's or the application's settings put it there: your settings can add to that list, and cannot remove an item from it.</value>
+  </data>
+  <data name="Config_NotTheUsers_Extension" xml:space="preserve">
+    <value>{0} is in {1} because the platform's settings put it there: your settings can add to that list, and cannot remove an item from it. To keep the extension from loading, add it to Platform.Extensions.Blocked.</value>
+  </data>
   <data name="Config_Unknown" xml:space="preserve">
     <value>There is no setting '{0}'.</value>
   </data>

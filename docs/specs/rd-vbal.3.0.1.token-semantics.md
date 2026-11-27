@@ -40,7 +40,8 @@ The rules of annotation binding differ depending on the annotation's intended _t
 
 |Annotation|Binding rule|
 |---|---|
-|Module annotation|May only be used to bind at _module_ level. Must be specified in the _declarations section_.|
+|Module annotation|May only be used to bind at _module_ level. Must be specified in the _declarations section_, or, for the module of a block of a file, on the comment lines directly above its header ([**RD-VBAL §5.1**](rd-vbal.5.1.module-body-structure.md#several-modules-in-one-file)).|
+|Annotation above a block's header|Binds to the block's module, whatever its kind: a `'@Description` there describes the module, as `'@ModuleDescription` does.|
 |Member annotation|Must appear **immediately above** the member declaration.|
 |Any other annotation type|How it binds to its target is _implementation-dependent_.|
 

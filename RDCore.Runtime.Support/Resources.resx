@@ -234,6 +234,24 @@
   <data name="Host_TheProgramWasInterrupted" xml:space="preserve">
     <value>the program was interrupted</value>
   </data>
+  <data name="Host_ArgumentGivenTwice_Verbose" xml:space="preserve">
+    <value>The parameter {0} is given two arguments.</value>
+  </data>
+  <data name="Host_ArgumentNotOptional_Verbose" xml:space="preserve">
+    <value>The parameter {0} of {1} is not Optional.</value>
+  </data>
+  <data name="Host_NamedArgumentNotFound_Verbose" xml:space="preserve">
+    <value>{0} has no parameter named {1}.</value>
+  </data>
+  <data name="Host_NoSuchModule" xml:space="preserve">
+    <value>the program has no standard module named {0}</value>
+  </data>
+  <data name="Host_NoSuchProcedure" xml:space="preserve">
+    <value>{0} declares no public procedure named {1}</value>
+  </data>
+  <data name="Host_TheProgramEnded" xml:space="preserve">
+    <value>the program ended with an End statement</value>
+  </data>
   <data name="Host_CannotRunYet" xml:space="preserve">
     <value>the interpreter reached something it cannot run yet</value>
   </data>

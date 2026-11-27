@@ -87,7 +87,7 @@ public static class ObjectClassInference
         => context.Resolver.ResolveValue(name, ScopeKind.Local, ScopeOf(tree, moduleUri, name).Uri).Symbol?.SemanticId == variable;
 
     private static LexicalScope ScopeOf(ScopeTree tree, Uri moduleUri, ExpressionNode name)
-        => tree.ScopeFor(CompletionCandidates.OriginAt(tree, moduleUri, name.Location.Range.Start));
+        => tree.ScopeFor(CompletionCandidates.OriginAt(tree, moduleUri, name.Location.Range.Start, name.Location.Uri));
 
     // `Scripting.Dictionary` and `scripting.dictionary` are one class.
     private static bool IsSameClass(ObjectCreationFact x, ObjectCreationFact y)

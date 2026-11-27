@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
@@ -802,14 +803,15 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
         return LiteralOf(Marshal.GetObjectForNativeVariant(IntPtr.Add(parameterDescription, 8)));
     }
 
-    // a value as the literal VBA would write: a Boolean, a string in double quotes, or a number.
+    // a value as the literal VBA would write: a Boolean, a string in double quotes, or a number. A string with a line break, which no literal holds, is
+    // written between double quotes all the same: the library reader takes the text between them, line break and all.
     private static string? LiteralOf(object? value)
     {
         return value switch
         {
             null or DBNull => null,
             bool flag => flag ? "True" : "False",
-            string text => "\"" + text.Replace("\"", "\"\"") + "\"",
+            string text => ExpressionWriter.Quoted(text),
             IConvertible number => number.ToString(CultureInfo.InvariantCulture),
             _ => null,
         };

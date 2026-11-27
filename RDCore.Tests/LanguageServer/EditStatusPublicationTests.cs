@@ -122,7 +122,7 @@ public sealed class EditStatusPublicationTests
         var tools = new WorkspaceDocument("Tools.bas", Root, "Attribute VB_Name = \"Tools\"\r\nModule Helpers\r\nEnd Module\r\n");
         _documents.GetAllDocuments().Returns([Module1, Module2, Modele, tools]);
         _parsing.TryGetCached(tools.Id.Uri.ToUri(), out Arg.Any<ModuleParseResult>())
-            .Returns(call => { call[1] = new RDCore.Parsing.ModuleParser().Parse(tools.Id.Uri.ToUri(), tools.Text); return true; });
+            .Returns(call => { call[1] = FileLevelStatementsOn.Parser().Parse(tools.Id.Uri.ToUri(), tools.Text); return true; });
         var edit = new DebugEdit
         {
             Name = "Helpers.Foo", Kind = DebugEditKind.Restart, Reason = "a local was removed", ModuleUri = new Uri("file:///ws#Helpers"),

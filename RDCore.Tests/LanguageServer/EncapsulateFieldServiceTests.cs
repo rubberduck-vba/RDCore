@@ -70,13 +70,14 @@ public sealed class EncapsulateFieldServiceTests
     private readonly EncapsulateFieldService _service;
 
     public EncapsulateFieldServiceTests()
+        => _service = ServiceOf(
+            new WorkspaceDocument("Fields.bas", Root, Fields, version: 3), new WorkspaceDocument("Main.bas", Root, Main, version: 1),
+            new WorkspaceDocument("Widget.cls", Root, Widget, version: 1));
+
+    // the service, on a workspace of these documents.
+    private EncapsulateFieldService ServiceOf(params WorkspaceDocument[] documents)
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var documents = new[]
-        {
-            new WorkspaceDocument("Fields.bas", Root, Fields, version: 3), new WorkspaceDocument("Main.bas", Root, Main, version: 1),
-            new WorkspaceDocument("Widget.cls", Root, Widget, version: 1),
-        };
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
@@ -93,7 +94,7 @@ public sealed class EncapsulateFieldServiceTests
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
-        _service = new EncapsulateFieldService(rename, _parsing, options);
+        return new EncapsulateFieldService(rename, _parsing, options);
     }
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
@@ -407,5 +408,32 @@ public sealed class EncapsulateFieldServiceTests
         StringAssert.Contains(text, "Friend Property Let Size(ByVal value As Long)\r\n");
         StringAssert.Contains(text, "Public Property Get Owner() As Collection\r\n");
         StringAssert.Contains(text, "Private Property Set Owner(ByVal value As Collection)\r\n");
+    }
+
+    // a module of parts (RD-VBAL §5.1): Program's plain part declares count, and its Partial part, a block of Extra.bas, writes it on the line of the
+    // plain part that writes it too.
+    private const string PlainPart = "Option Explicit\r\nPublic count As Long\r\n\r\nPublic Sub Reset()\r\n    count = 0\r\nEnd Sub\r\n";
+
+    private const string PartialPart = "Partial Module Program\r\nPublic Sub Bump()\r\n    count = count + 1\r\nEnd Sub\r\nEnd Module\r\n";
+
+    [TestMethod]
+    [DataRow("Program.bas", 1, 8, DisplayName = "from its declaration")]
+    [DataRow("Extra.bas", 2, 5, DisplayName = "from a reference in the other part")]
+    public async Task AFieldOfAModuleOfParts_IsEncapsulatedInThePartThatDeclaresIt_AndTheOtherPartGoesThroughTheProperties(
+        string document, int line, int character)
+    {
+        var service = ServiceOf(
+            new WorkspaceDocument("Program.bas", Root, PlainPart, version: 2), new WorkspaceDocument("Extra.bas", Root, PartialPart, version: 5));
+
+        var answer = await service.ApplyAsync(Document(document), new SourcePosition(line, character), [], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var edit = answer.Edit!.Documents.Single();
+        Assert.AreEqual(Document("Program.bas"), edit.Uri);
+        Assert.AreEqual(2, edit.Version);
+        var text = DeclarationEdits.ApplyTo(PlainPart, edit.Edits);
+        StringAssert.Contains(text, "Private Type TProgram\r\n    count As Long\r\nEnd Type\r\n\r\nPrivate this As TProgram\r\n");
+        StringAssert.Contains(text, "Public Sub Reset()\r\n    this.count = 0\r\nEnd Sub\r\n");
+        StringAssert.Contains(text, "Public Property Let count(ByVal value As Long)\r\n    this.count = value\r\nEnd Property\r\n");
     }
 }

@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Abstractions;
@@ -68,7 +70,9 @@ public sealed class ProjectAnalysisSessions(
     IRuntimeEnvironmentProfile environment,
     IFileSystem fileSystem,
     ILogger<ProjectAnalysisSessions> logger,
-    ILibrarySource? librarySource = null) : IProjectAnalysisSessions
+    ILibrarySource? librarySource = null,
+    // the workspace's settings, which say the files that declare modules in blocks; omitted, the defaults.
+    IOptions<SdkAppOptions>? options = null) : IProjectAnalysisSessions
 {
     // keyed by root, whichever address of the project is asked with.
     private readonly Dictionary<Uri, ProjectAnalysisSession> _sessions = new(SymbolUri.RootComparer);
@@ -105,7 +109,8 @@ public sealed class ProjectAnalysisSessions(
         // nothing it runs prints: its output goes nowhere. Its file statements act on no disk: the modules are read from the file system, and a user's files
         // are never the session's.
         var (session, _, _, moduleCount) = EnvironmentSessionProvider.ComposeSession(
-            environment, fileSystem, librarySource, logger, project, root, new RuntimeOutputRouter(), sessionFileSystem: RuntimeSessionComposer.NoFiles());
+            environment, fileSystem, librarySource, logger, project, root, new RuntimeOutputRouter(), sessionFileSystem: RuntimeSessionComposer.NoFiles(),
+            workspace: options?.Value.Workspace);
         var analysis = new ProjectAnalysisSession(root, project.Name, session, EnvironmentSessionProvider.NewImage(logger), moduleCount);
         lock (_lock)
         {

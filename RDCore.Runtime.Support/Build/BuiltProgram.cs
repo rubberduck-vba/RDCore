@@ -31,7 +31,8 @@ internal sealed record class BuiltEnvironment(
     // before it was recorded has none, and runs in RD-VBA, as it was built.
     public static BuiltEnvironment Of(IRuntimeEnvironmentProfile environment) => new(
         environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
-        environment.ErlLineNumbering, environment.AllowDllImports, environment.AllowAutomation, environment.LegacyRegistrySettings, environment.Configuration,
+        environment.ErlLineNumbering, !environment.ExecutionPolicy.LibraryImports.Refuses, !environment.ExecutionPolicy.Automation.Refuses,
+        environment.LegacyRegistrySettings, environment.Configuration,
         environment.ReleaseDropsDebugStatements, environment.ErlAfterErrClear, environment.OperatingSystem, environment.Language.Id);
 
     // the procedures of a built program run compiled. Not serialized: the profile's encoding is no JSON.

@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
 using DeclaredTypeKind = RDCore.SDK.Semantics.DeclaredTypeKind;
@@ -214,22 +215,30 @@ internal static class DefaultMemberAccesses
     /// <summary>
     /// The fix that writes the default members a dictionary access gives its name to (<strong>MS-VBAL §5.6.14</strong>): <c>b!key</c> becomes
     /// <c>b.Item("key")</c>, and <c>!key</c> in a <c>With</c> block becomes <c>.Item("key")</c>. A name in brackets (<c>b![a key]</c>) is the name inside
-    /// them.
+    /// them, and a double quote in it is written twice: <c>b![say "hi"]</c> becomes <c>b.Item("say ""hi""")</c>.
     /// </summary>
     /// <param name="bang">The dictionary access.</param>
     /// <param name="key">The name after the <c>!</c>.</param>
     /// <param name="written">The members, each after a period, as the code writes them.</param>
     /// <param name="title">What the fix is called, with the members' names in it.</param>
     /// <param name="shown">The members' names, as the title shows them.</param>
-    public static DiagnosticFixes NameBang(DictionaryAccessExpressionNode bang, string key, string written, string title, string shown)
+    /// <returns>
+    /// The fix, or <see langword="null"/> for a name no string literal writes: one with a line break, which a name in brackets cannot hold either
+    /// (<strong>MS-VBAL §3.3.5.3</strong>).
+    /// </returns>
+    public static DiagnosticFixes? NameBang(DictionaryAccessExpressionNode bang, string key, string written, string title, string shown)
     {
+        if (ExpressionWriter.LiteralOf(new VBStringValue(key)) is not { } literal)
+        {
+            return null;
+        }
+
         var from = bang.Owner?.SourceLocation.Range.End ?? bang.SourceLocation.Range.Start;
-        var literal = key.Replace("\"", "\"\"", StringComparison.Ordinal);
         return new DiagnosticFixes
         {
             Edits = [SyntaxEdits.Fix(
                 AnalyzerMessages.Format(title, shown),
-                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $"{written}(\"{literal}\")"))],
+                SyntaxEdits.Replace(new SourceRange(from, bang.SourceLocation.Range.End), $"{written}({literal})"))],
         };
     }
 

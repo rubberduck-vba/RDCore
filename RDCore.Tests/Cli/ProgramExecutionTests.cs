@@ -8,6 +8,8 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Platform.Components;
+using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.SDK.Model.Errors;
 
 namespace RDCore.Tests.Cli;
 
@@ -45,6 +47,60 @@ public sealed class ProgramExecutionTests
         }, CancellationToken.None).WaitAsync(Patience);
 
     private static string[] Lines(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
+
+    // what came of a run of Main, whatever it was.
+    private static async Task<ExecuteResult> RanAsync(params string[] body)
+    {
+        ExecuteResult? ran = null;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(["Public Sub Main()", .. body, "End Sub"]), (_, result, _) =>
+        {
+            ran = result;
+            return Task.CompletedTask;
+        });
+        return ran!;
+    }
+
+    // what a run-time error says beyond its description is the result's ErrorVerbose, and the description stays Err.Description's: a For Each over an
+    // array that was never given bounds says why there is nothing to enumerate.
+    [TestMethod]
+    public async Task ARunTimeErrorThatSaysMoreThanItsDescription_SaysItInErrorVerbose()
+    {
+        var result = await RanAsync("    Dim items() As Long, item As Variant", "    For Each item In items", "    Next");
+
+        Assert.AreEqual((ExecutionOutcome.RuntimeError, 92), (result.Outcome, result.ErrorNumber), result.ErrorMessage);
+        Assert.AreEqual(RDCore.Runtime.Exceptions.VBForEach_ArrayNotInitialized_Verbose, result.ErrorVerbose);
+        Assert.AreNotEqual(result.ErrorVerbose, result.ErrorMessage, "the description is not the verbose text");
+    }
+
+    // a run that ends with no run-time error says why in its message, and has no verbose text: a Stop that no debugger waits at ends it.
+    [TestMethod]
+    public async Task ARunThatEndsWithNoRunTimeError_HasNoErrorVerbose()
+    {
+        var result = await RanAsync("    Stop");
+
+        Assert.AreEqual((ExecutionOutcome.Interrupted, 0), (result.Outcome, result.ErrorNumber), result.ErrorMessage);
+        Assert.AreNotEqual(string.Empty, result.ErrorMessage, "the run says why it ended");
+        Assert.IsNull(result.ErrorVerbose, result.ErrorVerbose);
+    }
+
+    // a program's own Err.Raise says its description and nothing more: that the program raised it is what its code says (VBA), not a line under it.
+    [TestMethod]
+    public async Task AProgramsOwnErrRaise_SaysItsDescription_AndNothingUnderIt()
+        => await AProgramsOwnError_SaysItsDescription_AndNothingUnderIt("    Err.Raise 5");
+
+    // and so does its Error statement, which raises the same error.
+    [TestMethod]
+    public async Task AProgramsOwnErrorStatement_SaysItsDescription_AndNothingUnderIt()
+        => await AProgramsOwnError_SaysItsDescription_AndNothingUnderIt("    Error 5");
+
+    private static async Task AProgramsOwnError_SaysItsDescription_AndNothingUnderIt(string raise)
+    {
+        var result = await RanAsync(raise);
+
+        Assert.AreEqual((ExecutionOutcome.RuntimeError, 5, "VBA00005"), (result.Outcome, result.ErrorNumber, result.ErrorCode), result.ErrorMessage);
+        Assert.AreEqual(VBRuntimeErrorInfo.GetErrorString(VBRuntimeErrorId.InvalidProcedureCallOrArgument), result.ErrorMessage, "the usual description");
+        Assert.IsNull(result.ErrorVerbose, result.ErrorVerbose);
+    }
 
     // the program goes on, as the session's execution says when its state changes.
     private static Task GoesOnAsync(EnvironmentSessionProvider provider) => ModuleWorkspace.WhenRunning(provider).WaitAsync(Patience);

@@ -5,6 +5,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.SDK.Client;
 using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Extensibility;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.Cli;
@@ -26,7 +27,7 @@ public sealed class DescribeExtensionCommandTests
             Description = "desc",
             FileHash = "hash",
             Capabilities = [new PlatformExtensionServerCapability(nameof(CliCommand))],
-            SdkVersion = new Version(0, 1, 2, 3),
+            SdkVersion = PlatformVersion.Parse("0.1.2-alpha"),
         };
 
     private static (DescribeExtensionCommand Sut, MockFileSystem Fs, IExtensionsProvider Provider) NewSut(bool unsafeDevMode = false)
@@ -75,7 +76,7 @@ public sealed class DescribeExtensionCommandTests
         var written = System.Text.Json.JsonSerializer.Deserialize<ExtensionInfo>(fs.File.ReadAllText(Manifest))!;
         Assert.AreEqual("RDCore.Diagnostics", written.Id, "an extension that declares no id is known by its title");
         Assert.AreEqual("hash", written.FileHash);
-        Assert.AreEqual(new Version(0, 1, 2, 3), written.SdkVersion);
+        Assert.AreEqual(PlatformVersion.Parse("0.1.2-alpha"), written.SdkVersion);
         Assert.IsNull(written.DiagnosticPrefix);
     }
 

@@ -60,7 +60,7 @@ public sealed class ExtensionsClientDescribeTests
         Assert.IsNotNull(described);
         Assert.AreEqual(Path.GetFileName(extensionFolder), described.Id, "an extension that declares no id is known by its title");
         Assert.AreEqual(Convert.ToBase64String(System.Security.Cryptography.SHA512.HashData(bytes)), described.FileHash);
-        Assert.AreEqual(typeof(ExtensionInfo).Assembly.GetName().Version, described.SdkVersion);
+        Assert.AreEqual(PlatformVersionJsonConverter.Of(typeof(ExtensionInfo).Assembly.GetName().Version!), described.SdkVersion);
         Assert.AreEqual("RDC", described.DiagnosticPrefix, "the core diagnostics are RDC codes");
     }
 }
@@ -234,6 +234,8 @@ public sealed class ExtensionManifestValidationServiceTests
         Description = "",
         FileHash = fileHash,
         Capabilities = [],
+        // the platform's own SDK version, so that the file hash is the only thing these rows read.
+        SdkVersion = ExtensionManifestValidationService.SdkVersion,
     };
 
     [TestMethod]

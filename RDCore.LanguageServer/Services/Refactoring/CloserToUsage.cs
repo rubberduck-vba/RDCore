@@ -165,9 +165,10 @@ internal sealed record class CloserToUsageTarget(
     public bool IsOfTheModule => Variable is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol;
 
     /// <summary>
-    /// Whether the procedure is of another module than the variable.
+    /// Whether the procedure is of another module than the variable, or of another part of its module (<strong>RD-VBAL §5.1</strong>), whose edits are of
+    /// another document.
     /// </summary>
-    public bool MovesToAnotherModule => Into.Module.AbsoluteUri != Declaring.Module.AbsoluteUri;
+    public bool MovesToAnotherModule => Into.Key != Declaring.Key;
 }
 
 /// <summary>
@@ -175,7 +176,8 @@ internal sealed record class CloserToUsageTarget(
 /// </summary>
 /// <param name="Module">The module.</param>
 /// <param name="Edits">Its edits, in the order of their ranges.</param>
-internal sealed record class CloserToUsageEdits(Uri Module, IReadOnlyList<RefactorTextEdit> Edits);
+/// <param name="Document">The document of the part of the module the edits are of (<strong>RD-VBAL §5.1</strong>, <c>RenameModule.Document</c>).</param>
+internal sealed record class CloserToUsageEdits(Uri Module, IReadOnlyList<RefactorTextEdit> Edits, Uri? Document = null);
 
 // moves the declaration of a variable to the statement that first uses it (MS-VBAL §5.2.3.1, §5.4.3.1):
 // - a variable of a module that one procedure uses goes into that procedure, as Static (it keeps its value between calls) or Dim: a Private one of its
@@ -185,21 +187,23 @@ internal sealed record class CloserToUsageEdits(Uri Module, IReadOnlyList<Refact
 internal static class CloserToUsage
 {
     // the declaration of the variable named at a position of a module, and the statement it goes before; or why it does not move. The uses of a Public
-    // variable are the ones bound to it in every module of the project, whose parses parseOf gives (the module's own is parse).
+    // variable are the ones bound to it in every module of the project, whose parses parseOf gives, by part (the source's own is parse).
     public static (CloserToUsageTarget? Target, CloserToUsageNotice? Refusal) Prepare(
-        RenameContext context, RenameModule source, ModuleParseResult parse, SourcePosition position, Func<Uri, ModuleParseResult?>? parseOf = null)
+        RenameContext context, RenameModule source, ModuleParseResult parse, SourcePosition position, Func<RenameModule, ModuleParseResult?>? parseOf = null)
     {
-        if (RenameBinding.SymbolAt(context, source.Module, position) is not { Symbol: var symbol }
+        if (RenameBinding.SymbolAt(context, source.Module, position, source.Document) is not { Symbol: var symbol }
             || symbol is not (VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol or VBLocalVariableSymbol { DeclaredBy: LocalDeclarationKind.Dim }))
         {
             return (null, new(CloserToUsageRefusalKind.NotAVariable, string.Empty));
         }
 
-        ModuleParseResult? ParseOf(RenameModule module) => module.Module.AbsoluteUri == source.Module.AbsoluteUri ? parse : parseOf?.Invoke(module.Module);
+        ModuleParseResult? ParseOf(RenameModule module) => module.Key == source.Key ? parse : parseOf?.Invoke(module);
 
-        // a variable of a procedure, or a Private one of a module, is used in its module only; another is looked for in the project.
+        // a variable of a procedure, or a Private one of a module, is used in its module only, in each of its parts (RD-VBAL §5.1); another is looked for
+        // in the project.
         var isOfTheModule = symbol is not VBLocalVariableSymbol;
-        var (occurrences, unknown) = Bound(context, symbol, [source]);
+        IEnumerable<RenameModule> searched = isOfTheModule ? [.. context.Modules.Where(candidate => candidate.Is(source.Module, null))] : [source];
+        var (occurrences, unknown) = Bound(context, symbol, searched);
         if (DeclarationOf(context, symbol, occurrences) is not { Declaration.AccessModifier: AccessModifier.Private or AccessModifier.Implicit }
             && isOfTheModule)
         {
@@ -229,7 +233,7 @@ internal static class CloserToUsage
             return (null, new(CloserToUsageRefusalKind.NotUsed, symbol.Name));
         }
 
-        var users = uses.Select(use => UserOf(context, use)).DistinctBy(user => (user.Module?.Module.AbsoluteUri, user.Procedure?.Identity)).ToList();
+        var users = uses.Select(use => UserOf(context, use)).DistinctBy(user => (user.Module?.Key, user.Procedure?.Identity)).ToList();
         if (users is not [({ } into, { } procedure)])
         {
             var names = string.Join(", ", users.Where(user => user.Procedure is not null)
@@ -278,7 +282,7 @@ internal static class CloserToUsage
     private static (VariableDeclarationNode Declaration, RenameModule Module)? DeclarationOf(
         RenameContext context, Symbol symbol, IReadOnlyList<NameOccurrence> occurrences)
         => occurrences.FirstOrDefault(occurrence => occurrence.Kind is OccurrenceKind.Declaration) is { Module: { } uri } declared
-            && context.Modules.FirstOrDefault(module => module.Module.AbsoluteUri == uri.AbsoluteUri) is { } module
+            && context.Modules.FirstOrDefault(module => module.Is(uri, declared.Document)) is { } module
             && module.Syntax.Descendants().OfType<VariableDeclarationNode>()
                 .FirstOrDefault(variable => variable.NameRange?.Start == declared.Range.Start) is { } node
                 ? (node, module)
@@ -286,7 +290,7 @@ internal static class CloserToUsage
 
     // the module and the procedure of a use; no procedure for a use outside any.
     private static (RenameModule? Module, MemberDeclarationNode? Procedure) UserOf(RenameContext context, NameOccurrence use)
-        => context.Modules.FirstOrDefault(module => module.Module.AbsoluteUri == use.Module.AbsoluteUri) is { } module
+        => context.Modules.FirstOrDefault(module => module.Is(use.Module, use.Document)) is { } module
             ? (module, module.Syntax.Children.OfType<MemberDeclarationNode>().FirstOrDefault(procedure => Holds(procedure, use.Range.Start)))
             : (null, null);
 
@@ -294,7 +298,7 @@ internal static class CloserToUsage
     private static bool Hides(RenameContext context, Symbol symbol, RenameModule into, MemberDeclarationNode procedure, IReadOnlyList<NameOccurrence> unknown)
         => NameOccurrences.Find(context, symbol.Name, [into]).Occurrences.Concat(unknown)
             .Any(occurrence => occurrence.Kind is OccurrenceKind.Name && occurrence.Binding != symbol.SemanticId
-                && occurrence.Module.AbsoluteUri == into.Module.AbsoluteUri && Holds(procedure, occurrence.Range.Start));
+                && occurrence.Key == into.Key && Holds(procedure, occurrence.Range.Start));
 
     private static string NameOf(RenameModule module) => module.Module.Fragment.TrimStart('#');
 
@@ -337,8 +341,11 @@ internal static class CloserToUsage
         ];
 
         return target.MovesToAnotherModule
-            ? ([new(target.Declaring.Module, removed), new(target.Into.Module, [.. inserted.OrderBy(edit => edit.Range.Start)])], null)
-            : ([new(target.Declaring.Module, [.. removed.Concat(inserted).OrderBy(edit => edit.Range.Start)])], null);
+            ? ([
+                new(target.Declaring.Module, removed, target.Declaring.Document),
+                new(target.Into.Module, [.. inserted.OrderBy(edit => edit.Range.Start)], target.Into.Document),
+            ], null)
+            : ([new(target.Declaring.Module, [.. removed.Concat(inserted).OrderBy(edit => edit.Range.Start)], target.Declaring.Document)], null);
     }
 
     // the statement the declaration goes before, and the list of statements it is one of: the first that uses the variable, of the innermost block that holds

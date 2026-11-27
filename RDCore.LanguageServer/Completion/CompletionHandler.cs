@@ -20,6 +20,10 @@ namespace RDCore.LanguageServer.Completion;
 /// <c>VbMsgBoxStyle</c>'s). The list is asked for as such an argument starts, too: a <c>(</c>, a <c>,</c> and a space are trigger characters, and the list they
 /// ask for is answered only there (<see cref="ICompletionService.ArgumentTriggerCharacters"/>).
 /// </para>
+/// <para>
+/// A <c>@</c> typed right after the <c>'</c> that starts a comment starts an annotation, and asks for the annotations legal there, each with its
+/// description: a <c>@</c> is a trigger character, answered nothing anywhere else (<see cref="ICompletionService.AnnotationTriggerCharacter"/>).
+/// </para>
 /// </remarks>
 internal sealed class CompletionHandler(ICompletionService completion) : CompletionHandlerBase
 {
@@ -34,7 +38,7 @@ internal sealed class CompletionHandler(ICompletionService completion) : Complet
 
     protected override CompletionRegistrationOptions CreateRegistrationOptions(CompletionCapability capability, ClientCapabilities clientCapabilities) => new()
     {
-        TriggerCharacters = new Container<string>([".", .. ICompletionService.ArgumentTriggerCharacters]),
+        TriggerCharacters = new Container<string>([".", .. ICompletionService.ArgumentTriggerCharacters, ICompletionService.AnnotationTriggerCharacter]),
         ResolveProvider = false,
     };
 }

@@ -58,7 +58,7 @@ public sealed class CloserToUsageTests
     // a project of modules, by name: what they resolve in, and the parse of each.
     private sealed record class Project(RenameContext Context, IReadOnlyDictionary<string, (RenameModule Module, ModuleParseResult Parse)> Modules)
     {
-        public ModuleParseResult? ParseOf(Uri module) => Modules.Values.FirstOrDefault(each => each.Module.Module.AbsoluteUri == module.AbsoluteUri).Parse;
+        public ModuleParseResult? ParseOf(RenameModule module) => Modules.Values.FirstOrDefault(each => each.Module.Key == module.Key).Parse;
 
         // the variable named at the first place `marker` is written in the named module.
         public (CloserToUsageTarget? Target, CloserToUsageNotice? Refusal) Prepare(string module, string marker)

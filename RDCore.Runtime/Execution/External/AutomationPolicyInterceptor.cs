@@ -6,7 +6,7 @@ namespace RDCore.Runtime.Execution.External;
 /// The platform's own policy over automation: whether a program may create and call the objects of a referenced library at all.
 /// </summary>
 /// <remarks>
-/// 🎯 Reads <c>IRuntimeEnvironmentProfile.AllowAutomation</c>, which an administrator sets and a workspace cannot, and like
+/// 🎯 Reads the rule of <c>Automation</c> in <c>IRuntimeEnvironmentProfile.ExecutionPolicy</c>, which an administrator sets and a workspace cannot, and like
 /// <see cref="DllImportPolicyInterceptor"/> it runs before any other interceptor so that nothing an extension does can let through what it refused.
 /// Creating an object is a call it sees, which is the point: <c>New Excel.Application</c> is where automation starts.
 /// <para>
@@ -26,7 +26,7 @@ public sealed class AutomationPolicyInterceptor(IEnumerable<IExternalCallProvide
 
     /// <inheritdoc/>
     public ExternalCallDecision Intercept(ExternalCallRequest request, IRuntimeSession session)
-        => request.IsAutomation && !request.IsAnsweredByPlatform && !session.Environment.AllowAutomation
+        => request.IsAutomation && !request.IsAnsweredByPlatform && session.Environment.ExecutionPolicy.Automation.Refuses
             && !_implementations.Any(provider => provider.CanDispatch(request))
             ? ExternalCallDecision.Block("automation is disabled for this environment")
             : ExternalCallDecision.Allow;

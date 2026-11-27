@@ -117,12 +117,13 @@ public sealed class DefaultMemberFixTests
     [TestMethod]
     [DataRow("c!k", "c.Item(\"k\")", DisplayName = "a name")]
     [DataRow("c![a b]", "c.Item(\"a b\")", DisplayName = "a name in brackets")]
+    [DataRow("c![say \"hi\"]", "c.Item(\"say \"\"hi\"\"\")", DisplayName = "a name in brackets with a double quote, written twice in the string")]
     public Task ABangName_IsGivenToTheNamedDefaultMemberAsAString(string bang, string named)
-        => CodeActionFixture.AssertFixedAsync(
-            RDCoreDiagnosticId.BangNotation,
-            Body("Dim c As New Collection", "c.Add 1, \"k\"", "c.Add 2, \"a b\"", $"Debug.Print {bang}"),
-            Body("Dim c As New Collection", "c.Add 1, \"k\"", "c.Add 2, \"a b\"", $"Debug.Print {named}"),
-            runs: true, classes: Classes);
+    {
+        string[] keyed = ["Dim c As New Collection", "c.Add 1, \"k\"", "c.Add 2, \"a b\"", "c.Add 3, \"say \"\"hi\"\"\""];
+        return CodeActionFixture.AssertFixedAsync(
+            RDCoreDiagnosticId.BangNotation, Body([.. keyed, $"Debug.Print {bang}"]), Body([.. keyed, $"Debug.Print {named}"]), runs: true, classes: Classes);
+    }
 
     [TestMethod]
     public Task ABangNameInAWithBlock_IsGivenToTheNamedDefaultMemberOfItsObject()

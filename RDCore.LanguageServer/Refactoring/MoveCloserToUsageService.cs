@@ -141,7 +141,7 @@ internal sealed class MoveCloserToUsageService(IRenameService rename) : IMoveClo
         var documents = new List<RefactorDocumentEdit>();
         foreach (var each in edits)
         {
-            if (planned.Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == each.Module.AbsoluteUri) is not { } module)
+            if (planned.Part.Modules.FirstOrDefault(candidate => candidate.Is(each.Module, each.Document)) is not { } module)
             {
                 return new(null, new CloserToUsageNotice(CloserToUsageRefusalKind.NotAVariable, string.Empty).ToMessage());
             }
@@ -173,15 +173,16 @@ internal sealed class MoveCloserToUsageService(IRenameService rename) : IMoveClo
 
     private async Task<(Planned? Planned, CloserToUsageNotice? Refusal)> PlannedAsync(Uri documentUri, SourcePosition position, CancellationToken token)
     {
-        if (await rename.ComposeAsync(token) is not { } workspace || workspace.DocumentOf(documentUri) is not ({ } part, { } module)
-            || part.Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+        if (await rename.ComposeAsync(token) is not { } workspace
+            || workspace.DocumentAt(documentUri, new Position(position.Line, position.Character)) is not ({ } part, { } module)
+            || part.Context.Modules.FirstOrDefault(candidate => candidate.Is(module.Module, module.WrittenIn)) is not { } source)
         {
             return (null, new(CloserToUsageRefusalKind.NotAVariable, string.Empty));
         }
 
         var (target, refusal) = CloserToUsage.Prepare(
             part.Context, source, module.Parse, module.ToModulePosition(new Position(position.Line, position.Character)),
-            uri => part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == uri.AbsoluteUri)?.Parse);
+            other => part.Modules.FirstOrDefault(candidate => candidate.Key == other.Key)?.Parse);
         return target is null ? (null, refusal) : (new Planned(part, target), null);
     }
 
