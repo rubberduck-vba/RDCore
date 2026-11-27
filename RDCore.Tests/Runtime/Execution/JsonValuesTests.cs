@@ -1,8 +1,9 @@
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Execution.Hosting;
+using RDCore.Runtime.Execution.Hosting.Json;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -36,7 +37,7 @@ public sealed class JsonValuesTests
             SourceRange.Empty, SourceRange.Empty, AccessModifier.Implicit);
 
     // runs the body, which leaves the value in V, and writes V as JSON.
-    private static (VBRuntimeErrorInfo? Error, string? Json) Written(params string[] body)
+    private static (IVBRaisableError? Error, string? Json) Written(params string[] body)
     {
         var (session, outcome) = RuntimeSourceHarness.Run(fileSystem: null, [V, C], output: null, standardLibrary: true, body);
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
@@ -53,7 +54,7 @@ public sealed class JsonValuesTests
         return json!;
     }
 
-    private static void AssertError(VBRuntimeErrorId expected, VBRuntimeErrorInfo? error)
+    private static void AssertError(VBRuntimeErrorId expected, IVBRaisableError? error)
     {
         Assert.IsNotNull(error, "the value converted");
         Assert.AreEqual((int)expected, error.ErrorId, error.Verbose);
@@ -77,9 +78,9 @@ public sealed class JsonValuesTests
     }
 
     // reads json as the declared type in a session where nothing runs.
-    private static (VBRuntimeErrorInfo? Error, VBTypedValue? Value) Value(string json, Func<IRuntimeSession, VBType> declared)
+    private static (IVBRaisableError? Error, VBTypedValue? Value) Value(string json, Func<IRuntimeSession, VBType> declared)
     {
-        (VBRuntimeErrorInfo?, VBTypedValue?) read = default;
+        (IVBRaisableError?, VBTypedValue?) read = default;
         RuntimeSourceHarness.Run(fileSystem: null, [], output: null, standardLibrary: true, session =>
         {
             var error = new JsonValues(session, session.Symbols.Resolver).FromJson(JsonNode.Parse(json), declared(session), out var value);
@@ -122,9 +123,10 @@ public sealed class JsonValuesTests
             Read("""{"a":1,"A":"x","n":null}""", 
                 body: "Debug.Print TypeName(V) & \" \" & V.Count & \" \" & V.CompareMode & \" \" & V(\"a\") & \" \" & V(\"A\") & \" \" & IsNull(V(\"n\"))"));
 
-    // a. what an Object or a Dictionary is declared to hold, and no other class.
+    // a. what an Object or a Dictionary is declared to hold, and no other class of a library: a class of the workspace is a New object of it
+    // (JsonInstancesTests).
     [TestMethod]
-    public void AJsonObject_IsADictionaryForAnObject_AndATypeMismatchForAnotherClass()
+    public void AJsonObject_IsADictionaryForAnObject_AndATypeMismatchForAnotherLibraryClass()
     {
         Assert.IsFalse(((VBObjectValue)Converted("""{"a":1}""", VBObjectType.TypeInfo)).IsNothing());
 
@@ -151,13 +153,51 @@ public sealed class JsonValuesTests
             Read("""[1,[2,"x"],[]]""", 
                 body: "Debug.Print TypeName(V) & \" \" & LBound(V) & \" \" & UBound(V) & \" \" & TypeName(V(1)) & \" \" & V(1)(1) & \" \" & UBound(V(2))"));
 
-    // b. an array of another element type is not one a JSON array makes.
+    // b. for an array of another element type, an array of exactly that type from 0, each element let-coerced to it.
     [TestMethod]
-    public void AJsonArray_ForALongArrayOrALong_IsATypeMismatch()
-    {
-        AssertError(VBRuntimeErrorId.TypeMismatch, Value("[1]", _ => new VBResizableArrayType(VBLongType.TypeInfo)).Error);
-        AssertError(VBRuntimeErrorId.TypeMismatch, Value("[1]", _ => VBLongType.TypeInfo).Error);
-    }
+    [DataRow("Long", """[1,"2",true]""", "Long() 0 2 1 2 -1")]
+    [DataRow("Byte", "[1,255,0]", "Byte() 0 2 1 255 0")]
+    [DataRow("String", """["a",1,true]""", "String() 0 2 a 1 True")]
+    public void AJsonArray_ForAnArrayOfAnElementType_IsAnArrayOfExactlyThatType(string element, string json, string expected)
+        => CollectionAssert.AreEqual(
+            new[] { expected },
+            Read(json, _ => new VBResizableArrayType(element switch
+            {
+                "Long" => VBLongType.TypeInfo,
+                "Byte" => VBByteType.TypeInfo,
+                _ => VBStringType.TypeInfo,
+            }), "Debug.Print TypeName(V) & \" \" & LBound(V) & \" \" & UBound(V) & \" \" & V(0) & \" \" & V(1) & \" \" & V(2)"));
+
+    // b. an element that does not convert is the array's error: 13 for text that is not a number, 6 past the type's range.
+    [TestMethod]
+    [DataRow("""[1,"x"]""", VBRuntimeErrorId.TypeMismatch)]
+    [DataRow("[1,3000000000]", VBRuntimeErrorId.Overflow)]
+    [DataRow("[1,[2]]", VBRuntimeErrorId.TypeMismatch)]
+    public void AnElementThatDoesNotConvert_IsTheArraysError(string json, VBRuntimeErrorId expected)
+        => AssertError(expected, Value(json, _ => new VBResizableArrayType(VBLongType.TypeInfo)).Error);
+
+    // b. a JSON array is not a Long; a fixed-size array is not a let target; an array of a UDT is 13, as a UDT is, even with no element to convert.
+    [TestMethod]
+    [DataRow("Long", "[1]")]
+    [DataRow("a fixed-size Long array", "[1]")]
+    [DataRow("a fixed-size Variant array", "[1]")]
+    [DataRow("UDT()", "[]")]
+    public void AJsonArray_ForNoResizableArrayOrForAUserDefinedTypeArray_IsATypeMismatch(string type, string json)
+        => AssertError(VBRuntimeErrorId.TypeMismatch, Value(json, _ => type switch
+        {
+            "Long" => VBLongType.TypeInfo,
+            "a fixed-size Long array" => new VBFixedSizeArrayType(VBLongType.TypeInfo),
+            "a fixed-size Variant array" => new VBFixedSizeArrayType(VBVariantType.TypeInfo),
+            _ => new VBResizableArrayType(Point()),
+        }).Error);
+
+    // c. for a Collection, a New Collection of the elements, each what a Variant holds of it: an object is a Dictionary, an array a Variant().
+    [TestMethod]
+    public void AJsonArray_ForACollection_IsANewCollectionOfItsElements()
+        => CollectionAssert.AreEqual(
+            new[] { "Collection 4 1 two Dictionary Variant()" },
+            Read("""[1,"two",{"a":1},[3]]""", Collection,
+                "Debug.Print TypeName(V) & \" \" & V.Count & \" \" & V(1) & \" \" & V(2) & \" \" & TypeName(V(3)) & \" \" & TypeName(V(4))"));
 
     // c. a Date has no zone: ISO 8601 with no offset, a day before 1899 included.
     [TestMethod]
@@ -264,7 +304,7 @@ public sealed class JsonValuesTests
         AssertError(VBRuntimeErrorId.TypeMismatch, Written("Set V = New Collection", "V.Add V").Error);
     }
 
-    // f. reading public properties would run Property Get code: an object that is neither a Dictionary nor a Collection has no JSON value.
+    // f. a library's object that is neither a Dictionary nor a Collection has no JSON value (an instance of a class of the workspace has: JsonInstancesTests).
     [TestMethod]
     public void AnotherObject_IsATypeMismatch()
         => AssertError(VBRuntimeErrorId.TypeMismatch, Written("Set V = CreateObject(\"Scripting.FileSystemObject\")").Error);

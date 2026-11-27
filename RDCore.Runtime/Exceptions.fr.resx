@@ -324,8 +324,8 @@
   <data name="JsonValues_HoldsItself_Verbose" xml:space="preserve">
     <value>Un objet qui se contient lui-même n'a aucune valeur JSON.</value>
   </data>
-  <data name="JsonValues_NeitherDictionaryNorCollection_Verbose" xml:space="preserve">
-    <value>Un objet qui n'est ni un Dictionary ni une Collection n'a aucune valeur JSON.</value>
+  <data name="JsonValues_ObjectHasNoJson_Verbose" xml:space="preserve">
+    <value>Un objet qui n'est ni un Dictionary, ni une Collection, ni une instance d'une classe de l'espace de travail n'a aucune valeur JSON.</value>
   </data>
   <data name="JsonValues_KeyNotAName_Verbose" xml:space="preserve">
     <value>Une clé de Dictionary de type '{0}' n'est pas un nom JSON.</value>
@@ -350,6 +350,21 @@
   </data>
   <data name="JsonValues_ValueNotType_Verbose" xml:space="preserve">
     <value>La valeur JSON n'est pas un '{0}'.</value>
+  </data>
+  <data name="JsonValues_MemberEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant la lecture du membre '{0}' de l'objet.</value>
+  </data>
+  <data name="JsonValues_MemberGivenEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant l'affectation du membre '{0}' de l'objet.</value>
+  </data>
+  <data name="JsonValues_CollectionAddEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant l'ajout d'un élément au nouvel objet '{0}'.</value>
+  </data>
+  <data name="JsonValues_InitializeEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant l'initialisation d'un objet de la classe '{0}'.</value>
+  </data>
+  <data name="JsonValues_KeyGivenTwice_Verbose" xml:space="preserve">
+    <value>Les clés '{0}' et '{1}' désignent le même membre de la classe '{2}'.</value>
   </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} a arrêté le processus qui l'appelait : la fonction est probablement mal déclarée - ses paramètres, leurs types, ou la façon dont ils sont passés.</value>
