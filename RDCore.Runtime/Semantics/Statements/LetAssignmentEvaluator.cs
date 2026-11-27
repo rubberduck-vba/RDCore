@@ -489,11 +489,6 @@ public sealed class LetAssignmentEvaluator(
         return RuntimeExecutionOutcome.Next;
     }
 
-    // An element is written where it is: its cell is the storage, and the one the objects it holds are held by, which is what
-    // lets them be released when the element is assigned again (ObjectReferences) - whether it is Set to an object, or Let a
-    // Variant, an array or a record that holds some. Only a cell that cannot be written - the inert one an element of a class,
-    // user-defined type or Object type starts with - is given a binding that can. An array or a record is stored boxed, as a
-    // variable stores one.
     // the record of an element let a record in place, what it holds counted as StoreElement counts it: false when the element holds no record to let.
     private static bool TryLetElementRecord(IRuntimeSession session, VBArrayValue array, int[] indices, VBUserDefinedTypeValue record)
     {
@@ -513,6 +508,11 @@ public sealed class LetAssignmentEvaluator(
         return true;
     }
 
+    // An element is written where it is: its cell is the storage, and the one the objects it holds are held by, which is what
+    // lets them be released when the element is assigned again (ObjectReferences) - whether it is Set to an object, or Let a
+    // Variant, an array or a record that holds some. Only a cell that cannot be written - the inert one an element of a class,
+    // user-defined type or Object type starts with - is given a binding that can. An array or a record is stored boxed, as a
+    // variable stores one.
     private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, VBTypedValue source)
     {
         var cell = array.GetElementHandle(indices)!;

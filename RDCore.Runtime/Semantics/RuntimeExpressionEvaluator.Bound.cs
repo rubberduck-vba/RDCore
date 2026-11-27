@@ -198,7 +198,7 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // a known record let to a target of its own type, when nothing observes the evaluation: the target's record is let the record itself, and takes a copy
-    // of it (VBUserDefinedTypeValue.TryLetFrom), which is what the record's let-coercion would make of it first (MS-VBAL 5.5.1.2.8).
+    // of it (VBUserDefinedTypeValue.TryLetFrom), which is what the record's let-coercion would make of it first (MS-VBAL §5.5.1.2.8).
     internal bool LetsRecordUncoerced(
         VBTypedValue value, VBType destination, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record)
     {
