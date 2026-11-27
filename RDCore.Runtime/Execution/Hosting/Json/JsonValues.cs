@@ -26,8 +26,9 @@ namespace RDCore.Runtime.Execution.Hosting.Json;
 //
 //   Scripting.Dictionary   an object, its keys Strings (any other key is 13); a JSON object is a new Dictionary that compares its keys binary.
 //   array                  any array, a multi-dimensional one as nested arrays, the first dimension outermost, its bounds dropped; a JSON array is a
-//                          Variant() from 0, and a nested one a Variant() in it. For an array of another element type, a JSON array is an array of
-//                          exactly that type from 0, each element converted to it; an array of a UDT is 13.
+//                          Variant() from 0, and a nested one a Variant() in it. For a dynamic array of another element type, a JSON array is an
+//                          array of exactly that type from 0, each element converted to it. A fixed-size array, which is not a let target, and an
+//                          array of a UDT are 13.
 //   Date                   ISO 8601 text to the second, with no offset (2026-11-26T14:30:00); any other text, one with an offset or a zone
 //                          included, is 13. In a Variant, such text stays a String.
 //   Currency, Decimal      a number, every digit of it.
