@@ -22,9 +22,30 @@ namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 internal sealed record class ExtractionDuplicate(Uri Module, ExtractionSource Source, ExtractionPlan Plan, ImmutableDictionary<SemanticId, SemanticId> Variables)
 {
     /// <summary>
-    /// What identifies the duplicate among the others: its module, and the line and the column it starts at, from 1 (<c>Main:12:5</c>).
+    /// What identifies the duplicate among the others: its module, and the line and the column it starts at, from 1 (<c>Main:12:5</c>). In a module of parts
+    /// (<see cref="IsInAPart"/>), the name of its part's file comes after its module's (<c>Main:Extra.bas:12:5</c>), since two parts can each have a
+    /// duplicate at the same line and column.
     /// </summary>
-    public string Id => $"{SymbolUri.ModuleNameOf(Module)}:{Plan.Selection.Range.Start.Line + 1}:{Plan.Selection.Range.Start.Character + 1}";
+    public string Id => IsInAPart
+        ? $"{SymbolUri.ModuleNameOf(Module)}:{Uri.UnescapeDataString(Document.Segments[^1])}:{Start.Line + 1}:{Start.Character + 1}"
+        : $"{SymbolUri.ModuleNameOf(Module)}:{Start.Line + 1}:{Start.Character + 1}";
+
+    private SourcePosition Start => Plan.Selection.Range.Start;
+
+    /// <summary>
+    /// Whether its module is written in several parts (<strong>RD-VBAL §5.1</strong>), each in a document of its own.
+    /// </summary>
+    public bool IsInAPart { get; init; }
+
+    /// <summary>
+    /// The document it is written in: the one its part's tree is of.
+    /// </summary>
+    public Uri Document => Source.Module.SourceLocation.Uri;
+
+    /// <summary>
+    /// What names its part among the parts of every module (<see cref="RenameModule.Key"/>).
+    /// </summary>
+    public string Key => RenameModule.KeyOf(Module, Document);
 
     /// <summary>
     /// The edits that replace the duplicate: the call, of kind <see cref="ExtractionTextEditKind.Replacement"/>, and the declarations of its procedure that move
@@ -76,7 +97,8 @@ internal sealed record class ExtractionDuplicate(Uri Module, ExtractionSource So
 internal static class ExtractionDuplicates
 {
     /// <summary>
-    /// The duplicates of a selection, in the modules searched, in the order they are written: none overlaps the selection, or another.
+    /// The duplicates of a selection, in the modules searched, in the order they are written: none overlaps the selection, or another. A module of parts
+    /// (<strong>RD-VBAL §5.1</strong>) is searched in each of its parts.
     /// </summary>
     /// <param name="plan">The plan of the selection.</param>
     /// <param name="source">Its module, and the procedure it is in.</param>
@@ -84,12 +106,13 @@ internal static class ExtractionDuplicates
     /// <param name="context">The workspace, whose modules are bound.</param>
     /// <param name="module">The address of the selection's module in <paramref name="context"/>.</param>
     /// <param name="searched">The modules searched, the selection's among them when it is.</param>
-    /// <param name="analysisOf">The analysis of a module of the workspace, by its address.</param>
+    /// <param name="analysisOf">The analysis of a part of a module of the workspace.</param>
     public static ImmutableArray<ExtractionDuplicate> Find(
         ExtractionPlan plan, ExtractionSource source, ExtractionChoices choices, RenameContext context, Uri module, IEnumerable<Uri> searched,
-        Func<Uri, ExtractionModuleAnalysis?> analysisOf)
+        Func<RenameModule, ExtractionModuleAnalysis?> analysisOf)
     {
-        if (!HasDuplicates(plan) || RunOf(source.Procedure, plan) is not { } run || context.Modules.FirstOrDefault(each => each.Module.AbsoluteUri == module.AbsoluteUri) is not { } selected)
+        if (!HasDuplicates(plan) || RunOf(source.Procedure, plan) is not { } run
+            || context.Modules.FirstOrDefault(each => each.Is(module, source.Module.SourceLocation.Uri)) is not { } selected)
         {
             return [];
         }
@@ -97,12 +120,15 @@ internal static class ExtractionDuplicates
         var selection = new Side(TextLines.Of(source.Text), NameOccurrences.BindingsOf(context, selected), source.ProcedureId);
         var names = ExtractMethodEdit.ModuleNamesOf(plan, source, choices.Name).ToArray();
         var found = new List<ExtractionDuplicate>();
-        foreach (var uri in searched)
+        foreach (var syntax in searched.SelectMany(uri => context.Modules.Where(each => each.Is(uri, null))))
         {
-            if (context.Modules.FirstOrDefault(each => each.Module.AbsoluteUri == uri.AbsoluteUri) is not { } syntax || analysisOf(uri) is not { Parse.SyntaxTree: { } tree } analysis)
+            var uri = syntax.Module;
+            if (analysisOf(syntax) is not { Parse.SyntaxTree: { } tree } analysis)
             {
                 continue;
             }
+
+            var isInAPart = context.Modules.Count(each => each.Is(uri, null)) > 1;
 
             var bindings = NameOccurrences.BindingsOf(context, syntax);
             var text = TextLines.Of(analysis.Text);
@@ -123,15 +149,15 @@ internal static class ExtractionDuplicates
                     {
                         var nodes = children[index..(index + run.Length)];
                         var range = new SourceRange(nodes[0].SourceLocation.Range.Start, nodes[^1].SourceLocation.Range.End);
-                        if (uri.AbsoluteUri == module.AbsoluteUri && Overlaps(range, plan.Selection.Range)
-                            || found.Any(duplicate => duplicate.Module.AbsoluteUri == uri.AbsoluteUri && Overlaps(range, duplicate.Plan.Selection.Range))
+                        if (syntax.Key == selected.Key && Overlaps(range, plan.Selection.Range)
+                            || found.Any(duplicate => duplicate.Key == syntax.Key && Overlaps(range, duplicate.Plan.Selection.Range))
                             || Match(selection, run, candidate, nodes) is not { } variables
                             || DuplicateOf(plan, source, choices, uri, memberSource, procedure, analysis, range, variables) is not { } duplicate)
                         {
                             continue;
                         }
 
-                        found.Add(duplicate);
+                        found.Add(duplicate with { IsInAPart = isInAPart });
                         index += run.Length - 1;
                     }
                 }

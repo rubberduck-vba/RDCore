@@ -63,8 +63,7 @@ End Class
 |Debugging|The debug adapter gives a breakpoint, or a line to go to, to the module whose lines hold it: a block's from its header to its end line, the file's own otherwise. A block's module runs on its own part of the parse. A block renamed by its header while the program waits is a module the program does not have: the program does not go on until it is run again.|
 
 > [!NOTE]
-> **Not implemented.** Extract Method looks for no duplicates of a selection in the other parts of its module. No code action extracts a block into
-> a module file of its own.
+> **Not implemented.** No code action extracts a block into a module file of its own.
 
 ### Implementation
 

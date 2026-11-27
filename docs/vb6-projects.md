@@ -66,7 +66,9 @@ A ListBox's and a ComboBox's items are reached as in VB6, on a list of the form'
 `Clear`, `List(Index)`, `ItemData(Index)`, `ListIndex`, `ListCount`, `NewIndex` and `Text`, and a ListBox's `Selected(Index)` and `SelCount`. They raise
 what VB6 raises: 5 for an `AddItem` index outside 0 to `ListCount` and a `RemoveItem` one outside the items, 381 for an `ItemData` or `Selected` one
 outside the items, 380 for a `ListIndex` outside -1 to `ListCount` - 1, and 383 for an assignment to `ListCount`, `NewIndex` or `SelCount`. `Column` is
-an MSForms ListBox's, and raises 438.
+an MSForms ListBox's, and raises 438. **RD-VBA addition:** `ItemIcon(Index)` is the picture drawn before an item, a `StdPicture` that is read, let and
+`Set` as a `Picture` is. A picture `LoadPicture` gave the program reads back as the same object and follows its item through `AddItem` and `RemoveItem`;
+an item with none reads `Nothing`. An index outside the items raises 381.
 
 A control's `Font` is a `StdFont`, the same object on every read. A change through it changes every control that holds it, and
 `Set Text2.Font = Text1.Font` shares the font. So does a `Set` of a font of the program's: after `Set Label1.Font = f`, `Label1.Font Is f` is

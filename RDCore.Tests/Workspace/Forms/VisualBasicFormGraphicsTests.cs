@@ -1,4 +1,13 @@
-﻿using RDCore.SDK.Platform.Protocol;
+﻿using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.CLI.Host.Handlers;
+using RDCore.Parsing;
+using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Support.Host;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Tests.Cli;
@@ -61,6 +70,7 @@ public sealed class VisualBasicFormGraphicsTests
             "        Case 4: Scale (0, 0)-(100, 50)",
             "    End Select",
             "End Sub",
+            "Public Sub Halt()", "    Stop", "End Sub",
             string.Empty]);
 
     private static string[] AutoRedraw(string indent, bool autoRedraw) => autoRedraw ? [$"{indent}AutoRedraw      =   -1  'True"] : [];
@@ -216,5 +226,49 @@ public sealed class VisualBasicFormGraphicsTests
         var printed = await HiddenAsync(true, DrawnThenShown(target));
 
         CollectionAssert.AreEqual(new[] { "255", "255" }, printed, string.Join(" | ", printed));
+    }
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+
+    // a shown Form4, and a program stopped by the call halt, to Form4's Halt or to the program's own; the statement is run in that activation, as the
+    // Immediate window runs it, and the program then goes on and prints the point the statement draws.
+    private static async Task<(DebugEvaluateResult Done, string[] Printed)> StoppedAsync(string halt, string statement)
+    {
+        var form4 = Form4();
+        var program = $"{Program(["Form4.Show", "DoEvents", halt, "Debug.Print Form4.Point(700, 500)", "Unload Form4"])}"
+            + "Public Sub Halt()\r\n    Stop\r\nEnd Sub\r\n";
+        DebugEvaluateResult? done = null;
+        string[] printed = [];
+        await ModuleWorkspace.InspectAsync([], program, async (provider, _, _) =>
+        {
+            // the language server's statement: the one statement of a procedure written for the purpose.
+            var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Execute.bas"), $"Public Sub E()\r\n{statement}\r\nEnd Sub\r\n");
+            SyntaxNode node = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<StatementNode>().Single();
+            done = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
+                .Handle(new HostDebugExecuteParams { FrameId = 0, Json = PlatformJson.Serialize(node) }, CancellationToken.None).WaitAsync(Patience);
+            var resumed = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
+            printed = [.. resumed.Output.Select(line => line.Trim()).Where(line => !line.StartsWith("Resize ", StringComparison.Ordinal) && line != "Paint")];
+        }, debug: true, libraries: Libraries, language: SupportedLanguages.VB6, forms: [("Form4", form4, FormDesigner.Read(form4)!)]);
+        return (done!, printed);
+    }
+
+    [TestMethod]
+    public async Task ABareStatement_RunWhereTheFormsCodeIsStopped_DrawsOnTheForm()
+    {
+        var (done, printed) = await StoppedAsync("Form4.Halt", "PSet (700, 500), &HFF&");
+
+        Assert.IsTrue(done.Success, done.Error);
+        CollectionAssert.AreEqual(new[] { "255" }, printed, string.Join(" | ", printed));
+    }
+
+    [TestMethod]
+    public async Task ABareStatement_RunWhereAStandardModulesCodeIsStopped_IsNotDefined()
+    {
+        var (done, printed) = await StoppedAsync("Halt", "PSet (700, 500), &HFF&");
+
+        Assert.IsFalse(done.Success);
+        StringAssert.Contains(done.Error, "Sub or Function not defined");
+        CollectionAssert.AreEqual(new[] { "16777215" }, printed, string.Join(" | ", printed));
     }
 }
