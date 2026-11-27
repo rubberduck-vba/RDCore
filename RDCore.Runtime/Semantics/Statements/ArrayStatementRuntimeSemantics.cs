@@ -388,10 +388,10 @@ public sealed record class ArrayStatementRuntimeSemantics(
         {
             var initial = array.ItemType.DefaultValue;
             var elementCell = session.Symbols.Defaults?.ElementCellOf(array.ItemType);
-            foreach (var subscripts in Subscripts(array))
+            for (var flat = 0; flat < array.Length; flat++)
             {
-                array.TrySetElement(elementCell?.Invoke()
-                    ?? (initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle), subscripts);
+                array.TrySetElementAt(flat, elementCell?.Invoke()
+                    ?? (initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle));
             }
         }
 
@@ -437,41 +437,46 @@ public sealed record class ArrayStatementRuntimeSemantics(
         // "If a <redim-statement> containing the keyword Preserve results in more elements in a dimension,
         // each of the extra elements is set to its default data value" - which they already are; and an element
         // now outside the bounds is simply not copied, its data value discarded.
-        foreach (var subscripts in Subscripts(resized))
-        {
-            if (array.GetElementHandle(subscripts) is { } held)
-            {
-                resized.TrySetElement(held, subscripts);
-            }
-        }
+        Kept(array, resized);
 
         return Store(session, context, redim, target, isKnown ? resized : (VBArrayValue)resized.AsIndeterminate());
     }
 
-    // every subscript tuple of an array, outermost dimension varying slowest - the order does not matter to
-    // either caller, only that each element is visited exactly once.
-    private static IEnumerable<int[]> Subscripts(VBArrayValue array)
+    // only the last dimension's upper bound moves, and the last subscript varies slowest (MS-VBAL §5.4.2.4.1), so an element still in the bounds is at
+    // the flat index it was at, and the kept ones are the first of either array. Each cell made is moved there; an element with no cell holds the default,
+    // as a cell the resized array makes holds it, unless the elements without one are not known: then each kept element is given its cell.
+    private static void Kept(VBArrayValue array, VBArrayValue resized)
     {
-        if (array.Length == 0)
+        var kept = Math.Min(array.Length, resized.Length);
+        var next = 0;
+        var unmade = -1;
+        foreach (var (flat, cell) in array.MadeCells)
         {
-            yield break;
-        }
-
-        var subscripts = array.Dimensions.Select(dimension => dimension.LowerBound).ToArray();
-        while (true)
-        {
-            yield return [.. subscripts];
-
-            var dimension = subscripts.Length - 1;
-            while (dimension >= 0 && ++subscripts[dimension] > array.Dimensions[dimension].UpperBound)
+            if (flat >= kept)
             {
-                subscripts[dimension] = array.Dimensions[dimension].LowerBound;
-                dimension--;
+                break;
             }
 
-            if (dimension < 0)
+            if (unmade < 0 && flat > next)
             {
-                yield break;
+                unmade = next;
+            }
+
+            resized.TrySetElementAt(flat, cell);
+            next = flat + 1;
+        }
+
+        if (unmade < 0 && next < kept)
+        {
+            unmade = next;
+        }
+
+        // every element without a cell holds the same default value, so what one of them is known to hold, each is.
+        if (unmade >= 0 && array.CellAt(unmade) is IKnowledgeBinding { IsKnown: false })
+        {
+            for (var flat = 0; flat < kept; flat++)
+            {
+                resized.TrySetElementAt(flat, array.CellAt(flat)!);
             }
         }
     }
