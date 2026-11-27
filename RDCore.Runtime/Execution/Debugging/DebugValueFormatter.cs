@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics.Conversion;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Globalization;
@@ -79,8 +80,9 @@ public static class DebugValueFormatter
             case VBBooleanValue boolean:
                 return new DebugValueView(boolean.Value.StoredValue != 0 ? "True" : "False", Type("Boolean"), null);
 
+            // a string between double quotes, line breaks and all.
             case VBStringValue text:
-                return new DebugValueView($"\"{text.Value.Replace("\"", "\"\"")}\"", Type(text.TypeInfo.Name), null);
+                return new DebugValueView(ExpressionWriter.Quoted(text.Value), Type(text.TypeInfo.Name), null);
 
             // a Date that is no day, which only its bytes can make (ValueConversions.TryMomentOf), is shown as the Double it holds.
             case VBDateValue date:

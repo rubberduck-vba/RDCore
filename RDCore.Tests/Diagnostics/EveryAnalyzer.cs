@@ -12,7 +12,8 @@ namespace RDCore.Tests.Diagnostics;
 /// </summary>
 internal static class EveryAnalyzer
 {
-    private static readonly IModuleAnalyzer[] Analyzers = [.. typeof(AnalyzerMessages).Assembly.GetTypes()
+    // the assembly of the core extension's analyzers, found from one of them.
+    private static readonly IModuleAnalyzer[] Analyzers = [.. typeof(AmbiguousConcatenationAnalyzer).Assembly.GetTypes()
         .Where(type => type is { IsAbstract: false, IsClass: true } && typeof(IModuleAnalyzer).IsAssignableFrom(type))
         .Select(Create)
         .OfType<IModuleAnalyzer>()];
@@ -42,6 +43,7 @@ internal static class EveryAnalyzer
     /// <param name="classes">The class modules of the workspace, by name.</param>
     public static async Task<string[]> FindingsOfAsync(string name, string program, params (string Name, string Source)[] classes)
     {
+        Assert.IsGreaterThan(1, Analyzers.Length, "the analyzers of the core extension are found");
         var payload = await ModuleWorkspace.SemanticsAsync(classes, program);
         var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == name);
         var uri = new Uri(Path.Combine(ModuleWorkspace.Root, name == "Program" ? "Program.bas" : $"{name}.cls"));

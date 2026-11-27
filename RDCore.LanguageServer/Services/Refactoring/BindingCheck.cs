@@ -44,8 +44,9 @@ internal enum BindingChangeKind
 /// <param name="After">Where the name is after the edit; <see langword="null"/> for a name that is gone.</param>
 /// <param name="Was">What the name referred to before the edit; <see langword="null"/> when it was no reference.</param>
 /// <param name="Is">What the name refers to after the edit; <see langword="null"/> when it is no reference.</param>
+/// <param name="Document">The document of the part of the module the name is written in (RD-VBAL §5.1, <see cref="RenameModule.Document"/>).</param>
 internal sealed record class BindingChange(
-    BindingChangeKind Kind, Uri Module, string Name, SourceRange? Before, SourceRange? After, SemanticId? Was, SemanticId? Is);
+    BindingChangeKind Kind, Uri Module, string Name, SourceRange? Before, SourceRange? After, SemanticId? Was, SemanticId? Is, Uri? Document = null);
 
 /// <summary>
 /// What an edit of the code changes of the references of its names, which a refactoring verifies before it is offered: every name of the edited modules,
@@ -64,7 +65,7 @@ internal static class BindingCheck
     /// </summary>
     /// <param name="before">The workspace before the edit.</param>
     /// <param name="after">The workspace after the edit: the same modules, the edited ones parsed from the text the edit leaves.</param>
-    /// <param name="edits">The edits of each edited module, by the module's absolute URI; they do not overlap.</param>
+    /// <param name="edits">The edits of each edited module, by the key of the part it is (<see cref="RenameModule.Key"/>); they do not overlap.</param>
     public static IReadOnlyList<BindingChange> Changes(RenameContext before, RenameContext after, IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits)
     {
         // the static pass recurses once per expression level: one large-stack thread for the whole check.
@@ -85,42 +86,46 @@ internal static class BindingCheck
             foreach (var occurrence in was.Occurrences)
             {
                 // a name inside the text an edit replaced is not kept: what is written in its place is the edit's.
-                if (Moved(edits, occurrence.Module, occurrence.Range) is not { } moved)
+                if (Moved(edits, occurrence.Key, occurrence.Range) is not { } moved)
                 {
                     continue;
                 }
 
-                var key = (occurrence.Module.AbsoluteUri, moved.Start);
+                var key = (occurrence.Key, moved.Start);
                 if (known.TryGetValue(key, out var found))
                 {
                     kept.Add(key);
                     if (found.Binding != occurrence.Binding)
                     {
-                        changes.Add(new(BindingChangeKind.Retargeted, occurrence.Module, name, occurrence.Range, moved, occurrence.Binding, found.Binding));
+                        changes.Add(new(
+                            BindingChangeKind.Retargeted, occurrence.Module, name, occurrence.Range, moved, occurrence.Binding, found.Binding,
+                            occurrence.Document));
                     }
                 }
                 else
                 {
                     var kind = unknown.Contains(key) ? BindingChangeKind.Unknown : BindingChangeKind.Lost;
-                    changes.Add(new(kind, occurrence.Module, name, occurrence.Range, kind is BindingChangeKind.Unknown ? moved : null, occurrence.Binding, null));
+                    changes.Add(new(
+                        kind, occurrence.Module, name, occurrence.Range, kind is BindingChangeKind.Unknown ? moved : null, occurrence.Binding, null,
+                        occurrence.Document));
                 }
             }
 
             foreach (var occurrence in now.Occurrences.Where(occurrence => !kept.Contains(Key(occurrence))))
             {
-                changes.Add(new(BindingChangeKind.Written, occurrence.Module, name, null, occurrence.Range, null, occurrence.Binding));
+                changes.Add(new(BindingChangeKind.Written, occurrence.Module, name, null, occurrence.Range, null, occurrence.Binding, occurrence.Document));
             }
         }
 
         return changes;
     }
 
-    private static (string, SourcePosition) Key(NameOccurrence occurrence) => (occurrence.Module.AbsoluteUri, occurrence.Range.Start);
+    private static (string, SourcePosition) Key(NameOccurrence occurrence) => (occurrence.Key, occurrence.Range.Start);
 
     // every name the edited modules write: their references, and their declarations, which a module that is not edited may refer to.
     private static IEnumerable<string> NamesOf(RenameContext context, IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits)
     {
-        foreach (var module in context.Modules.Where(module => edits.ContainsKey(module.Module.AbsoluteUri)))
+        foreach (var module in context.Modules.Where(module => edits.ContainsKey(module.Key)))
         {
             var whole = new SourceRange(SourcePosition.Zero, new SourcePosition(int.MaxValue, int.MaxValue));
             foreach (var name in NameOccurrences.NamesIn(module, whole))
@@ -138,7 +143,7 @@ internal static class BindingCheck
         }
     }
 
-    // where a range of a module is after the edits; null when an edit replaced any of it. A module that is not edited is as it was.
-    private static SourceRange? Moved(IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits, Uri module, SourceRange range)
-        => edits.TryGetValue(module.AbsoluteUri, out var moduleEdits) ? DeclarationEdits.RangeAfter(range, moduleEdits) : range;
+    // where a range of a part of a module is after the edits; null when an edit replaced any of it. A part that is not edited is as it was.
+    private static SourceRange? Moved(IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits, string part, SourceRange range)
+        => edits.TryGetValue(part, out var moduleEdits) ? DeclarationEdits.RangeAfter(range, moduleEdits) : range;
 }

@@ -4,11 +4,19 @@ This section corresponds to [**MS-VBAL §5.1** Module Body Structure](https://le
 
 ## Several modules in one file
 
-MS-VBAL defines the body of one module (`procedural-module-body`, `class-module-body`). **RD-VBA addition**, in every dialect: a source file may also
-declare modules in blocks, each with a body of its own. What is outside every block is the file's own module.
+MS-VBAL defines the body of one module (`procedural-module-body`, `class-module-body`). **RD-VBA addition**, where a file may have statements outside
+its procedures: a source file may also declare modules in blocks, each with a body of its own. What is outside every block is the file's own module.
+
+|File|Has blocks|
+|---|---|
+|A `.vbs`, in any workspace|Always.|
+|A module of a VBA or VB6 workspace|Only with the `Workspace.FileLevelStatements` setting on. Without it, a block's header and end lines are lines of the file's own module, and a syntax error there, as in MS-VBA.|
+
+With the setting on, a VBA or VB6 module is a script, and has a `(Script)` entry point, only when it writes a statement outside its procedures; a class
+module never is one. A `.vbs` is always a script.
 
 ```vb
-' Backup.bas: the file's own module, and two modules declared in blocks
+' Backup.bas, the FileLevelStatements setting on: the file's own module, and two modules declared in blocks
 Public Sub Main()
     Logger.Log "start"
 End Sub
@@ -45,6 +53,7 @@ End Class
 |Header lines|A block has no module file header and no attributes: an `Attribute`, `VERSION`, `BEGIN` or `Option Private Module` line inside a block is [`VBC00062`](../diagnostics/vbc00062.md).|
 |Identity|A synthetic path under the file: the file's URI with the module's name as one more segment (`file:///c:/ws/Backup.bas/Logger`).|
 |File|No file has that path. The module's language, and whether it is a script, are those of its file.|
+|Annotations|The comment lines directly above a header annotate the block's module, as its declarations section does ([**RD-VBAL §3.0.1.1**](rd-vbal.3.0.1.token-semantics.md#3011-comment-annotations-syntax)). They end, going up, at a blank line, code, a directive, or a line of another block, its end line included. A `'@Description` there describes the module; inside the block, it is a member's. The block's parse holds those lines (`RDCoreDocument.ParseOf`, `Annotations.GetHeaderAnnotations`).|
 |File-level statements|A block's module has none, in a `.vbs` too: a statement outside its procedures is a syntax error, as in a `.bas`.|
 |Positions|Every node of a block's module has its position in the file, so an editor shows it where it is written. The language server's folding, selection ranges, outline and semantic tokens cover each module of the file, a block's included ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#textdocumentfoldingrange)).|
 |Syntax errors|Each module is parsed on its own. An error in one block leaves the trees of the other modules as they are. The language server analyzes each module of the file on its own, and reports each syntax error once, in the module it is in. An analyzer's finding about a block's module as a whole is on the line after its header, where its code starts; an edit of it that a waiting program does not take ([`RDC20001`](../diagnostics/rdc20001.md)) is on its header.|
@@ -54,8 +63,8 @@ End Class
 |Debugging|The debug adapter gives a breakpoint, or a line to go to, to the module whose lines hold it: a block's from its header to its end line, the file's own otherwise. A block's module runs on its own part of the parse. A block renamed by its header while the program waits is a module the program does not have: the program does not go on until it is run again.|
 
 > [!NOTE]
-> **Not implemented.** Completion and rename read each part of a module as a module of its own. VBA and VB6 have no blocks. No diagnostic
-> reports a block in a VBA or VB6 workspace, and no code action extracts a block into a module file of its own.
+> **Not implemented.** Extract Method looks for no duplicates of a selection in the other parts of its module. No code action extracts a block into
+> a module file of its own.
 
 ### Implementation
 

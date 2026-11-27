@@ -307,7 +307,10 @@ public sealed class CompiledLibraryCallTests
             "        Ticks = Ticks + CLng(I * 1.5)",
             "    Next",
             "    Ticks = Ticks + GetTickCount()",
-            "End Function"), [], environment: profile => profile with { AllowDllImports = false });
+            "End Function"), [], environment: profile => profile with
+            {
+                Policy = RDCore.SDK.Runtime.ExecutionPolicy.Default with { LibraryImports = new(RDCore.SDK.Runtime.ExecutionPolicyMode.Block) },
+            });
         StringAssert.Contains(observed, "70");
     }
 

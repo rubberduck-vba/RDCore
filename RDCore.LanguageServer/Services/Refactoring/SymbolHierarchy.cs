@@ -9,18 +9,25 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-public sealed record class HierarchyItem(Symbol Symbol, Uri Module, SourceRange Range, SourceRange SelectionRange);
+public sealed record class HierarchyItem(Symbol Symbol, Uri Module, SourceRange Range, SourceRange SelectionRange)
+{
+    // the document of the part of the module the ranges are in (RD-VBAL §5.1, RenameModule.Document); null where it is not known.
+    public Uri? Document { get; init; }
+}
 
 public sealed record class HierarchyCall(HierarchyItem Item, IReadOnlyList<SourceRange> Ranges);
 
 // MS-VBAL §5.2.4.2
+// the document of a position names the part of a module of parts (RD-VBAL §5.1) it is in; null for the first part at the address.
 public static class SymbolHierarchy
 {
-    public static HierarchyItem? PrepareCalls(RenameContext context, Uri module, SourcePosition position)
-        => RenameBinding.SymbolAt(context, module, position) is { Symbol: var symbol } && IsCallable(context, symbol) ? ItemOf(context, symbol) : null;
+    public static HierarchyItem? PrepareCalls(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => RenameBinding.SymbolAt(context, module, position, document) is { Symbol: var symbol } && IsCallable(context, symbol)
+            ? ItemOf(context, symbol)
+            : null;
 
-    public static HierarchyItem? PrepareTypes(RenameContext context, Uri module, SourcePosition position)
-        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
+    public static HierarchyItem? PrepareTypes(RenameContext context, Uri module, SourcePosition position, Uri? document = null)
+        => RenameBinding.SymbolAt(context, module, position, document) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
             ? ItemOf(context, type)
             : null;
 
@@ -39,7 +46,7 @@ public static class SymbolHierarchy
                 continue;
             }
 
-            if (CallerAt(context, occurrence.Module, occurrence.Scope) is { } caller)
+            if (CallerAt(context, occurrence.Module, occurrence.Document, occurrence.Scope) is { } caller)
             {
                 calls.Add((caller, occurrence.Range));
             }
@@ -56,7 +63,7 @@ public static class SymbolHierarchy
             return LargeStackThread.Run(() => OutgoingCalls(context, item));
         }
 
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is not { } source)
+        if (context.Modules.FirstOrDefault(candidate => candidate.Is(item.Module, item.Document)) is not { } source)
         {
             return [];
         }
@@ -95,28 +102,28 @@ public static class SymbolHierarchy
     // of it: with arguments, as a call statement, it is a call, as it is in a procedure, which has no result variable.
     private static bool IsResult(RenameContext context, Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>> results, NameOccurrence occurrence)
     {
-        if (!results.TryGetValue(occurrence.Module.AbsoluteUri, out var accesses))
+        if (!results.TryGetValue(occurrence.Key, out var accesses))
         {
-            accesses = context.Modules.FirstOrDefault(each => each.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is { } module
+            accesses = context.Modules.FirstOrDefault(each => each.Is(occurrence.Module, occurrence.Document)) is { } module
                 ? NameOccurrences.AssignedIn(module)
                 : new Dictionary<SourcePosition, NameAccess>();
-            results[occurrence.Module.AbsoluteUri] = accesses;
+            results[occurrence.Key] = accesses;
         }
 
         return accesses.TryGetValue(occurrence.Range.Start, out var access) && access is NameAccess.Result
-            && CallerAt(context, occurrence.Module, occurrence.Scope)?.Symbol.SemanticId == occurrence.Binding;
+            && CallerAt(context, occurrence.Module, occurrence.Document, occurrence.Scope)?.Symbol.SemanticId == occurrence.Binding;
     }
 
     // a procedure, a function or a procedure of a property, that the workspace declares.
     private static bool IsCallable(RenameContext context, Symbol symbol) => SignatureDescription.Of(symbol) is not null && NameOccurrences.IsDeclaredBy(context, symbol);
 
-    // the procedure a name is written in, or its module for a name written outside of every procedure.
-    private static HierarchyItem? CallerAt(RenameContext context, Uri module, LexicalScope? scope)
+    // the procedure a name is written in, or its module for a name written outside of every procedure, in the part the name is written in.
+    private static HierarchyItem? CallerAt(RenameContext context, Uri module, Uri? document, LexicalScope? scope)
     {
         var procedure = scope?.SelfAndAncestors().FirstOrDefault(candidate => candidate.Kind == LexicalScopeKind.Procedure);
         return procedure is not null && NameOccurrences.SymbolOf(context, new SemanticId(procedure.Uri)) is { } caller
             ? ItemOf(context, caller)
-            : NameOccurrences.SymbolOf(context, new SemanticId(module)) is { } declaring ? ItemOf(context, declaring) : null;
+            : NameOccurrences.SymbolOf(context, new SemanticId(module)) is { } declaring ? ItemOf(context, declaring) with { Document = document } : null;
     }
 
     // where an item is declared: the first of its definitions, the start of a module's document.
@@ -129,13 +136,13 @@ public static class SymbolHierarchy
         }
 
         var first = declared.AllDefinitions.OrderBy(definition => definition.Range.Start).First();
-        return new HierarchyItem(symbol, module, first.Range, first.SelectionRange);
+        return new HierarchyItem(symbol, module, first.Range, first.SelectionRange) { Document = declared.DocumentUri };
     }
 
     private static IReadOnlyList<HierarchyCall> Grouped(IEnumerable<(HierarchyItem Item, SourceRange Range)> calls)
         => [.. calls
             .GroupBy(call => call.Item.Symbol.SemanticId)
             .Select(group => new HierarchyCall(group.First().Item, [.. group.Select(call => call.Range).Distinct().OrderBy(range => range.Start)]))
-            .OrderBy(call => call.Item.Module.AbsoluteUri, StringComparer.Ordinal)
+            .OrderBy(call => RenameModule.KeyOf(call.Item.Module, call.Item.Document ?? call.Item.Module), StringComparer.Ordinal)
             .ThenBy(call => call.Item.Range.Start)];
 }

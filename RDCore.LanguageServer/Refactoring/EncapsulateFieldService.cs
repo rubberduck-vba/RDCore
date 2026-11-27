@@ -481,10 +481,10 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
     {
         var none = (new EncapsulationRefusal(EncapsulationRefusalKind.NotAField), string.Empty);
         if (await rename.ComposeAsync(token) is not { } workspace
-            || workspace.DocumentOf(documentUri) is not ({ } part, { } named)
+            || workspace.DocumentAt(documentUri, new(position.Line, position.Character)) is not ({ } part, { } named)
             || BasicProgramText.IsProgram(named.Document.Id.Uri.GetFileSystemPath())
-            || EncapsulateField.FieldAt(part.Context, named.Module, position) is not { } field
-            || part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == NameOccurrences.ModuleOf(field.Uri).AbsoluteUri) is not { } module)
+            || EncapsulateField.FieldAt(part.Context, named.Module, position, named.WrittenIn) is not { } field
+            || part.Modules.FirstOrDefault(candidate => candidate.Key == part.Context.PartOf(field)?.Key) is not { } module)
         {
             return (null, null, none);
         }
@@ -512,7 +512,8 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
         [
             .. tree.Children.OfType<VariableDeclarationNode>()
                 .Where(variable => variable.AccessModifier is AccessModifier.Public or AccessModifier.Global && variable.NameRange is not null)
-                .Select(variable => (Field: EncapsulateField.FieldAt(part.Context, module.Module, variable.NameRange!.Value.Start), Variable: variable))
+                .Select(variable
+                    => (Field: EncapsulateField.FieldAt(part.Context, module.Module, variable.NameRange!.Value.Start, module.WrittenIn), Variable: variable))
                 .Where(each => each.Field is not null && each.Field.SemanticId != field.SemanticId)
                 .Select(each => (each.Field!, text.Of(each.Variable.SourceLocation.Range).Trim())),
         ];
@@ -554,24 +555,25 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
             return Format("EncapsulateFieldVerification_DoesNotParse");
         }
 
-        var composition = recompose(new Dictionary<string, ModuleParseResult> { [module.Module.AbsoluteUri] = parse });
+        var composition = recompose(new Dictionary<string, ModuleParseResult> { [module.Key] = parse });
         var after = part.Context with
         {
             Resolver = composition.Resolver,
             ScopeTree = composition.ScopeTree,
-            Modules = [.. part.Context.Modules.Select(each => each.Module.AbsoluteUri == module.Module.AbsoluteUri ? new RenameModule(each.Module, parse.SyntaxTree!, text, parse.Designer) : each)],
+            Modules = [.. part.Context.Modules.Select(each
+                => each.Key == module.Key ? new RenameModule(each.Module, parse.SyntaxTree!, text, parse.Designer) : each)],
         };
 
         var locate = RenameWorkspace.Locator(part);
-        foreach (var change in BindingCheck.Changes(part.Context, after, new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [module.Module.AbsoluteUri] = edits }))
+        foreach (var change in BindingCheck.Changes(part.Context, after, new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [module.Key] = edits }))
         {
             var field = encapsulation.Fields.FirstOrDefault(each => each.Field.SemanticId == change.Was)?.Field ?? encapsulation.Field;
             switch (change.Kind)
             {
                 case BindingChangeKind.Lost or BindingChangeKind.Unknown:
-                    return Format("EncapsulateFieldVerification_Lost", field.Name, locate(change.Module, change.Before!.Value.Start));
+                    return Format("EncapsulateFieldVerification_Lost", field.Name, locate(change.Document ?? change.Module, change.Before!.Value.Start));
                 case BindingChangeKind.Retargeted when !IsExpected(change, encapsulation, after):
-                    return Format("EncapsulateFieldVerification_Retargeted", field.Name, locate(change.Module, change.Before!.Value.Start));
+                    return Format("EncapsulateFieldVerification_Retargeted", field.Name, locate(change.Document ?? change.Module, change.Before!.Value.Start));
             }
         }
 
@@ -590,7 +592,7 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
 
     // a text of a module, parsed as its document is: the designer of a form is its document's, which the text of its code does not hold.
     private async Task<ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)
-        => await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token) with { Designer = module.Parse.Designer };
+        => module.PartOf(await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token)) with { Designer = module.Parse.Designer };
 
     // where a range of a module is, in the document that module is the text of.
     private static SourceLocation LocationOf(RenameWorkspace.ProjectPart? part, Uri module, SourceRange range)

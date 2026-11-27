@@ -97,6 +97,19 @@ public sealed class HostSemanticsTests
         Assert.AreEqual(stated, payload.Modules.Single().OptionExplicit);
     }
 
+    // what an analyzer reads of the module's options is the host's model of it, which the directives of the module's symbol are (ModuleAssembly).
+    [TestMethod]
+    public async Task TheModelOfAModule_HasTheDirectivesItIsUnder()
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync([], Program(
+            "Option Explicit", "Option Base 1", "Option Compare Text", "Option Private Module", "Public Sub Main()", "End Sub"));
+
+        var directives = payload.Modules.Single().Directives;
+        Assert.IsNotNull(directives);
+        Assert.AreEqual((true, 1, RDCore.SDK.Model.Symbols.OptionCompare.Text, true),
+            (directives.Value.Explicit, directives.Value.Base, directives.Value.Compare, directives.Value.PrivateModule));
+    }
+
     [TestMethod]
     public async Task OptionExplicit_IsNotIssuedForALanguageThatHasNone()
     {

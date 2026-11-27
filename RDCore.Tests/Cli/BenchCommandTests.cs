@@ -106,6 +106,21 @@ public sealed class BenchCommandTests
         Assert.IsEmpty(workspace.Project.References, "the standard library is every project's own, and no reference of it");
     }
 
+    // a VBA module's blocks are modules of the workspace only where it allows statements outside procedures: elsewhere they are lines of its own module.
+    [TestMethod]
+    [DataRow(false, DisplayName = "the setting off")]
+    [DataRow(true, DisplayName = "the setting on")]
+    public async Task AVBAModulesBlocks_AreModulesItDeclares_OnlyWithTheSettingOn(bool setting)
+    {
+        var fileSystem = Files(("Backup.bas", "Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n"));
+
+        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None,
+            workspace: new() { FileLevelStatements = setting });
+
+        CollectionAssert.AreEqual(setting ? new[] { "Backup", "Account", "Helpers" } : new[] { "Backup" },
+            workspace.Modules.Single().Declared.Select(module => module.Name).ToArray());
+    }
+
     [TestMethod]
     [DataRow("vba", new[] { "Cases.bas", "ThisWorkbook.doccls", "Model/Tally.cls" }, DisplayName = "RD-VBA: a document module is one, a UserControl is not")]
     [DataRow("vb6", new[] { "Cases.bas", "Gauge.ctl", "Model/Tally.cls" }, DisplayName = "VB6: a UserControl is one, a document module is not")]

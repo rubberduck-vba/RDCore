@@ -391,10 +391,11 @@ public sealed class CompiledEditAndContinueTests
 
         public Task OpenAsync(CancellationToken token) => Task.CompletedTask;
 
-        public bool TryGetFile(string path, [MaybeNullWhen(false)] out DebugFile file)
+        // a module's file is named for it, and declares no other name: its own module is named by the file.
+        public bool TryGetFile(string path, [MaybeNullWhen(false)] out RDCoreDocument file)
         {
             var moduleName = _loaded.Keys.FirstOrDefault(module => string.Equals(PathOf(module), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase));
-            file = moduleName is null ? null : new DebugFile(moduleName, new RDCoreDocument(new Uri(PathOf(moduleName)), new ModuleParseResult()));
+            file = moduleName is null ? null : new RDCoreDocument(new Uri(PathOf(moduleName)), new ModuleParseResult());
             return file is not null;
         }
 

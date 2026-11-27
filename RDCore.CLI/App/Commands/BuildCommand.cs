@@ -61,7 +61,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         try
         {
             workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
-                ansiCodePage: runner.Environment.AnsiCodePage, inItsProject: true);
+                ansiCodePage: runner.Environment.AnsiCodePage, inItsProject: true, workspace: runner.Workspace);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {

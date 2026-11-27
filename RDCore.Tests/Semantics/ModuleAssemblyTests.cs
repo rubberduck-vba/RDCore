@@ -23,8 +23,9 @@ public sealed class ModuleAssemblyTests
     // the source of a file: its lines, which a DataRow writes with | between them.
     private static string Source(string lines) => string.Join("\r\n", lines.Split('|')) + "\r\n";
 
+    // the files are module files, in a workspace that allows their blocks.
     private static IEnumerable<ModulePart> PartsOf(Uri file, string name, ModuleType kind, string lines)
-        => ModulePart.PartsOf(file, name, kind, new ModuleParser().Parse(file, Source(lines)));
+        => ModulePart.PartsOf(file, name, kind, FileLevelStatementsOn.Parser().Parse(file, Source(lines)));
 
     private static string TextAt(string lines, SourceRange range)
         => lines.Split('|')[range.Start.Line][range.Start.Character..range.End.Character];
@@ -210,6 +211,34 @@ public sealed class ModuleAssemblyTests
         Assert.AreEqual(ModuleDirectives.None.Extensible, account.Extensible);
         Assert.AreEqual(ModuleDirectives.None with { Creatable = false }, Single(modules, "Ledger").Directives, "a header that states nothing");
         Assert.IsTrue(Single(modules, "Helpers").Directives.PrivateModule);
+    }
+
+    // RD-VBAL §5.1: a module of parts has one set of options (MS-VBAL §5.2.1), which one part states for the code of every part, whichever part it is.
+    [TestMethod]
+    [DataRow("Option Base 1", false, DisplayName = "Option Base, stated in the plain part")]
+    [DataRow("Option Base 1", true, DisplayName = "Option Base, stated in the Partial part")]
+    [DataRow("Option Compare Text", true, DisplayName = "Option Compare, stated in the Partial part")]
+    [DataRow("Option Explicit", true, DisplayName = "Option Explicit, stated in the Partial part")]
+    [DataRow("Option Private Module", false, DisplayName = "Option Private Module, stated in the plain part")]
+    [DataRow("Option Private Module", true, true, DisplayName = "Option Private Module, stated by the Partial part's header")]
+    public void TheOptionsOfAModuleOfParts_AreWhatAnyOfItsPartsStates(string option, bool inThePartialPart, bool byTheHeader = false)
+    {
+        // a block states Option Private Module with the Private of its header, and has no Option Private Module line (RD-VBAL §5.1).
+        var plain = $"Attribute VB_Name = \"Helpers\"|{(inThePartialPart ? string.Empty : option)}|Public Sub Add(ParamArray values())|End Sub";
+        var partial = $"{(byTheHeader ? "Private " : string.Empty)}Partial Module Helpers|{(inThePartialPart && !byTheHeader ? option : string.Empty)}"
+            + "|Public Sub Report()|End Sub|End Module";
+        ModulePart[] parts = [.. PartsOf(First, "Helpers", ModuleType.StdModule, plain), .. PartsOf(Second, "Second", ModuleType.StdModule, partial)];
+        Assert.IsEmpty(parts.SelectMany(part => part.Parse.SyntaxErrors), "each part is valid as written");
+
+        var (modules, refused) = ModuleAssembly.Of(parts);
+
+        Assert.IsEmpty(refused);
+        var stated = PartsOf(First, "Helpers", ModuleType.StdModule, $"Attribute VB_Name = \"Helpers\"|{option}").Single()
+            .Parse.SyntaxTree.GetModuleDirectives();
+        var directives = Single(modules, "Helpers").Directives;
+        Assert.AreNotEqual(ModuleDirectives.None, stated, "the option is stated");
+        Assert.AreEqual((stated.Base, stated.Compare, stated.Explicit, stated.PrivateModule),
+            (directives.Base, directives.Compare, directives.Explicit, directives.PrivateModule));
     }
 
     // the module of a file, and of a block, that is the only part of its name keeps its parse, and a file's has the directives its tree states.

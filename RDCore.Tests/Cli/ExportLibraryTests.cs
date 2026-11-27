@@ -97,6 +97,22 @@ public sealed class ExportLibraryTests
         Assert.IsEmpty(export.Description.DependsOn, "a library the machine does not have is not one it can be described with");
     }
 
+    // Data\Widgets.tlb's module Texts: Quoted has a double quote inside its text, and TwoLines a line break, which no literal holds; the library reader takes
+    // the text between the double quotes, line break and all.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("Quoted", "\"say \"\"hi\"\"\"", DisplayName = "a double quote inside the text, written twice")]
+    [DataRow("TwoLines", "\"a\r\nb\"", DisplayName = "a line break inside the text")]
+    public void AStringConstant_IsWrittenBetweenDoubleQuotes(string name, string written)
+    {
+        var widgets = Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "Widgets.tlb");
+        var export = new TypeLibraryExporter().Export(TypeLibraryLocator.Load(widgets) ?? throw new AssertFailedException("the fixture loads"), "tests");
+
+        var constant = export.Description.Modules.Single(declared => declared.Name == "Texts").Constants.Single(declared => declared.Name == name);
+        Assert.AreEqual("String", constant.Type);
+        Assert.AreEqual(written, constant.Value);
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void TheClassesOfALibrary_AreThoseVbaShows_UnderTheNamesOfTheirCoclasses()

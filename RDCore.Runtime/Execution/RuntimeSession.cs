@@ -19,6 +19,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using RDCore.Runtime.LanguageCore.Services;
+[assembly: InternalsVisibleTo("RDCore.Runtime.Support")]
 [assembly: InternalsVisibleTo("RDCore.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
