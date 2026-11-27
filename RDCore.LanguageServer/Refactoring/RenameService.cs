@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.SDK.Forms;
@@ -214,6 +215,7 @@ internal sealed class RenameService(
     {
         var workspaceRoot = SymbolUri.Root(root);
         var modules = new List<RenameWorkspace.DocumentModule>();
+        var parts = new List<ModulePart>();
         foreach (var document in documents.GetProjectDocuments(root))
         {
             var parse = await parsing.ParseDocumentAsync(document.Id.Uri.ToUri(), token);
@@ -222,13 +224,18 @@ internal sealed class RenameService(
                 continue;
             }
 
-            // the document's modules: its own, then each block's, each with its part of the parse and the document's text, whose positions they have.
+            // the document's modules: its own, then each block's, each with its part of the parse and the document's text, whose positions they have. A
+            // module of parts (RD-VBAL §5.1) is one of these for each part, at the module's address; the parts are what the module is assembled from.
             var source = ParsingClientService.ModuleSourceOf(document);
-            foreach (var module in ParsedModules.Of(workspaceRoot, document.Id.Uri.ToUri(), parse, document.Name, ParsingClientService.ModuleTypeOf(document)))
+            var file = document.Id.Uri.ToUri();
+            var type = ParsingClientService.ModuleTypeOf(document);
+            var written = ParsedModules.PartsOf(file, parse, document.Name, type);
+            foreach (var (module, part) in ParsedModules.Of(workspaceRoot, file, parse, document.Name, type).Zip(written))
             {
                 if (module.Parse.SyntaxTree is not null)
                 {
-                    modules.Add(new(document, module.Uri, module.Kind, module.Parse, source) { Range = module.Range });
+                    modules.Add(new(document, module.Uri, module.Kind, module.Parse, source) { Range = module.Range, Part = part });
+                    parts.Add(part);
                 }
             }
         }
@@ -240,15 +247,25 @@ internal sealed class RenameService(
         var documentHosts = modules.Where(module => module.Document.Super is not null && module.Range is null)
             .GroupBy(module => SymbolUri.ModuleNameOf(module.Module), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First().Document.Super!.Value, StringComparer.OrdinalIgnoreCase);
+        // the project is composed of the modules its parts assemble, as the host composes it: one module at each address, each symbol written in its part's
+        // document (WorkspaceSymbol.DocumentUri).
+        var (assembled, _) = ParsedModule.Assemble(workspaceRoot, parts);
         var composition = _compositions.GetOrCompose(
-            workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Parse))], resolver,
-            projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
+            workspaceRoot, [.. assembled.Select(module => (module.Uri, module.Kind, module.Parse))], resolver,
+            projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts,
+            directives: ParsedModule.DirectivesOf(assembled));
 
-        // the project again, some of its modules parsed from other texts (by the absolute URI of each): what an edit of them would be composed as, which the
-        // cache does not keep.
-        WorkspaceComposition Recompose(IReadOnlyDictionary<string, SDK.Model.AST.ModuleParseResult> edited) => WorkspaceSymbolResolver.ComposeWithScopes(
-            workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, edited.GetValueOrDefault(module.Module.AbsoluteUri) ?? module.Parse))], resolver,
-            projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
+        // the project again, some of its parts parsed from other texts (by the key of each, RenameModule.Key): what an edit of them would be composed as,
+        // which the cache does not keep.
+        WorkspaceComposition Recompose(IReadOnlyDictionary<string, SDK.Model.AST.ModuleParseResult> edited)
+        {
+            var (reassembled, _) = ParsedModule.Assemble(workspaceRoot, modules.Select(module
+                => edited.TryGetValue(module.Key, out var parse) ? module.Part! with { Parse = parse } : module.Part!));
+            return WorkspaceSymbolResolver.ComposeWithScopes(
+                workspaceRoot, [.. reassembled.Select(module => (module.Uri, module.Kind, module.Parse))], resolver,
+                projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts,
+                directives: ParsedModule.DirectivesOf(reassembled));
+        }
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
             [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source, module.Parse.Designer))],
@@ -268,7 +285,7 @@ internal sealed class RenameWorkspace
 {
     /// <summary>
     /// A project, composed: what its modules resolve in, the document of each, and the project composed again with some of its modules parsed from other
-    /// texts, by the absolute URI of each (<see langword="null"/> for a project that is composed of nothing else).
+    /// texts, by the key of each part (<see cref="RenameModule.Key"/>), or <see langword="null"/> for a project that is composed of nothing else.
     /// </summary>
     internal sealed record class ProjectPart(
         RenameContext Context, IReadOnlyList<DocumentModule> Modules, Func<IReadOnlyDictionary<string, SDK.Model.AST.ModuleParseResult>, WorkspaceComposition>? Recompose = null);
@@ -278,6 +295,14 @@ internal sealed class RenameWorkspace
     /// </summary>
     /// <param name="documentUri">The document.</param>
     internal (ProjectPart Part, DocumentModule Module)? DocumentOf(Uri documentUri) => ModuleOf(documentUri) is { } module ? (PartOf(module), module) : null;
+
+    /// <summary>
+    /// The project and the module a position of a document is in: the block whose lines hold it, or else the document's own module (<see cref="ModuleAt"/>).
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position, in the document's text.</param>
+    internal (ProjectPart Part, DocumentModule Module)? DocumentAt(Uri documentUri, Position position)
+        => ModuleAt(documentUri, position) is { } module ? (PartOf(module), module) : null;
 
     // the projects of the workspace, the primary one first; a document is asked of the first that has it, which is the project that loaded it first. A file that
     // several projects list is a module of each, and each project's copy of it resolves in that project.
@@ -954,6 +979,24 @@ internal sealed class RenameWorkspace
     {
         // the lines of a block's module, from its header to its end; null for the document's own module, which is every other line.
         public SourceRange? Range { get; init; }
+
+        // the part of its module it is, which the module is assembled from (RD-VBAL §5.1); none for a module composed of no project's documents.
+        public ModulePart? Part { get; init; }
+
+        // the document the part is written in, as its nodes name it (RenameModule.Document).
+        public Uri WrittenIn => Parse.SyntaxTree!.SourceLocation.Uri;
+
+        // what names it among the parts of every address (RenameModule.Key).
+        public string Key => RenameModule.KeyOf(Module, WrittenIn);
+
+        // the part of a parse of the document's whole text that the module is: a block's module its block, the document's own module the rest
+        // (RDCoreDocument.ParseOf), as the module's own parse is.
+        public SDK.Model.AST.ModuleParseResult PartOf(SDK.Model.AST.ModuleParseResult reparse)
+        {
+            var file = Document.Id.Uri.ToUri();
+            var document = new RDCoreDocument(file, reparse);
+            return document.ParseOf(Range is null ? file : RDCoreDocument.BlockUri(file, SymbolUri.ModuleNameOf(Module))) ?? reparse;
+        }
 
         public bool Holds(SourcePosition position) => Range is { } range && position.Line >= range.Start.Line && position.Line <= range.End.Line;
 

@@ -20,7 +20,7 @@ public class InlineCallTests
         var offset = analyzed.Text.IndexOf(call, analyzed.Text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.IsTrue(offset >= 0, $"no {call} in Run");
         var position = TextLines.Of(analyzed.Text).PositionOf(offset + 1);
-        var (inlined, refusal) = InlineCall.At(analyzed.Context, analyzed.AnalysisOf, analyzed.ModuleAddress, position);
+        var (inlined, refusal) = InlineCall.At(analyzed.Context, module => analyzed.AnalysisOf(module.Module), analyzed.ModuleAddress, position);
         return (analyzed.Text, inlined is null ? null : DeclarationEdits.ApplyTo(analyzed.Text, inlined.Edits), refusal);
     }
 
@@ -444,7 +444,8 @@ public class InlineCallTests
         var at = body == call
             ? text.IndexOf(call, text.IndexOf("Public Sub Run", StringComparison.Ordinal), StringComparison.Ordinal)
             : text.IndexOf(call, StringComparison.Ordinal);
-        var (inlined, refusal) = InlineCall.At(analyzed.Context, analyzed.AnalysisOf, analyzed.ModuleAddress, TextLines.Of(text).PositionOf(at + 1));
+        var (inlined, refusal) = InlineCall.At(
+            analyzed.Context, module => analyzed.AnalysisOf(module.Module), analyzed.ModuleAddress, TextLines.Of(text).PositionOf(at + 1));
         Assert.IsNull(inlined);
         Assert.AreEqual((InlineRefusalKind)kind, refusal?.Kind);
     }

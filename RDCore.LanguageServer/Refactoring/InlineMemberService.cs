@@ -199,15 +199,15 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
 
         // each call is inlined into the module as the calls inlined before it left it: from the last of a module to its first, which the edits after it
         // do not move. Its fresh names are then chosen against the names those calls wrote.
-        var texts = part.Modules.ToDictionary(module => module.Module.AbsoluteUri, module => (Text: module.Source, module.Parse));
+        var texts = part.Modules.ToDictionary(module => module.Key, module => (Text: module.Source, module.Parse));
         var edited = new HashSet<string>();
         var context = part.Context;
-        foreach (var site in chosen.OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal).ThenByDescending(site => site.Name.Start))
+        foreach (var site in chosen.OrderBy(site => site.Key, StringComparer.Ordinal).ThenByDescending(site => site.Name.Start))
         {
             var inlined = site.Inlined!;
             if (edited.Count > 0)
             {
-                var (again, refused) = InlineCall.At(context, AnalysesOf(context, texts), site.Module, site.Name.Start);
+                var (again, refused) = InlineCall.At(context, AnalysesOf(context, texts), site.Module, site.Name.Start, site.Document);
                 if (again is null)
                 {
                     return new(null, refused!.ToMessage(locate));
@@ -216,7 +216,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
                 inlined = again;
             }
 
-            var key = site.Module.AbsoluteUri;
+            var key = site.Key;
             var original = texts[key].Text;
             if (await EditedAsync(part, key, original, inlined.Edits, token) is not { } written)
             {
@@ -236,7 +236,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             }
         }
 
-        var calleeKey = target.Analysis.Module.AbsoluteUri;
+        var calleeKey = RenameModule.KeyOf(target.Analysis.Module, target.Declaration.SourceLocation.Uri);
         if (remove)
         {
             var (text, parse) = texts[calleeKey];
@@ -264,7 +264,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             [
                 .. edited.Select(key =>
                 {
-                    var document = part.Modules.First(module => module.Module.AbsoluteUri == key);
+                    var document = part.Modules.First(module => module.Key == key);
                     var edit = Difference(document.Source, texts[key].Text);
                     return new RefactorDocumentEdit
                     {
@@ -296,7 +296,11 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
     }
 
     // a call of the member, by its name: inlined, or why it is not.
-    private sealed record class Site(string Id, Uri Module, SourceRange Name, InlinedCall? Inlined, InlineRefusal? Refusal);
+    private sealed record class Site(string Id, Uri Module, Uri Document, SourceRange Name, InlinedCall? Inlined, InlineRefusal? Refusal)
+    {
+        // the part of its module the call is in (RenameModule.Key).
+        public string Key => RenameModule.KeyOf(Module, Document);
+    }
 
     // the member at a position, its declaration and the analysis of its module; the calls inlined from there: the one at the position, or each call of the
     // member from its declaration.
@@ -308,14 +312,15 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
     private async Task<(Target? Target, InlineRefusal? Refusal)> TargetAsync(
         Uri documentUri, SourcePosition position, CancellationToken token, bool tried = false)
     {
-        if (await rename.ComposeAsync(token) is not { } workspace || workspace.DocumentOf(documentUri) is not ({ } part, { } document))
+        if (await rename.ComposeAsync(token) is not { } workspace
+            || workspace.DocumentAt(documentUri, new Position(position.Line, position.Character)) is not ({ } part, { } document))
         {
             return (null, new(InlineRefusalKind.NotAProcedure));
         }
 
         var context = part.Context;
         var at = document.ToModulePosition(new Position(position.Line, position.Character));
-        if (context.Modules.FirstOrDefault(module => module.Module.AbsoluteUri == document.Module.AbsoluteUri) is not { } syntax
+        if (context.Modules.FirstOrDefault(module => module.Key == document.Key) is not { } syntax
             || NameOccurrences.NameAt(syntax, at) is not { } name)
         {
             return (null, new(InlineRefusalKind.NotAProcedure));
@@ -323,23 +328,23 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
 
         var found = NameOccurrences.Find(context, name, context.Modules);
         var here = found.Occurrences.FirstOrDefault(occurrence
-            => occurrence.Module.AbsoluteUri == document.Module.AbsoluteUri && occurrence.Range.Start <= at && at <= occurrence.Range.End);
+            => occurrence.Key == document.Key && occurrence.Range.Start <= at && at <= occurrence.Range.End);
         if (here.Binding is not { } binding || NameOccurrences.SymbolOf(context, binding) is not { } callee)
         {
             return (null, new(InlineRefusalKind.NotAProcedure, name));
         }
 
-        var analysisOf = AnalysesOf(context, part.Modules.ToDictionary(module => module.Module.AbsoluteUri, module => (Text: module.Source, module.Parse)));
-        if (InlineCall.KindOf(callee) is not { } kind || analysisOf(NameOccurrences.ModuleOf(callee.Uri)) is not { } analysis
+        var analysisOf = AnalysesOf(context, part.Modules.ToDictionary(module => module.Key, module => (Text: module.Source, module.Parse)));
+        if (InlineCall.KindOf(callee) is not { } kind || context.PartOf(callee) is not { } written || analysisOf(written) is not { } analysis
             || analysis.Procedure(callee.Name, kind) is not { } procedure)
         {
-            return (null, InlineCall.At(context, analysisOf, document.Module, at).Refusal ?? new(InlineRefusalKind.NotAProcedure, callee.Name));
+            return (null, InlineCall.At(context, analysisOf, document.Module, at, document.WrittenIn).Refusal
+                ?? new(InlineRefusalKind.NotAProcedure, callee.Name));
         }
 
         // the member's own name in its body (a function's result) is not a call of it.
         var own = procedure.Declaration.SourceLocation.Range;
-        bool IsOwn(NameOccurrence occurrence)
-            => occurrence.Module.AbsoluteUri == analysis.Module.AbsoluteUri && own.Start <= occurrence.Range.Start && occurrence.Range.End <= own.End;
+        bool IsOwn(NameOccurrence occurrence) => occurrence.Key == written.Key && own.Start <= occurrence.Range.Start && occurrence.Range.End <= own.End;
         var isAll = here.Kind is OccurrenceKind.Declaration;
         if (!isAll && IsOwn(here))
         {
@@ -352,8 +357,8 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             : [here];
         var sites = calls.Select((occurrence, index) =>
         {
-            var (inlined, refusal) = InlineCall.At(context, analysisOf, occurrence.Module, occurrence.Range.Start);
-            return new Site($"{index}", occurrence.Module, occurrence.Range, inlined, refusal);
+            var (inlined, refusal) = InlineCall.At(context, analysisOf, occurrence.Module, occurrence.Range.Start, occurrence.Document);
+            return new Site($"{index}", occurrence.Module, occurrence.Document ?? occurrence.Module, occurrence.Range, inlined, refusal);
         }).ToList();
         if (tried)
         {
@@ -367,11 +372,11 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
     // not parse once edited is left to the edit's own verification.
     private async Task<List<Site>> TriedAsync(RenameWorkspace.ProjectPart part, IReadOnlyList<Site> sites, CancellationToken token)
     {
-        var texts = part.Modules.ToDictionary(module => module.Module.AbsoluteUri, module => (Text: module.Source, module.Parse));
+        var texts = part.Modules.ToDictionary(module => module.Key, module => (Text: module.Source, module.Parse));
         var tried = new List<Site>();
         foreach (var site in sites)
         {
-            var key = site.Module.AbsoluteUri;
+            var key = site.Key;
             if (site.Inlined is not { } inlined || await EditedAsync(part, key, texts[key].Text, inlined.Edits, token) is not { } written
                 || Recomposed(part, new Dictionary<string, (string Text, ModuleParseResult Parse)>(texts) { [key] = written }, new HashSet<string> { key })
                     is not { } after)
@@ -393,7 +398,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
     // be that one. The refusal of the call otherwise.
     private static InlineRefusal? Rebound(RenameContext before, RenameContext after, Site site, string original, string edited, InlinedCall inlined)
     {
-        if (inlined.Names is not { } names || after.Modules.FirstOrDefault(module => module.Module.AbsoluteUri == site.Module.AbsoluteUri) is not { } module)
+        if (inlined.Names is not { } names || after.Modules.FirstOrDefault(module => module.Key == site.Key) is not { } module)
         {
             return null;
         }
@@ -429,21 +434,21 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
     }
 
     private static InlineRemoval RemovalOf(Target target, IEnumerable<Site> inlined)
-        => InlineRemoval.Of(target.Part.Context, target.Analysis, target.Callee, target.Declaration, [.. inlined.Select(site => (site.Module, site.Name))]);
+        => InlineRemoval.Of(target.Part.Context, target.Analysis, target.Callee, target.Declaration, [.. inlined.Select(site => (site.Key, site.Name))]);
 
-    // the analysis of each module of a workspace, from its text as it is: each is analyzed once, when it is first asked for.
-    private static Func<Uri, ExtractionModuleAnalysis?> AnalysesOf(
+    // the analysis of each part of a module of a workspace, from its text as it is (by RenameModule.Key): each is analyzed once, when it is first asked for.
+    private static Func<RenameModule, ExtractionModuleAnalysis?> AnalysesOf(
         RenameContext context, IReadOnlyDictionary<string, (string Text, ModuleParseResult Parse)> texts)
     {
         var analyses = new Dictionary<string, ExtractionModuleAnalysis?>();
         return module =>
         {
-            if (!analyses.TryGetValue(module.AbsoluteUri, out var analysis))
+            if (!analyses.TryGetValue(module.Key, out var analysis))
             {
-                analysis = texts.TryGetValue(module.AbsoluteUri, out var text)
-                    ? ExtractionModuleAnalysis.Of(module, text.Text, text.Parse, context.Resolver, context.ScopeTree, context.DeadTestOf(text.Parse))
+                analysis = texts.TryGetValue(module.Key, out var text)
+                    ? ExtractionModuleAnalysis.Of(module.Module, text.Text, text.Parse, context.Resolver, context.ScopeTree, context.DeadTestOf(text.Parse))
                     : null;
-                analyses[module.AbsoluteUri] = analysis;
+                analyses[module.Key] = analysis;
             }
 
             return analysis;
@@ -454,7 +459,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
     private async Task<(string Text, ModuleParseResult Parse)?> EditedAsync(
         RenameWorkspace.ProjectPart part, string module, string text, IReadOnlyList<RefactorTextEdit> edits, CancellationToken token, bool indent = true)
     {
-        var document = part.Modules.First(candidate => candidate.Module.AbsoluteUri == module);
+        var document = part.Modules.First(candidate => candidate.Key == module);
         var unindented = DeclarationEdits.ApplyTo(text, edits);
         var written = indent
             ? DeclarationEdits.ApplyTo(
@@ -478,12 +483,12 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
         {
             Resolver = composition.Resolver,
             ScopeTree = composition.ScopeTree,
-            Modules = [.. part.Context.Modules.Select(each => edited.Contains(each.Module.AbsoluteUri)
+            Modules = [.. part.Context.Modules.Select(each => edited.Contains(each.Key)
                 ? new RenameModule(
                     each.Module,
-                    texts[each.Module.AbsoluteUri].Parse.SyntaxTree!,
-                    texts[each.Module.AbsoluteUri].Text,
-                    texts[each.Module.AbsoluteUri].Parse.Designer)
+                    texts[each.Key].Parse.SyntaxTree!,
+                    texts[each.Key].Text,
+                    texts[each.Key].Parse.Designer)
                 : each)],
         };
     }
@@ -499,11 +504,11 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
             return NotVerified(chosen[0], InlineRefusal.Format("InlineMember_Verification_DoesNotParse", null), locate);
         }
 
-        var before = AnalysesOf(part.Context, part.Modules.ToDictionary(module => module.Module.AbsoluteUri, module => (Text: module.Source, module.Parse)));
+        var before = AnalysesOf(part.Context, part.Modules.ToDictionary(module => module.Key, module => (Text: module.Source, module.Parse)));
         var afterOf = AnalysesOf(after, texts);
-        foreach (var group in chosen.GroupBy(site => site.Module.AbsoluteUri))
+        foreach (var group in chosen.GroupBy(site => site.Key))
         {
-            var module = group.First().Module;
+            var module = part.Context.Modules.First(candidate => candidate.Key == group.Key);
             if (before(module) is not { } original || afterOf(module) is not { } now)
             {
                 continue;
@@ -521,7 +526,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
         }
 
         var differences = edited.ToDictionary(key => key, key
-            => (IReadOnlyList<RefactorTextEdit>)[Difference(part.Modules.First(module => module.Module.AbsoluteUri == key).Source, texts[key].Text)]);
+            => (IReadOnlyList<RefactorTextEdit>)[Difference(part.Modules.First(module => module.Key == key).Source, texts[key].Text)]);
         foreach (var change in BindingCheck.Changes(part.Context, after, differences))
         {
             // the member's own references go with it when it is removed.
@@ -599,7 +604,7 @@ internal sealed class InlineMemberService(IRenameService rename, IParsingClientS
 
     // a text of a module, parsed as its document is: the designer of a form is its document's, which the text of its code does not hold.
     private async Task<ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)
-        => await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token) with { Designer = module.Parse.Designer };
+        => module.PartOf(await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token)) with { Designer = module.Parse.Designer };
 
     // where a range of a module is, in the text of the document that module is.
     private static SourceLocation? LocationOf(RenameWorkspace.ProjectPart? part, Uri module, SourceRange range)

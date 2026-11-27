@@ -55,7 +55,11 @@ internal enum NameAccess
 
 internal readonly record struct NameOccurrence(
     Uri Module, SourceRange Range, SemanticId? Binding, OccurrenceKind Kind, LexicalScope Scope, string? Qualifier = null,
-    SyntaxNode? Node = null, ExpressionFact? Fact = null, SemanticId? Owner = null);
+    SyntaxNode? Node = null, ExpressionFact? Fact = null, SemanticId? Owner = null, Uri? Document = null)
+{
+    // what names the part of its module it is written in (RenameModule.Key): its range is a position of that part's document.
+    public string Key => RenameModule.KeyOf(Module, Document ?? Module);
+}
 
 internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occurrences, IReadOnlyList<NameOccurrence> Unknown)
 {
@@ -213,7 +217,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             var scope = ScopeAt(context, module, name.Range.Start);
             if (BindingOf(context, module, node, parent, facts, scope) is { Known: true } bound)
             {
-                written.Add(new NameOccurrence(module.Module, name.Range, bound.Binding, name.Kind, scope, Node: node));
+                written.Add(new NameOccurrence(module.Module, name.Range, bound.Binding, name.Kind, scope, Node: node, Document: module.Document));
             }
         }
 
@@ -242,7 +246,8 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
                     foreach (var unbuiltName in unbuilt.Names.Where(each => string.Equals(each.Name, name, StringComparison.OrdinalIgnoreCase)))
                     {
                         var kind = unbuiltName.IsMember ? OccurrenceKind.Member : OccurrenceKind.Name;
-                        unknown.Add(new NameOccurrence(module.Module, unbuiltName.Range, null, kind, ScopeAt(context, module, unbuiltName.Range.Start)));
+                        unknown.Add(new NameOccurrence(
+                            module.Module, unbuiltName.Range, null, kind, ScopeAt(context, module, unbuiltName.Range.Start), Document: module.Document));
                     }
                 }
 
@@ -257,7 +262,8 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
                 var (binding, known) = BindingOf(context, module, node, parent, facts, scope);
                 var fact = facts.GetValueOrDefault(node.Identity);
                 var owner = node is MemberAccessExpressionNode { Owner: { } before } ? FactOf(context, before, facts, scope)?.Binding : null;
-                var occurrence = new NameOccurrence(module.Module, written.Range, binding, written.Kind, scope, Node: node, Fact: fact, Owner: owner);
+                var occurrence = new NameOccurrence(
+                    module.Module, written.Range, binding, written.Kind, scope, Node: node, Fact: fact, Owner: owner, Document: module.Document);
                 (known ? occurrences : unknown).Add(occurrence);
             }
         }
@@ -364,7 +370,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         var facts = new Dictionary<SyntaxNodeId, ExpressionFact>();
         foreach (var declaration in module.Syntax.Children.OfType<MemberDeclarationNode>().Where(declaration => Procedures.Contains(declaration.MemberKind)))
         {
-            var origin = CompletionCandidates.OriginAt(context.ScopeTree, module.Module, declaration.SourceLocation.Range.Start);
+            var origin = CompletionCandidates.OriginAt(context.ScopeTree, module.Module, declaration.SourceLocation.Range.Start, module.Document);
             var scope = context.ScopeTree.ScopeFor(origin);
             if (scope.Kind != LexicalScopeKind.Procedure)
             {
@@ -553,7 +559,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     private static SourceRange NameRange(SourcePosition start, string name) => new(start, new SourcePosition(start.Line, start.Character + name.Length));
 
     private static LexicalScope ScopeAt(RenameContext context, RenameModule module, SourcePosition position)
-        => context.ScopeTree.ScopeFor(CompletionCandidates.OriginAt(context.ScopeTree, module.Module, position));
+        => context.ScopeTree.ScopeFor(CompletionCandidates.OriginAt(context.ScopeTree, module.Module, position, module.Document));
 
     private static IReadOnlyList<string> LinesOf(string source) => [.. source.Split('\n').Select(line => line.TrimEnd('\r'))];
 
@@ -633,7 +639,8 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         procedure = procedure[(procedure.LastIndexOf('!') + 1)..].Trim();
         var parts = procedure.Split('.');
         var start = new SourcePosition(range.Start.Line, range.Start.Character + at);
-        return new NameOccurrence(module.Module, NameRange(start, name), null, OccurrenceKind.String, scope, parts.Length > 1 ? parts[^2] : null);
+        return new NameOccurrence(
+            module.Module, NameRange(start, name), null, OccurrenceKind.String, scope, parts.Length > 1 ? parts[^2] : null, Document: module.Document);
     }
 
     private static LiteralExpressionNode? LiteralOf(ExpressionNode argument) => argument switch

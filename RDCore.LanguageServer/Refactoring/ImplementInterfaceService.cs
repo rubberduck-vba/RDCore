@@ -118,7 +118,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
         if (await rename.ComposeAsync(token) is not { } workspace
             || workspace.DocumentOf(documentUri) is not ({ } part, { } module)
             || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
-            || part.Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+            || part.Context.Modules.FirstOrDefault(candidate => candidate.Key == module.Key) is not { } source)
         {
             return null;
         }
@@ -138,16 +138,17 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
             return Format("ImplementInterfaceVerification_DoesNotParse", name);
         }
 
-        var composition = recompose(new Dictionary<string, ModuleParseResult> { [module.Module.AbsoluteUri] = parse });
+        var composition = recompose(new Dictionary<string, ModuleParseResult> { [module.Key] = parse });
         var after = part.Context with
         {
             Resolver = composition.Resolver,
             ScopeTree = composition.ScopeTree,
-            Modules = [.. part.Context.Modules.Select(each => each.Module.AbsoluteUri == module.Module.AbsoluteUri ? new RenameModule(each.Module, parse.SyntaxTree, text, parse.Designer) : each)],
+            Modules = [.. part.Context.Modules.Select(each
+                => each.Key == module.Key ? new RenameModule(each.Module, parse.SyntaxTree, text, parse.Designer) : each)],
         };
 
         var locate = RenameWorkspace.Locator(part);
-        if (BindingCheck.Changes(part.Context, after, new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [module.Module.AbsoluteUri] = edits })
+        if (BindingCheck.Changes(part.Context, after, new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [module.Key] = edits })
             .FirstOrDefault(change => change.Kind is not BindingChangeKind.Written) is { } changed)
         {
             return Format("ImplementInterfaceVerification_Rebinds", name, locate(changed.Module, changed.Before!.Value.Start));
@@ -211,7 +212,7 @@ internal sealed class ImplementInterfaceService(IRenameService rename, IParsingC
     }
 
     private async Task<ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)
-        => await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token) with { Designer = module.Parse.Designer };
+        => module.PartOf(await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token)) with { Designer = module.Parse.Designer };
 
     private static string Title(ImplementationTarget target)
         => Format(target.IsVariable ? "ImplementInterface_EventsTitle" : "ImplementInterface_Title", target.Name);

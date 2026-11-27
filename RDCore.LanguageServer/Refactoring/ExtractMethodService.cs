@@ -457,7 +457,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var written = new Dictionary<string, WrittenModule>();
         foreach (var (address, moduleEdits) in edits)
         {
-            var module = extraction.Part.Modules.First(candidate => candidate.Module.AbsoluteUri == address);
+            // the selection's part of its module, or the first part of a module a duplicate is in: the one its analysis is of (AnalysisOf).
+            var module = address == main ? extraction.Module : extraction.Part.Modules.First(candidate => candidate.Module.AbsoluteUri == address);
             var source = address == main ? extraction.Analysis.Text : module.Source;
             var unformatted = address == main
                 ? edit with { Edits = [.. moduleEdits.OrderBy(each => each.Range.Start)] }
@@ -583,7 +584,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return null;
         }
 
-        var composition = recompose(new Dictionary<string, SDK.Model.AST.ModuleParseResult> { [extraction.Module.Module.AbsoluteUri] = parse });
+        var composition = recompose(new Dictionary<string, SDK.Model.AST.ModuleParseResult> { [extraction.Module.Key] = parse });
         var analysis = ExtractionModuleAnalysis.Of(
             extraction.Module.Module, text, parse, composition.Resolver, composition.ScopeTree, extraction.Part.Context.DeadTestOf(parse));
         if (analysis.Procedure(member, memberKind) is not { } procedure)
@@ -642,7 +643,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return Failed(new(ExtractionVerificationFailureKind.DoesNotParse, null));
         }
 
-        var composition = recompose(written.ToDictionary(module => module.Key, module => module.Value.Parse));
+        var composition = recompose(written.Values.ToDictionary(module => module.Module.Key, module => module.Parse));
         var after = written.ToDictionary(
             module => module.Key,
             module => ExtractionModuleAnalysis.Of(module.Value.Module.Module, module.Value.Text, module.Value.Parse, composition.Resolver,
@@ -680,14 +681,15 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
     // a text of a module, parsed as its document is: the designer of a form is its document's, which the text of its code does not hold.
     private async Task<SDK.Model.AST.ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)
-        => await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token) with { Designer = module.Parse.Designer };
+        => module.PartOf(await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token)) with { Designer = module.Parse.Designer };
 
     // the module, the procedure and the selection a range is of, or the GoSub routine for Convert GoSub; null when it is of no procedure of a module of the
     // workspace.
     private async Task<Extraction?> ExtractionOfAsync(string kind, Uri documentUri, SourceRange range, CancellationToken token)
     {
         if (await rename.ComposeAsync(token) is not { } workspace
-            || workspace.DocumentOf(documentUri) is not ({ } part, { } module)
+            || workspace.DocumentAt(documentUri, new OmniSharp.Extensions.LanguageServer.Protocol.Models.Position(range.Start.Line, range.Start.Character))
+                is not ({ } part, { } module)
             || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
             || module.Parse.SyntaxTree is not { } tree
             || tree.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => Contains(member.SourceLocation.Range, range.Start)) is not { } member)
@@ -877,7 +879,10 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         // them when it is Public. None for a GoSub routine, which is converted where it is.
         public ImmutableArray<ExtractionDuplicate> Duplicates(ExtractionChoices choices) => Plan!.Selection.Routine is null
             ? ExtractionDuplicates.Find(Plan!, Source, choices, Part.Context, Module.Module,
-                Module.Type is ModuleType.StdModule ? [.. Part.Modules.Select(module => module.Module)] : [Module.Module], AnalysisOf)
+                Module.Type is ModuleType.StdModule
+                    ? [.. Part.Modules.Select(module => module.Module).DistinctBy(module => module.AbsoluteUri)]
+                    : [Module.Module],
+                AnalysisOf)
             : [];
 
         public bool IsInTheModule(ExtractionDuplicate duplicate) => duplicate.Module.AbsoluteUri == Module.Module.AbsoluteUri;
