@@ -64,12 +64,14 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
 
     private string? MemberOf(CultureInfo? culture) => Container is null ? null : SymbolTexts.MemberOf(Container, culture);
 
-    // the declaration as code writes it: what is called by its signature, what holds a value by its type.
+    // the declaration as code writes it: what is called by its signature, what holds a value by its type. An intrinsic type (MS-VBAL §2.1), which nothing
+    // declares, is its name: Long.
     private static string DeclarationOf(Symbol symbol)
     {
         var access = symbol is AccessibleTypedSymbol { AccessModifier: not AccessModifier.Implicit and var modifier } ? $"{modifier} " : string.Empty;
         return symbol switch
         {
+            StaticSymbol { Kind: SymbolKindExt.TypeDescriptor, ResolvedType: var intrinsic } => intrinsic.Name,
             VBModuleSymbol module => $"{(module.Kind == SymbolKindExt.Class ? "Class" : "Module")} {module.Name}",
             VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol when SignatureDescription.Of(symbol) is { } property
                 => access + ProcedureKeywords.Of(symbol) + property.Label[Tokens.Property.Length..],

@@ -118,6 +118,7 @@ public sealed class SymbolHoverTests
     [DataRow("Helpers", "Public Type Point", "Point", "Public Type Point", "Helpers", DisplayName = "a Type")]
     [DataRow("Program", "p.X = count", "X", "X As Long", "Helpers.Point", DisplayName = "a field of a Type")]
     [DataRow("Program", "Dim c As Class1", "Class1", "Class Class1", null, DisplayName = "a class")]
+    [DataRow("Program", "Dim count As Long", "Long", "Long", null, DisplayName = "an intrinsic type")]
     [DataRow("Program", "MsgBox Durée", "Durée", "Public Durée As Long", "Données", DisplayName = "a variable of a module named with an accent")]
     public void AHover_SaysTheDeclaration_AndWhatDeclaresIt(string module, string line, string text, string declaration, string? container)
     {
