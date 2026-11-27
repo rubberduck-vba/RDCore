@@ -10,7 +10,9 @@ namespace RDCore.LanguageServer.Completion;
 /// </summary>
 /// <remarks>
 /// A signature help is asked for as an argument list opens and as an argument starts: after a <c>(</c>, a <c>,</c>, and the space after the name of a call
-/// statement, which takes its arguments without parentheses. A <c>)</c> asks again, for the call around the one it closes.
+/// statement, which takes its arguments without parentheses. A <c>)</c> asks again, for the call around the one it closes. The arguments of an annotation
+/// are asked for alike, after its name: what it takes is what its extension declares
+/// (<see cref="RDCore.SDK.Model.Symbols.Completion.AnnotationCompletion.SignatureOf"/>).
 /// </remarks>
 internal sealed class SignatureHelpHandler(ICompletionService completion) : SignatureHelpHandlerBase
 {

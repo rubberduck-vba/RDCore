@@ -47,7 +47,8 @@ internal interface ICompletionService
     /// <param name="token">A token that cancels the request.</param>
     /// <param name="triggerCharacter">
     /// The character that had the client ask, when one did (<strong>LSP 3.17</strong> <c>CompletionContext.triggerCharacter</c>): a <c>,</c>, a <c>(</c> or a
-    /// space asks for the list of an argument whose parameter is an <c>Enum</c>, and is answered nothing elsewhere (<see cref="ArgumentTriggerCharacters"/>).
+    /// space asks for the list of an argument whose parameter is an <c>Enum</c>, and is answered nothing elsewhere (<see cref="ArgumentTriggerCharacters"/>);
+    /// a <c>@</c> asks for the annotations legal where it starts an annotation, and is answered nothing elsewhere (<see cref="AnnotationTriggerCharacter"/>).
     /// </param>
     /// <param name="insertReplace">
     /// Whether the client takes an item's edit as an insert range and a replace range (<strong>LSP 3.17</strong> <c>insertReplaceSupport</c>): each item is then
@@ -105,6 +106,12 @@ internal interface ICompletionService
     /// after any other is answered nothing, as it is not in the middle of a name.
     /// </summary>
     static IReadOnlyCollection<string> ArgumentTriggerCharacters { get; } = ["(", ",", " "];
+
+    /// <summary>
+    /// The character that has a client ask for the annotations legal where it is typed: the <c>@</c> right after the <c>'</c> that starts a comment
+    /// (<see cref="AnnotationSite"/>). Typed anywhere else, it is answered nothing: it is the type hint of a <c>Currency</c> (<c>x@</c>), or text.
+    /// </summary>
+    static string AnnotationTriggerCharacter => "@";
 }
 
 /// <inheritdoc cref="ICompletionService"/>
@@ -136,7 +143,8 @@ internal sealed class CompletionService(
     ILogger<CompletionService> logger,
     IWorkspaceProjects workspaceProjects,
     WorkspaceCompositionCache? compositions = null,
-    IReferencedProjectService? referencedProjects = null) : ICompletionService
+    IReferencedProjectService? referencedProjects = null,
+    IPlatformAnnotations? annotations = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
     private const string Probe = "RDCoreCompletionProbe";
@@ -164,14 +172,15 @@ internal sealed class CompletionService(
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
         return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position, token,
-            IsArgumentTrigger(triggerCharacter), insertReplace, items);
+            IsArgumentTrigger(triggerCharacter), insertReplace, items, triggerCharacter == ICompletionService.AnnotationTriggerCharacter);
     }
 
     public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null)
     {
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var kind = ModuleKinds.Of((RDCoreModule?)null, source);
-        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position, token, IsArgumentTrigger(triggerCharacter));
+        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position, token, IsArgumentTrigger(triggerCharacter),
+            annotationTrigger: triggerCharacter == ICompletionService.AnnotationTriggerCharacter);
     }
 
     public async Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token)
@@ -287,11 +296,24 @@ internal sealed class CompletionService(
     // in (a program's lines are further down in its module).
     private async Task<CompletionList> CompleteAsync(
         Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false,
-        bool insertReplace = false, CompletionItemCapabilityOptions? items = null)
+        bool insertReplace = false, CompletionItemCapabilityOptions? items = null, bool annotationTrigger = false)
     {
         var character = requested.Character;
         var lines = source.Split('\n');
         if (line < 0 || line >= lines.Length)
+        {
+            return Empty;
+        }
+
+        // an annotation's name is written right after the ' that starts a comment: what is offered there is the annotations legal where it is, and a @ typed
+        // anywhere else asks for nothing.
+        var typed = lines[line][..Math.Min(character, lines[line].TrimEnd('\r').Length)];
+        if (AnnotationSite.Read(typed) is { ArgumentIndex: null } annotation)
+        {
+            return await AnnotationsAsync(address, kind, lines, line, annotation, requested, insertReplace, token);
+        }
+
+        if (annotationTrigger)
         {
             return Empty;
         }
@@ -405,6 +427,41 @@ internal sealed class CompletionService(
         return list;
     }
 
+    // the annotations legal where the one being typed is: the module is parsed with its line made an annotation of its own, and what that annotation binds
+    // to is what any annotation written there binds to (AnnotationCompletion.PlaceOf). A document of blocks is several modules, the block's kind its own.
+    private async Task<CompletionList> AnnotationsAsync(
+        Uri address, ModuleType kind, string[] lines, int line, AnnotationSite site, Position requested, bool insertReplace, CancellationToken token)
+    {
+        var catalogue = annotations?.Catalogue;
+        if (catalogue is null || !catalogue.Declarations.Any())
+        {
+            return Empty;
+        }
+
+        var probed = (string[])lines.Clone();
+        probed[line] = AnnotationCompletion.ProbeLine(lines[line], site);
+        var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', probed), token);
+        if (parse.SyntaxTree is null)
+        {
+            return Empty;
+        }
+
+        // a form's designer is read with the document, which the parse of a fragment of its text does not read: the document's own parse has it.
+        if (parsing.TryGetCached(address, out var cached) && cached.Designer is { } designer)
+        {
+            parse = parse with { Designer = designer };
+        }
+
+        if (AnnotationCompletion.PlaceOf(new RDCoreDocument(address, parse), kind, site, line) is not { } place)
+        {
+            return Empty;
+        }
+
+        var after = insertReplace ? lines[line].TrimEnd('\r')[Math.Min(requested.Character, lines[line].TrimEnd('\r').Length)..] : null;
+        return CompletionCandidates.ListOf(site.Name, [],
+            AnnotationCompletion.CandidatesAt(catalogue, place, System.Globalization.CultureInfo.CurrentUICulture), requested, after);
+    }
+
     public async Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token)
     {
         if (!documents.TryGetDocument(documentUri, out var document))
@@ -437,6 +494,12 @@ internal sealed class CompletionService(
             return null;
         }
 
+        // the arguments of an annotation are a call's to what the annotation takes, as its extension declares it.
+        if (AnnotationSite.Read(lines[line][..Math.Min(character, lines[line].TrimEnd('\r').Length)]) is { ArgumentIndex: { } index } annotation)
+        {
+            return AnnotationSignatureOf(annotation.Name, index);
+        }
+
         var logical = LogicalLine.At(lines, line, character);
         if (SignatureSite.Read(logical.Before) is not { } site
             || await ComposeAsync(address, moduleName, kind, lines, logical, line, site.IsMemberAccess ? site.Qualifier : string.Empty, token) is not { } composed)
@@ -452,6 +515,24 @@ internal sealed class CompletionService(
         }
 
         var active = signature.ActiveParameterOf(site.ArgumentIndex, site.ArgumentName);
+        return new SignatureHelp
+        {
+            Signatures = new Container<SignatureInformation>(signature.ToSignatureInformation(active)),
+            ActiveSignature = 0,
+            ActiveParameter = active,
+        };
+    }
+
+    // the signature of an annotation of the catalogue, the argument being written given to its parameter; null for an annotation no extension declares.
+    private SignatureHelp? AnnotationSignatureOf(string name, int argumentIndex)
+    {
+        if (annotations?.Catalogue is not { } catalogue || catalogue.Find(name) is not { } declared)
+        {
+            return null;
+        }
+
+        var signature = AnnotationCompletion.SignatureOf(catalogue, declared, System.Globalization.CultureInfo.CurrentUICulture);
+        var active = signature.ActiveParameterOf(argumentIndex);
         return new SignatureHelp
         {
             Signatures = new Container<SignatureInformation>(signature.ToSignatureInformation(active)),
