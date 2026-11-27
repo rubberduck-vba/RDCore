@@ -137,6 +137,18 @@ public sealed class ControlRenameTests
             Renamed(context, "Picker", line, text, "Accept"));
     }
 
+    // a bare graphics statement of a Visual Basic 6.0 form draws on the form, so the names its points hold are references the static pass binds.
+    [TestMethod]
+    public void AVisualBasic6Control_IsRenamedInTheBareGraphicsStatementsOfItsForm()
+    {
+        var code = Picker("Private Sub Ok_Click()", "    PSet (Ok.Left, Ok.Top), vbRed", "End Sub");
+        var context = Compose("Picker", code);
+
+        Assert.AreEqual(
+            code.Replace("CommandButton Ok ", "CommandButton Accept ").Replace("Ok_Click", "Accept_Click").Replace("(Ok.Left, Ok.Top)", "(Accept.Left, Accept.Top)"),
+            Renamed(context, "Picker", "Private Sub Ok_Click", "Ok", "Accept"));
+    }
+
     [TestMethod]
     public void AVisualBasic6ControlArray_IsRenamedOnTheBeginLineOfEachElement()
     {
