@@ -87,7 +87,8 @@ internal sealed class CodeActionService(
 /// <para>
 /// The statements of a selection that nothing refuses to extract are offered as a refactoring that extracts them as a procedure (<see cref="IExtractMethodService"/>).
 /// A client that expects <see cref="SDK.Client.Refactoring"/> runs it as a command (<see cref="RefactoringCommands.Refactor"/>), and asks its user before it
-/// applies it; any other is sent its edit, made with the defaults, when it changes nothing of what the code does that the user would have to accept.
+/// applies it; any other is sent its edit, made with the defaults. An edit that changes what the code does is sent only to a client that takes change
+/// annotations, annotated as an edit the client asks its user to confirm before it applies it.
 /// </para>
 /// <para>
 /// A <c>GoSub</c> routine is offered, the same way, as a refactoring that converts it to a procedure: at a position on its label, on a <c>GoSub</c> that names
@@ -121,8 +122,9 @@ internal sealed class CodeActionService(
 /// </para>
 /// <para>
 /// The field named at the start of a range is offered as a refactoring that encapsulates it behind properties (<see cref="IEncapsulateFieldService"/>), as an
-/// extraction is: a command for a client that expects <see cref="SDK.Client.Refactoring"/>, and its edit, made with the defaults, for any other when it changes
-/// nothing the user would have to accept. A refused one is offered disabled, with why, to a client that shows it so, unless no field is named there.
+/// extraction is: a command for a client that expects <see cref="SDK.Client.Refactoring"/>, and its edit, made with the defaults, for any other, which the
+/// client asks its user to confirm when it changes what the code does. A refused one is offered disabled, with why, to a client that shows it so, unless no
+/// field is named there.
 /// </para>
 /// <para>
 /// An <c>Implements</c> directive of a class module, or a <c>WithEvents</c> variable of one, on a line a range starts on, is offered as a refactoring that writes
@@ -469,8 +471,9 @@ internal sealed class CodeActions(
 
     // the action that extracts the statements of a selection, or converts a GoSub routine, offered when nothing refuses it, with the refusals when something
     // does. A client with a dialog of its own runs it as a command, which prepares the refactoring and applies it with its user's answers; any other is sent the
-    // edit, with the defaults, when the refactoring changes nothing the user would have to accept. A refused one, and one with a change to accept, is offered
-    // disabled, with why, to a client that shows it so, unless the range holds nothing it refactors.
+    // edit, with the defaults: when the refactoring changes what the code does, as one its user confirms, and only where it takes change annotations. A
+    // refused one, and one with a change to accept for a client that cannot ask its user, is offered disabled, with why, to a client that shows it so, unless
+    // the range holds nothing it refactors.
     private async Task<(CodeAction? Action, IReadOnlyList<RefactorNotice> Refused)> RefactoringActionAsync(
         DocumentUri lspUri, string kind, SourceRange range, CancellationToken token)
     {
@@ -499,22 +502,22 @@ internal sealed class CodeActions(
             }, []);
         }
 
-        // a change of what the code does is applied only when the user accepts it, which a client with no dialog cannot ask: one that shows an action it
-        // cannot take is told why.
-        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Change) is { } change)
+        // a change of what the code does is applied only when the user accepts it: a client that takes change annotations is sent the edit to confirm with its
+        // user first, and one that cannot ask and shows an action it cannot take is told why.
+        var changes = ChangesOf(prepared);
+        if (changes.Count > 0 && !client.TakesChangeAnnotations())
         {
-            return (ShowsDisabled
-                ? new CodeAction { Title = title, Kind = actionKind, Disabled = new CodeActionDisabled { Reason = ExtractMethodService.NeedsAccepting(change) } }
-                : null, []);
+            var reason = ExtractMethodService.NeedsAccepting(changes[0]);
+            return (ShowsDisabled ? new CodeAction { Title = title, Kind = actionKind, Disabled = new CodeActionDisabled { Reason = reason } } : null, []);
         }
 
         if (ResolvesEdits)
         {
-            return (new CodeAction { Title = title, Kind = actionKind, Data = ResolvedData(kind, lspUri, range, version) }, []);
+            return (new CodeAction { Title = title, Kind = actionKind, Data = WithChanges(ResolvedData(kind, lspUri, range, version), changes) }, []);
         }
 
-        var answer = await extractMethod.ApplyAsync(kind, documentUri, range, DefaultAnswers(), [], token);
-        if (answer.Edit is null || ForTheClient(LspEditOf(answer)) is not { } applicable)
+        var answer = await extractMethod.ApplyAsync(kind, documentUri, range, DefaultAnswers(), CodesOf(changes), token);
+        if (answer.Edit is null || ForTheClient(Confirmed(LspEditOf(answer), title, changes)) is not { } applicable)
         {
             return (null, []);
         }
@@ -531,7 +534,8 @@ internal sealed class CodeActions(
             return action;
         }
 
-        var answer = await extractMethod.ApplyAsync(kind, uri, range, DefaultAnswers(), [], token);
+        var changes = client.TakesChangeAnnotations() ? ChangesOf(offered) : [];
+        var answer = await extractMethod.ApplyAsync(kind, uri, range, DefaultAnswers(), CodesOf(changes), token);
         var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged(kind) : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
@@ -540,7 +544,11 @@ internal sealed class CodeActions(
 
         try
         {
-            return new CodeAction { Title = action.Title, Kind = new CodeActionKind(kind), Data = action.Data, Edit = LspEditOf(answer).For(client) };
+            return new CodeAction
+            {
+                Title = action.Title, Kind = new CodeActionKind(kind), Data = action.Data,
+                Edit = Confirmed(LspEditOf(answer), ExtractMethodService.Title(kind), changes).For(client),
+            };
         }
         catch (WorkspaceEditNotSupportedException unsupported)
         {
@@ -636,9 +644,9 @@ internal sealed class CodeActions(
     private const string AllFieldsDataKey = "allFields";
 
     // the actions that encapsulate the field named at the start of a range. The field alone, as an extraction is offered: a command for a client with a dialog
-    // of its own, the edit with the defaults for any other, unless it changes what the code does. A refused one is offered disabled, with why, to a client that
-    // shows it so, unless no field is named there. And, when the module has other Public fields, the field with all of them, with the defaults, offered as an
-    // edit to any client: disabled, with why, when one of them is refused or the edit changes what the code does.
+    // of its own, the edit with the defaults for any other (EncapsulationActionAsync). A refused one is offered disabled, with why, to a client that shows it
+    // so, unless no field is named there. And, when the module has other Public fields, the field with all of them, with the defaults, offered as an edit to
+    // any client: disabled, with why, when one of them is refused.
     private async Task<IReadOnlyList<CodeAction>> EncapsulateFieldActionsAsync(DocumentUri lspUri, SourceRange range, CancellationToken token)
     {
         if (encapsulateField is null)
@@ -667,7 +675,8 @@ internal sealed class CodeActions(
     }
 
     // the action of an encapsulation with answers, as its notices prepared it: a command for a client with a dialog of its own when the dialog asks it, the edit
-    // for any other, unless it is refused or changes what the code does, which a client that shows it so is offered disabled, with why.
+    // for any other, which its user confirms when it changes what the code does. One that is refused, or that changes what the code does for a client that
+    // takes no change annotations, is offered disabled, with why, to a client that shows it so.
     private async Task<CodeAction?> EncapsulationActionAsync(
         DocumentUri lspUri, SourceRange range, int? version, RefactorPrepareResult prepared, IReadOnlyList<RefactorAnswer> answers, string title, bool dialog,
         CancellationToken token)
@@ -690,14 +699,15 @@ internal sealed class CodeActions(
             };
         }
 
-        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Change) is { } change)
+        var changes = ChangesOf(prepared);
+        if (changes.Count > 0 && !client.TakesChangeAnnotations())
         {
-            return Disabled(ExtractMethodService.NeedsAccepting(change));
+            return Disabled(ExtractMethodService.NeedsAccepting(changes[0]));
         }
 
         if (ResolvesEdits)
         {
-            var data = ResolvedData(RefactoringKinds.EncapsulateField, lspUri, range, version);
+            var data = WithChanges(ResolvedData(RefactoringKinds.EncapsulateField, lspUri, range, version), changes);
             if (answers.Count > 0)
             {
                 data[AllFieldsDataKey] = true;
@@ -706,13 +716,15 @@ internal sealed class CodeActions(
             return new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Data = data };
         }
 
-        var answer = await encapsulateField!.ApplyAsync(documentUri, range.Start, answers, [], token);
+        var answer = await encapsulateField!.ApplyAsync(documentUri, range.Start, answers, CodesOf(changes), token);
         if (answer.Edit is null)
         {
             return answer.Refusal is { } refusal ? Disabled(refusal) : null;
         }
 
-        return ForTheClient(LspEditOf(answer.Edit)) is { } applicable ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Edit = applicable } : null;
+        return ForTheClient(Confirmed(LspEditOf(answer.Edit), title, changes)) is { } applicable
+            ? new CodeAction { Title = title, Kind = CodeActionHandler.RefactorEncapsulateField, Edit = applicable }
+            : null;
     }
 
     // the encapsulation a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for; of every Public
@@ -724,10 +736,10 @@ internal sealed class CodeActions(
             return action;
         }
 
-        var answers = offered[AllFieldsDataKey] is { Type: JTokenType.Boolean } all && all.Value<bool>()
-            ? EncapsulateFieldService.AllFields((await encapsulateField.PrepareAsync(uri, range.Start, token)).Choices)
-            : [];
-        var answer = await encapsulateField.ApplyAsync(uri, range.Start, answers, [], token);
+        var allFields = offered[AllFieldsDataKey] is { Type: JTokenType.Boolean } all && all.Value<bool>();
+        var answers = allFields ? EncapsulateFieldService.AllFields((await encapsulateField.PrepareAsync(uri, range.Start, token)).Choices) : [];
+        var changes = client.TakesChangeAnnotations() ? ChangesOf(offered) : [];
+        var answer = await encapsulateField.ApplyAsync(uri, range.Start, answers, CodesOf(changes), token);
         var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? EncapsulateFieldService.DocumentChanged() : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
@@ -736,7 +748,12 @@ internal sealed class CodeActions(
 
         try
         {
-            return new CodeAction { Title = action.Title, Kind = CodeActionHandler.RefactorEncapsulateField, Data = action.Data, Edit = LspEditOf(answer.Edit).For(client) };
+            var label = allFields ? EncapsulateFieldService.AllTitle() : EncapsulateFieldService.Title();
+            return new CodeAction
+            {
+                Title = action.Title, Kind = CodeActionHandler.RefactorEncapsulateField, Data = action.Data,
+                Edit = Confirmed(LspEditOf(answer.Edit), label, changes).For(client),
+            };
         }
         catch (WorkspaceEditNotSupportedException unsupported)
         {
@@ -940,6 +957,70 @@ internal sealed class CodeActions(
                 : answer.Replacements.ToDictionary(
                     replacement => (ChangeAnnotationIdentifier)replacement.Id,
                     replacement => new ChangeAnnotation { Label = replacement.Label, NeedsConfirmation = true }),
+        };
+    }
+
+    // the member of the data of an action a client resolves that holds the changes of what the code does its edit makes, each with its code and its message.
+    private const string ChangesDataKey = "changes";
+
+    // the annotation of the edits of a refactoring that changes what the code does; a duplicate's replacement is annotated by its own id, which is a position.
+    private const string ChangeAnnotationId = "rdcore.change";
+
+    // the changes of what the code does a prepared refactoring makes, which the user accepts or declines as a whole.
+    private static IReadOnlyList<RefactorNotice> ChangesOf(RefactorPrepareResult prepared)
+        => [.. prepared.Notices.Where(notice => notice.Kind is RefactorNoticeKind.Change)];
+
+    // the changes an action was offered with (WithChanges): the document they were found in is the one it resolves, as it is of the version it was offered for.
+    private static IReadOnlyList<RefactorNotice> ChangesOf(JObject offered)
+        => offered[ChangesDataKey] is JArray changes
+            ? [.. changes.OfType<JObject>().Select(change => new RefactorNotice
+            {
+                Kind = RefactorNoticeKind.Change, Code = (string?)change["code"] ?? string.Empty, Message = (string?)change["message"] ?? string.Empty,
+            })]
+            : [];
+
+    private static JObject WithChanges(JObject data, IReadOnlyList<RefactorNotice> changes)
+    {
+        if (changes.Count > 0)
+        {
+            data[ChangesDataKey] = new JArray(changes.Select(change => new JObject { ["code"] = change.Code, ["message"] = change.Message }));
+        }
+
+        return data;
+    }
+
+    private static IReadOnlyList<string> CodesOf(IReadOnlyList<RefactorNotice> changes) => [.. changes.Select(change => change.Code)];
+
+    // an edit that changes what the code does, as an edit the client asks its user to confirm before it applies it (LSP ChangeAnnotation.needsConfirmation):
+    // each text edit carries one annotation, labeled with the refactoring and described with the changes, unless it is annotated already - a duplicate's
+    // replacement keeps its own, which the user confirms by itself.
+    private static WorkspaceEdit Confirmed(WorkspaceEdit edit, string label, IReadOnlyList<RefactorNotice> changes)
+    {
+        if (changes.Count == 0 || edit.DocumentChanges is not { } documents)
+        {
+            return edit;
+        }
+
+        var annotation = (ChangeAnnotationIdentifier)ChangeAnnotationId;
+        return new WorkspaceEdit
+        {
+            DocumentChanges = new Container<WorkspaceEditDocumentChange>(documents.Select(document => document.TextDocumentEdit is { } text
+                ? new WorkspaceEditDocumentChange(new TextDocumentEdit
+                {
+                    TextDocument = text.TextDocument,
+                    Edits = new TextEditContainer(text.Edits.Select(each => each is AnnotatedTextEdit
+                        ? each
+                        : new AnnotatedTextEdit { Range = each.Range, NewText = each.NewText, AnnotationId = annotation })),
+                })
+                : document)),
+            ChangeAnnotations = new Dictionary<ChangeAnnotationIdentifier, ChangeAnnotation>(
+                edit.ChangeAnnotations ?? new Dictionary<ChangeAnnotationIdentifier, ChangeAnnotation>())
+            {
+                [annotation] = new ChangeAnnotation
+                {
+                    Label = label, Description = string.Join("\n", changes.Select(change => change.Message)), NeedsConfirmation = true,
+                },
+            },
         };
     }
 
