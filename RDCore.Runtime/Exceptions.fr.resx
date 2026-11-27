@@ -354,6 +354,15 @@
   <data name="JsonValues_MemberEnded_Verbose" xml:space="preserve">
     <value>Le programme a pris fin pendant la lecture du membre '{0}' de l'objet.</value>
   </data>
+  <data name="JsonValues_MemberGivenEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant l'affectation du membre '{0}' de l'objet.</value>
+  </data>
+  <data name="JsonValues_InitializeEnded_Verbose" xml:space="preserve">
+    <value>Le programme a pris fin pendant l'initialisation d'un objet de la classe '{0}'.</value>
+  </data>
+  <data name="JsonValues_KeyGivenTwice_Verbose" xml:space="preserve">
+    <value>Les clés '{0}' et '{1}' désignent le même membre de la classe '{2}'.</value>
+  </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} a arrêté le processus qui l'appelait : la fonction est probablement mal déclarée - ses paramètres, leurs types, ou la façon dont ils sont passés.</value>
   </data>

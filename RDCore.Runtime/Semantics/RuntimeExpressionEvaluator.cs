@@ -948,8 +948,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // an object of a class, created for a New expression: held by the statement, and initialized. Compiled code makes the object of a New it evaluates here
     // too (CompiledActivation.New).
     internal static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, ExpressionNode expression, VBClassModuleSymbol classModule)
+        => Initialized(session, NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule)));
+
+    // an object of a class made for a value from outside the program (JsonValues), as New makes one: held until the invocation it is given to lets go of
+    // its temporaries, and initialized.
+    internal static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, VBClassModuleSymbol classModule)
+        => Initialized(session, NewExpressionRuntimeSemantics.Create(session, classModule, default));
+
+    private static RuntimeSemanticsEvaluationResult Initialized(IRuntimeSession session, RuntimeSemanticsEvaluationResult created)
     {
-        var created = NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule));
 
         // the new object is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily): whatever
         // it is assigned to holds it by then, and one nothing kept - `Call (New Widget).Run` - is destroyed then. Its Initialize runs on a live object.

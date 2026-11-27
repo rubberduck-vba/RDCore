@@ -776,6 +776,33 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The program ended while the object's member '{0}' was given its value..
+        /// </summary>
+        internal static string JsonValues_MemberGivenEnded_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_MemberGivenEnded_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The program ended while an object of the class '{0}' was initialized..
+        /// </summary>
+        internal static string JsonValues_InitializeEnded_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_InitializeEnded_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The keys '{0}' and '{1}' name the same member of the class '{2}'..
+        /// </summary>
+        internal static string JsonValues_KeyGivenTwice_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyGivenTwice_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed..
         /// </summary>
         internal static string VBDeclare_HostStopped_Verbose {

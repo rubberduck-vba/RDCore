@@ -9,7 +9,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An instance of a class of the workspace, returned by a procedure invoked by name (<see cref="IProgramMachine"/>): a JSON object of its public members,
-/// each read as <c>CallByName</c> reads it, in the order the class declares them.
+/// each read as <c>CallByName</c> reads it, in the order the class declares them. A JSON object given for a parameter of a class of the workspace: a
+/// <c>New</c> object of it, each key giving its value to the member it names as <c>CallByName</c> gives one.
 /// </summary>
 [TestClass]
 public sealed class JsonInstancesTests
@@ -61,9 +62,51 @@ public sealed class JsonInstancesTests
             "Public Property Get Gone() As Long",
             "End",
             "End Property")),
+        ("Account", ModuleWorkspace.ClassModule("Account",
+            "Public Id As Long",
+            "Public Origin As String",
+            "Public Owner As Customer",
+            "Public Data As Variant",
+            "Private mNick As String",
+            "Private mSecret As Long",
+            "Private Sub Class_Initialize()",
+            "Origin = \"initialized\"",
+            "End Sub",
+            "Public Property Get Nick() As String",
+            "Nick = mNick",
+            "End Property",
+            "Public Property Let Nick(ByVal value As String)",
+            "mNick = \"~\" & value",
+            "End Property",
+            "Public Property Get Balance() As Currency",
+            "Balance = 10",
+            "End Property",
+            "Friend Property Let Secret(ByVal value As Long)",
+            "mSecret = value",
+            "End Property",
+            "Public Property Get SecretSeen() As Long",
+            "SecretSeen = mSecret",
+            "End Property",
+            "Public Property Let Fails(ByVal value As Long)",
+            "Err.Raise 1234, , \"fails\"",
+            "End Property",
+            "Public Sub Shut()",
+            "Id = -1",
+            "End Sub")),
+        ("Doomed", ModuleWorkspace.ClassModule("Doomed",
+            "Private Sub Class_Initialize()",
+            "End",
+            "End Sub")),
+        ("Tracked", ModuleWorkspace.ClassModule("Tracked",
+            "Public Id As Long",
+            "Private Sub Class_Terminate()",
+            "Terminated = Terminated + 1",
+            "End Sub")),
     ];
 
     private static readonly string Program = string.Join("\r\n",
+        "Public Terminated As Long",
+        "Public Kept As Object",
         "Public Sub Main()",
         "End Sub",
         "Public Function MakeOrder() As Order",
@@ -97,6 +140,23 @@ public sealed class JsonInstancesTests
         "Public Function MakeEnding() As Ending",
         "Set MakeEnding = New Ending",
         "End Function",
+        "Public Function Describe(ByVal account As Account) As String",
+        "Describe = account.Id & \"|\" & account.Origin & \"|\" & account.Owner.Name & \"|\" & IsEmpty(account.Data) & \"|\" & account.Nick & \"|\" _",
+        "    & account.Balance & \"|\" & account.SecretSeen",
+        "End Function",
+        "Public Function IsNone(ByVal account As Account) As Boolean",
+        "IsNone = account Is Nothing",
+        "End Function",
+        "Public Sub Arrive(ByVal it As Doomed)",
+        "End Sub",
+        "Public Sub Take(ByVal it As Tracked)",
+        "End Sub",
+        "Public Sub Keep(ByVal it As Tracked)",
+        "Set Kept = it",
+        "End Sub",
+        "Public Function TerminatedCount() As Long",
+        "TerminatedCount = Terminated",
+        "End Function",
         "");
 
     private static Task WithMachineAsync(Func<IProgramMachine, Task> act)
@@ -109,6 +169,19 @@ public sealed class JsonInstancesTests
 
     private static Task<ProgramInvocationResult> Invoke(IProgramMachine machine, string procedure)
         => machine.InvokeAsync(new ProgramInvocation("Program", procedure, new Dictionary<string, JsonNode?>()), default).WaitAsync(Patience);
+
+    // the procedure given its arguments as the properties of a JSON object.
+    private static Task<ProgramInvocationResult> Invoke(IProgramMachine machine, string procedure, string arguments)
+        => machine.InvokeAsync(new ProgramInvocation("Program", procedure, ArgumentsOf(arguments)), default).WaitAsync(Patience);
+
+    private static Dictionary<string, JsonNode?> ArgumentsOf(string arguments)
+        => JsonNode.Parse(arguments)!.AsObject().ToDictionary(property => property.Key, property => property.Value?.DeepClone());
+
+    private static void AssertRaised(int expected, ProgramInvocationResult result)
+    {
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
+        Assert.AreEqual(expected, result.ErrorNumber, result.ErrorMessage);
+    }
 
     private static void AssertReturned(string expected, ProgramInvocationResult result)
     {
@@ -162,4 +235,63 @@ public sealed class JsonInstancesTests
     public Task AnEndInAPropertyGet_EndsTheInvocationAsHalted()
         => WithMachineAsync(async machine =>
             Assert.AreEqual(ExecutionOutcome.Halted, (await Invoke(machine, "MakeEnding")).Outcome));
+
+    // a JSON object for a parameter of a class is a New object of it: Class_Initialize runs (Origin), then each key gives its value to the member it names,
+    // in any case, through a Property Let (Nick) or to a public variable, an object for an object's (Owner). A member no key names keeps its value (Data);
+    // a key that names a read-only member (Balance), a Friend one (Secret), a method (Shut) or nothing is ignored.
+    [TestMethod]
+    public Task AJsonObject_IsANewInstance_EachKeyGivingItsValueToTheMemberItNames()
+        => WithMachineAsync(async machine
+            => AssertReturned("\"7|initialized|x|True|~duck|10|0\"", await Invoke(machine, "Describe",
+                """{"account":{"id":7,"NICK":"duck","Balance":99,"Secret":5,"Shut":1,"Unknown":1,"owner":{"Name":"x"}}}""")));
+
+    // two keys that name one member, in different cases, are 457, the error of a key given twice.
+    [TestMethod]
+    public Task TwoKeysNamingOneMember_AreAKeyGivenTwice()
+        => WithMachineAsync(async machine
+            => AssertRaised((int)VBRuntimeErrorId.KeyAlreadyAssociatedWithAnElementOfCollection,
+                await Invoke(machine, "Describe", """{"account":{"Id":1,"id":2}}""")));
+
+    // null is Nothing; a JSON value of any other kind is not an object of the class: 13.
+    [TestMethod]
+    [DataRow("5", DisplayName = "a number")]
+    [DataRow("\"text\"", DisplayName = "a string")]
+    [DataRow("[1]", DisplayName = "an array")]
+    [DataRow("true", DisplayName = "a boolean")]
+    public Task AnotherKindThanAnObject_IsATypeMismatch(string other)
+        => WithMachineAsync(async machine =>
+        {
+            AssertReturned("true", await Invoke(machine, "IsNone", """{"account":null}"""));
+            AssertRaised((int)VBRuntimeErrorId.TypeMismatch, await Invoke(machine, "Describe", $$"""{"account":{{other}}}"""));
+        });
+
+    // a Property Let that raises an error ends the invocation in that error, as the program raised it.
+    [TestMethod]
+    public Task APropertyLetThatRaises_EndsTheInvocationInItsError()
+        => WithMachineAsync(async machine =>
+        {
+            var result = await Invoke(machine, "Describe", """{"account":{"Fails":1}}""");
+
+            AssertRaised(1234, result);
+            StringAssert.StartsWith(result.ErrorCode, "VBA", "an error the program raised has a program's code");
+        });
+
+    // an End in Class_Initialize ends the invocation as an End in the procedure does.
+    [TestMethod]
+    public Task AnEndInClassInitialize_EndsTheInvocationAsHalted()
+        => WithMachineAsync(async machine =>
+            Assert.AreEqual(ExecutionOutcome.Halted, (await Invoke(machine, "Arrive", """{"it":{}}""")).Outcome));
+
+    // the object is held until the invocation is over, then let go of as a New object a statement made is: one the program kept stays, and one it kept
+    // nothing of is destroyed, its Class_Terminate running.
+    [TestMethod]
+    public Task TheObjectIsLetGoOf_WhenTheInvocationIsOver()
+        => WithMachineAsync(async machine =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, (await Invoke(machine, "Keep", """{"it":{"Id":1}}""")).Outcome);
+            AssertReturned("0", await Invoke(machine, "TerminatedCount"));
+
+            Assert.AreEqual(ExecutionOutcome.Completed, (await Invoke(machine, "Take", """{"it":{"Id":2}}""")).Outcome);
+            AssertReturned("1", await Invoke(machine, "TerminatedCount"));
+        });
 }

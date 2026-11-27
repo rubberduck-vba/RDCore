@@ -62,14 +62,21 @@ public sealed record class NewExpressionRuntimeSemantics : RuntimeSemantics<Valu
                 Exceptions.VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose.Replace("{$TYPENAME}", typeName)));
         }
 
-        if ((CreationFailure(classModule, node.SourceLocation) ?? SessionForms.Of(session).CreationFailure(classModule, node.SourceLocation)) is { } refused)
+        return Create(session, classModule, node.SourceLocation);
+    }
+
+    // a new object of classModule, or the error making one is, reported at site: what a New expression evaluates to, and what a value from outside the
+    // program makes for a parameter or a member of the class (JsonValues).
+    internal static RuntimeSemanticsEvaluationResult Create(IRuntimeSession session, VBClassModuleSymbol classModule, SourceLocation site)
+    {
+        if ((CreationFailure(classModule, site) ?? SessionForms.Of(session).CreationFailure(classModule, site)) is { } refused)
         {
             return refused;
         }
 
         var objectId = session.Objects.CreateObject();
         session.Symbols.CreateInstance(objectId, classModule);
-        if (ExternalObjectCreation.Create(session, classModule, objectId, node.SourceLocation) is { } failed)
+        if (ExternalObjectCreation.Create(session, classModule, objectId, site) is { } failed)
         {
             return failed;
         }
