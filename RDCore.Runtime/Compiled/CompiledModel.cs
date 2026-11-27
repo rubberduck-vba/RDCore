@@ -212,6 +212,9 @@ internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind, int 
 // Extended.Compare, of a floating-point effective type: a Boolean.
 internal sealed record class ExtendedCompareNode(ComparisonOperator Operator, ExtendedNode Left, ExtendedNode Right, ScalarKind Effective) : PayloadNode(ScalarKind.Boolean);
 
+// Extended.Sign: Sgn of an extended intermediate, an Integer.
+internal sealed record class ExtendedSignNode(ExtendedNode Value) : PayloadNode(ScalarKind.Integer);
+
 // an extended intermediate (MS-VBAL §5.6.9.3).
 internal abstract record class ExtendedNode;
 

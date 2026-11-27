@@ -97,6 +97,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim z As Double, e As Double ;; z = 0 ;; e = 5 ;; e = Abs(z / z) ;; P Err.Number ;; P e", "6|nan|", DisplayName = "Abs of 0 / 0")]
     [DataRow("", "Dim d As Double, t As Double, e As Double ;; d = 1 ;; t = 1 / 2 ^ 60 ;; e = Sgn(d + t - d) ;; P e", "1|",
         DisplayName = "Sgn of a tiny difference")]
+    [DataRow("", "Dim a As Double, b As Double ;; a = 1E-200 ;; b = 1E-200 ;; P CStr(Sgn(a * b))", "1|",
+        DisplayName = "Sgn of a product too small for a Double")]
     [DataRow("", "Dim s As Single, e As Double ;; s = 3E+38 ;; e = Int(s * 10) ;; P Err.Number ;; P e", "0|3.00000000549776E+39|",
         DisplayName = "Int past a Single")]
     [DataRow("", "Dim s As Single, e As Double ;; s = 3E+38 ;; e = Abs(s * 10) ;; P Err.Number ;; P e", "0|3.00000000549776E+39|",

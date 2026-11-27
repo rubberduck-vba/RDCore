@@ -46,11 +46,25 @@ internal sealed partial class ProcedureAnalysis
             && method.GetCustomAttribute<StdLibMemberAttribute>()?.Kind is null or StdLibMemberKind.Procedure or StdLibMemberKind.PropertyGet);
 
     // a call of a function of the library that has a typed form of the types of its arguments that returns a number: the call of that form. None when the
-    // function has none of those types; nothing is refused then, and the call is made as any other.
-    private IntrinsicNode? IntrinsicOf(BoundNode node)
-        => FormOf(node, method => ResultKindOf(method) is not null) is (var method, var values)
+    // function has none of those types; nothing is refused then, and the call is made as any other. Sgn of an extended intermediate is its sign, of its 80
+    // bits (ExtendedSignOf).
+    private PayloadNode? IntrinsicOf(BoundNode node)
+        => ExtendedSignOf(node) ?? (FormOf(node, method => ResultKindOf(method) is not null) is (var method, var values)
             ? new IntrinsicNode(method, values, ResultKindOf(method)!.Value)
-            : null;
+            : null);
+
+    // the library's Sgn (IStdMathModule.Sgn), by the member the library declares it as.
+    private static readonly string SgnFunction
+        = StdLibSymbolReader.ExternalTargetOf(typeof(IStdMathModule), typeof(IStdMathModule).GetMethod(nameof(IStdMathModule.Sgn))!);
+
+    // Sgn of an extended intermediate, computed on its 80 bits as the interpreter computes it (EvaluateWideConversion): never a typed form, which is given
+    // the argument stored, so that Sgn(1E-200 * 1E-200) is 1, where the Double it is stored as is 0 (MS-VBAL §6.1.2.10.1.8, §5.6.9.3; observed in VBA7).
+    private PayloadNode? ExtendedSignOf(BoundNode node)
+        => node is BoundCall { BoundArguments: [{ Value: { } argument, Elements.IsDefaultOrEmpty: true }] } call && IsExtended(argument)
+            && StandardLibrary.IsLibraryMember(call.Procedure) && call.Procedure.GetProperty(SymbolProperties.ExternalTarget) == SgnFunction
+            && Extended(argument) is { } extended
+                ? new ExtendedSignNode(extended)
+                : null;
 
     // the same, of a typed form that returns a String: its text.
     private IntrinsicTextNode? IntrinsicTextOf(BoundNode node)

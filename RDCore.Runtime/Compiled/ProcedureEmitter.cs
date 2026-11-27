@@ -1697,6 +1697,7 @@ internal sealed partial class ProcedureEmitter
         NegateNode negate => ReadsVariant(negate.Operand),
         StoreNode store => ReadsVariant(store.Value),
         ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
+        ExtendedSignNode sign => ReadsVariant(sign.Value),
         TemporaryNode temporary => ReadsVariant(temporary.Value),
         LibraryCallNode library => library.Arguments.Any(argument => argument is not VariantOfNode { Value: var value } || ReadsVariant(value)),
         IntrinsicNode intrinsic => intrinsic.Arguments.Any(argument => argument is TextArgumentNode || ReadsVariant(argument)),
@@ -2257,6 +2258,18 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brtrue, Fail(failure));
                 _il.Emit(OpCodes.Ldloc, isTrue);
                 return AsBoolean();
+            }
+
+            // a sign that raises an error is the interpreter's to raise: it runs the instruction (EvaluateWideConversion).
+            case ExtendedSignNode sign:
+            {
+                var value = EmitExtended(sign.Value, failure);
+                var result = _il.DeclareLocal(typeof(long));
+                _il.Emit(OpCodes.Ldloc, value);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.Sign))!);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
+                return new Operand(result, 0, 0);
             }
 
             // a Variant of the subtype it is speculated to hold is converted as its payload is (TryConvertExactly's TryConvertPayload); one of another, as any is.
