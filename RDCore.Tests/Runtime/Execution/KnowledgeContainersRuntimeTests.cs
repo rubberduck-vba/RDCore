@@ -145,4 +145,14 @@ public sealed class KnowledgeContainersRuntimeTests
         // R(1) was assigned a value that is not known and is preserved as that; the rest are the declared default.
         CollectionAssert.AreEqual(new[] { false, false, true, true }, run.Assigned);
     }
+
+    [TestMethod]
+    public void ReDimPreserve_AfterAnAssignmentToAnUnknownElement_KeepsEachElementItHeldNotKnown_AndAnElementItGainsKnown()
+    {
+        // after R(I) = 5 each of R(1) to R(3) is what it held or 5, R(2) never read or written before; R(5) is gained, the declared default.
+        var run = Run(arrayIsKnown: true, resizableIsKnown: true, "R(1) = 7", "R(I) = 5", "ReDim Preserve R(1 To 5)", "X = R(1)", "X = R(2)", "X = R(5)");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, run.Outcome.Kind);
+        CollectionAssert.AreEqual(new[] { true, true, false, false, true }, run.Assigned);
+    }
 }

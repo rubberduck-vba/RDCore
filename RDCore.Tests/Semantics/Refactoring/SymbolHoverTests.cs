@@ -36,6 +36,18 @@ public sealed class SymbolHoverTests
         "    mValue = v",
         "End Property");
 
+    // a class with a default instance: its name is a variable no statement declares (MS-VBAL §5.2.4.1.2).
+    private static readonly string Factory = Lines(
+        "VERSION 1.0 CLASS",
+        "BEGIN",
+        "  MultiUse = -1  'True",
+        "END",
+        "Attribute VB_Name = \"Factory\"",
+        "Attribute VB_PredeclaredId = True",
+        "Option Explicit",
+        "Public Sub Create()",
+        "End Sub");
+
     private static readonly string Helpers = Module("Helpers",
         "Option Explicit",
         "Public Total As Long",
@@ -66,6 +78,7 @@ public sealed class SymbolHoverTests
         "    MsgBox Durée",
         "    Debug.Print count",
         "    Debug.Assert count > 0",
+        "    Factory.Create",
         "End Sub");
 
     // a module of a French project: its name has an accent, which its address escapes.
@@ -78,7 +91,8 @@ public sealed class SymbolHoverTests
     // the workspace of the modules, with the standard library it references.
     private static RenameContext Workspace()
     {
-        (string Name, string Source)[] modules = [("Class1", Class1), ("Helpers", Helpers), ("Données", Donnees), ("Program", Program)];
+        (string Name, string Source)[] modules =
+            [("Class1", Class1), ("Factory", Factory), ("Helpers", Helpers), ("Données", Donnees), ("Program", Program)];
         var parsed = modules.Select(module =>
         {
             var isClass = module.Source.StartsWith("VERSION", StringComparison.Ordinal);
@@ -120,6 +134,8 @@ public sealed class SymbolHoverTests
     [DataRow("Helpers", "Public Type Point", "Point", "Public Type Point", "Helpers", DisplayName = "a Type")]
     [DataRow("Program", "p.X = count", "X", "X As Long", "Helpers.Point", DisplayName = "a field of a Type")]
     [DataRow("Program", "Dim c As Class1", "Class1", "Class Class1", null, DisplayName = "a class")]
+    [DataRow("Program", "Dim count As Long", "Long", "Long", null, DisplayName = "an intrinsic type")]
+    [DataRow("Program", "Factory.Create", "Factory", "Factory", null, DisplayName = "the default instance of a class")]
     [DataRow("Program", "MsgBox Durée", "Durée", "Public Durée As Long", "Données", DisplayName = "a variable of a module named with an accent")]
     [DataRow("Program", "Debug.Print count", "Debug", "Class Debug", null, DisplayName = "the Debug object")]
     [DataRow("Program", "Debug.Print count", "Print", "Public Sub Print(ParamArray OutputList() As Variant)", "Debug", DisplayName = "Debug.Print")]
@@ -141,6 +157,16 @@ public sealed class SymbolHoverTests
         StringAssert.StartsWith(hover.Declaration, "Public Function MsgBox(ByVal Prompt As Variant, ");
         Assert.AreEqual("VBA.Interaction", hover.Container);
         Assert.IsFalse(string.IsNullOrEmpty(hover.Documentation), "the standard library documents MsgBox");
+    }
+
+    [TestMethod]
+    public void TheDefaultInstanceOfAClass_IsSaidByItsName_InTheLanguageOfTheReader()
+    {
+        var hover = HoverAt(Workspace(), "Program", "Factory.Create", "Factory");
+
+        Assert.AreEqual("`Factory` (default instance)", hover.ToMarkdown(CultureInfo.InvariantCulture));
+        Assert.AreEqual("`Factory` (instance par défaut)", hover.ToMarkdown(CultureInfo.GetCultureInfo("fr-CA")));
+        Assert.AreEqual("Factory (default instance)", hover.ToPlainText(CultureInfo.InvariantCulture));
     }
 
     [TestMethod]

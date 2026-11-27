@@ -372,8 +372,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             Replacements =
             [
                 .. replacements.Select(each => new ExtractMethodReplacement(
-                    each.Duplicate.Id, Format("ExtractMethodDuplicate_Replacement", extraction.Where(each.Duplicate)), DocumentOf(extraction, each.Duplicate.Module),
-                    [.. ReplacementRanges(written[each.Duplicate.Module.AbsoluteUri].Edit, each.Edits)])),
+                    each.Duplicate.Id, Format("ExtractMethodDuplicate_Replacement", extraction.Where(each.Duplicate)),
+                    DocumentOf(extraction, each.Duplicate.Key),
+                    [.. ReplacementRanges(written[each.Duplicate.Key].Edit, each.Edits)])),
             ],
         };
     }
@@ -436,13 +437,14 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return (null, [], EditRefusal(refusal, extraction));
         }
 
-        var main = extraction.Module.Module.AbsoluteUri;
+        // each part of a module (RD-VBAL §5.1) is edited on its own, in its own document.
+        var main = extraction.Module.Key;
         var edits = new Dictionary<string, List<ExtractionTextEdit>> { [main] = [.. edit.Edits] };
         var replacements = new List<(ExtractionDuplicate Duplicate, ImmutableArray<ExtractionTextEdit> Edits)>();
         foreach (var duplicate in replaced)
         {
             var replacement = duplicate.Replacement(plan, choices);
-            var ofModule = edits.TryGetValue(duplicate.Module.AbsoluteUri, out var known) ? known : edits[duplicate.Module.AbsoluteUri] = [];
+            var ofModule = edits.TryGetValue(duplicate.Key, out var known) ? known : edits[duplicate.Key] = [];
             if (replacement.Any(each => ofModule.Any(other => each.Range.Start < other.Range.End && other.Range.Start < each.Range.End)))
             {
                 return (null, [], Format("ExtractMethodDuplicate_Overlaps", extraction.Where(duplicate)));
@@ -455,17 +457,17 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         // the selection's module is edited as the extraction has its text, which a conversion of several routines has changed already.
         var formatting = options.Value.Formatting.ToOptions();
         var written = new Dictionary<string, WrittenModule>();
-        foreach (var (address, moduleEdits) in edits)
+        foreach (var (key, moduleEdits) in edits)
         {
-            // the selection's part of its module, or the first part of a module a duplicate is in: the one its analysis is of (AnalysisOf).
-            var module = address == main ? extraction.Module : extraction.Part.Modules.First(candidate => candidate.Module.AbsoluteUri == address);
-            var source = address == main ? extraction.Analysis.Text : module.Source;
-            var unformatted = address == main
+            // the selection's part of its module, or the part a duplicate is in.
+            var module = key == main ? extraction.Module : extraction.Part.Modules.First(candidate => candidate.Key == key);
+            var source = key == main ? extraction.Analysis.Text : module.Source;
+            var unformatted = key == main
                 ? edit with { Edits = [.. moduleEdits.OrderBy(each => each.Range.Start)] }
                 : new ExtractionEdit([.. moduleEdits.OrderBy(each => each.Range.Start)], string.Empty, string.Empty, null, null);
             var formatted = unformatted.Formatted(source, await ParseAsync(module, unformatted.ApplyTo(source), token), formatting);
             var text = formatted.ApplyTo(source);
-            written[address] = new WrittenModule(module, formatted, text, await ParseAsync(module, text, token));
+            written[key] = new WrittenModule(module, formatted, text, await ParseAsync(module, text, token));
         }
 
         return Verified(extraction, written, replacements, choices.Name) is { } failure ? (null, [], failure) : (written, replacements, null);
@@ -530,7 +532,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
             named.Add(name);
             remaining.RemoveAll(converted => converted.Equals(label, StringComparison.OrdinalIgnoreCase));
-            var module = written[next.Module.Module.AbsoluteUri];
+            var module = written[next.Module.Key];
             if (Reanalyzed(next, module.Text, module.Parse, member, memberKind) is not { } reanalyzed)
             {
                 return new(null, Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{ExtractionVerificationFailureKind.DoesNotParse}", string.Empty)));
@@ -624,9 +626,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         };
     }
 
-    // the document of a module of the extraction's project.
-    private static Uri DocumentOf(Extraction extraction, Uri module)
-        => extraction.Part.Modules.First(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri).Document.Id.Uri.ToUri();
+    // the document of a part of a module of the extraction's project (RenameWorkspace.DocumentModule.Key).
+    private static Uri DocumentOf(Extraction extraction, string part)
+        => extraction.Part.Modules.First(candidate => candidate.Key == part).Document.Id.Uri.ToUri();
 
     // the ranges of the edits that replace a duplicate, among the edits of its module: indenting them changes their text, not their ranges.
     private static IEnumerable<SourceRange> ReplacementRanges(ExtractionEdit edit, ImmutableArray<ExtractionTextEdit> replacement)
@@ -650,7 +652,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 composition.ScopeTree, extraction.Part.Context.DeadTestOf(module.Value.Parse)));
 
         // the verification analyzes the text the edits leave, which is the one parsed here.
-        var main = extraction.Module.Module.AbsoluteUri;
+        var main = extraction.Module.Key;
         var source = extraction.Procedure.Declaration;
         if (ExtractionVerification.Verify(extraction.Plan!, written[main].Edit, name, source.Name, source.MemberKind, extraction.Analysis, _ => after[main]) is { } failure)
         {
@@ -664,9 +666,10 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
         foreach (var (duplicate, edits) in replaced)
         {
-            var module = duplicate.Module.AbsoluteUri;
+            var module = duplicate.Key;
             var call = edits.First(each => each.Kind is ExtractionTextEditKind.Replacement).Range;
-            if (ExtractionVerification.VerifyReplacement(duplicate, written[module].Edit, call, name, extraction.AnalysisOf(duplicate.Module)!, after[module], extracted)
+            var before = extraction.AnalysisOf(duplicate.Module, duplicate.Document)!;
+            if (ExtractionVerification.VerifyReplacement(duplicate, written[module].Edit, call, name, before, after[module], extracted)
                 is { } replacementFailure)
             {
                 return Format("ExtractMethodDuplicate_NotVerified", extraction.Where(duplicate), Format($"ExtractMethodVerification_{replacementFailure.Kind}", replacementFailure.Detail));
@@ -854,21 +857,22 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
         private readonly Dictionary<string, ExtractionModuleAnalysis?> _analyses = [];
 
-        // the analysis of a module of the project, as the selection's module is analyzed; the selection's own.
-        public ExtractionModuleAnalysis? AnalysisOf(Uri module)
+        // the analysis of a part of a module of the project (RD-VBAL §5.1), as the selection's part is analyzed; the selection's own.
+        public ExtractionModuleAnalysis? AnalysisOf(Uri module, Uri document)
         {
-            if (module.AbsoluteUri == Module.Module.AbsoluteUri)
+            var key = RDCore.Runtime.LanguageCore.Refactoring.RenameModule.KeyOf(module, document);
+            if (key == Module.Key)
             {
                 return Analysis;
             }
 
-            if (!_analyses.TryGetValue(module.AbsoluteUri, out var analysis))
+            if (!_analyses.TryGetValue(key, out var analysis))
             {
-                analysis = Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } other
+                analysis = Part.Modules.FirstOrDefault(candidate => candidate.Key == key) is { } other
                     ? ExtractionModuleAnalysis.Of(
                         other.Module, other.Source, other.Parse, Part.Context.Resolver, Part.Context.ScopeTree, Part.Context.DeadTestOf(other.Parse))
                     : null;
-                _analyses[module.AbsoluteUri] = analysis;
+                _analyses[key] = analysis;
             }
 
             return analysis;
@@ -882,7 +886,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 Module.Type is ModuleType.StdModule
                     ? [.. Part.Modules.Select(module => module.Module).DistinctBy(module => module.AbsoluteUri)]
                     : [Module.Module],
-                AnalysisOf)
+                part => AnalysisOf(part.Module, part.Document))
             : [];
 
         public bool IsInTheModule(ExtractionDuplicate duplicate) => duplicate.Module.AbsoluteUri == Module.Module.AbsoluteUri;
@@ -903,7 +907,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         {
             var range = duplicate.Plan.Selection.Range;
             var first = TextLines.Of(duplicate.Source.Text).Of(range).Split('\n')[0].Trim();
-            return $"{RenameWorkspace.Locator(Part)(duplicate.Module, range.Start)}: {first}";
+            return $"{RenameWorkspace.Locator(Part)(duplicate.Document, range.Start)}: {first}";
         }
 
         // the duplicates the user replaces: those ticked, or by default those in the module; none when the user replaces none. One that is not a duplicate of the
