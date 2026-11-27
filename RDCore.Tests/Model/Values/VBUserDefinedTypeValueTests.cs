@@ -119,30 +119,34 @@ public sealed class VBUserDefinedTypeValueTests
         Assert.AreEqual(0, Convert.ToInt32(second["X"]!.Handle.Value.BoxedValue));
     }
 
+    // VBA copies a UDT on assignment: the copy an assignment makes has field storage of its own, and a field set in it is not set in the original. A `with`
+    // copy, which TryAllocateIn makes on every allocation, is another view of the same record.
     [TestMethod]
-    public void ACopy_HasFieldStorageOfItsOwn()
+    public void AnAssignmentsCopy_HasFieldStorageOfItsOwn_AndAWithCopyIsTheRecord()
     {
-        // VBA copies a UDT on assignment, so a `with`-derived copy must not alias the original's fields -
-        // TryAllocateIn makes one of those on every allocation.
         var udt = Udt("Point", Field("X", VBLongType.TypeInfo));
         var original = new VBUserDefinedTypeValue(udt);
 
-        var copy = original with { };
+        var copy = original.DataCopy();
         copy.TrySetField("X", new VBLongValue(7));
+        var view = original with { };
+        view.TrySetField("X", new VBLongValue(3));
 
-        Assert.AreEqual(0, Convert.ToInt32(original["X"]!.Handle.Value.BoxedValue));
+        Assert.AreEqual(7, Convert.ToInt32(copy["X"]!.Handle.Value.BoxedValue));
+        Assert.AreEqual(3, Convert.ToInt32(original["X"]!.Handle.Value.BoxedValue));
     }
 
     [TestMethod]
-    public void ACopy_OfANestedUdt_IsDeep()
+    public void AnAssignmentsCopy_OfANestedUdt_IsDeep()
     {
         var inner = Udt("Inner", Field("N", VBLongType.TypeInfo));
         var outer = Udt("Outer", Field("Nested", inner));
         var original = new VBUserDefinedTypeValue(outer);
 
-        var copy = original with { };
+        var copy = original.DataCopy();
         ((VBUserDefinedTypeValue)copy["Nested"]!).TrySetField("N", new VBLongValue(7));
 
+        Assert.AreEqual(7, Convert.ToInt32(((VBUserDefinedTypeValue)copy["Nested"]!)["N"]!.Handle.Value.BoxedValue));
         Assert.AreEqual(0, Convert.ToInt32(((VBUserDefinedTypeValue)original["Nested"]!)["N"]!.Handle.Value.BoxedValue));
     }
 
