@@ -30,6 +30,7 @@ public sealed class RDFormsAutomationServer : IAutomationServer
     private const string NameMember = "Name";
     private const string IndexMember = "Index";
     private const string ContainerMember = "Container";
+    private const string ControlClass = "Control";
     private const string FontProperty = "Font";
     private const string StdFontClass = "stdole.StdFont";
 
@@ -268,7 +269,8 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         try
         {
             var result = handle.Form.Window.Invoke(handle.Component, method, given, handle.Form.Unit);
-            return RDFormsValues.ToNeutral(result, handle.Form.HandleOf);
+            KeepItemPictures(handle);
+            return RDFormsPictures.IsPicture(method) ? ItemPicture(handle, method, result) : RDFormsValues.ToNeutral(result, handle.Form.HandleOf);
         }
         catch (FormErrorException exception)
         {
@@ -305,15 +307,49 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         }
 
         var given = ArgumentsOf(property, arguments, arguments.Length - 1, culture);
-        var value = RDFormsValues.ArgumentOf(arguments[^1], property.Value, culture);
+        var picture = RDFormsPictures.IsPicture(property) ? RDFormsPictures.BytesOf(handle.Component, property, arguments[^1]) : null;
+        var value = RDFormsPictures.IsPicture(property) ? FormValue.FromObject(picture) : RDFormsValues.ArgumentOf(arguments[^1], property.Value, culture);
         try
         {
             handle.Form.Window.Assign(handle.Component, property, given, value);
+            if (RDFormsPictures.IsPicture(property))
+            {
+                handle.Form.Pictures.HoldItem(handle.Component, arguments[^1], picture);
+            }
+
+            KeepItemPictures(handle);
             return null;
         }
         catch (FormErrorException exception)
         {
             throw FormFailure(exception.Error);
+        }
+    }
+
+    // an item's picture, as the program reads it: its own picture, while the item has what it was given; Nothing for none. One the item has from the
+    // form's file is not given to a program, as a picture property's is not.
+    private static object? ItemPicture(RDFormsObject handle, MethodDefinition property, FormValue result)
+    {
+        var stored = result.AsObject() as byte[];
+        if (handle.Form.Pictures.ItemPictureOf(handle.Component, stored) is { } picture)
+        {
+            return picture;
+        }
+
+        // CA1416: a wrapper of no object asks nothing of COM, whatever the platform.
+#pragma warning disable CA1416
+        return stored is null
+            ? new System.Runtime.InteropServices.DispatchWrapper(null)
+            : throw new AutomationException(NotImplemented, $"{handle}.{property.Name}: a picture of the form's file cannot be given to a program.");
+#pragma warning restore CA1416
+    }
+
+    // a list's items changed, or may have: the program's pictures that no item has any more are let go of.
+    private static void KeepItemPictures(RDFormsObject handle)
+    {
+        if (handle.Component.Class.Has(Properties.ItemIcon))
+        {
+            handle.Form.Pictures.KeepItems(handle.Component, handle.Component.Get(Properties.ItemIcon));
         }
     }
 
@@ -515,8 +551,12 @@ public sealed class RDFormsAutomationServer : IAutomationServer
         var typeName = handle.Component.Class.TypeName;
         if (handle.Form.IsVisualBasic)
         {
+            // VB's Control is the class of every control of a form, a menu included, and not of the form itself (measured in VB6).
             return string.Equals(library, VisualBasicLibrary, StringComparison.OrdinalIgnoreCase)
-                ? VisualBasicClasses.TryGetValue(typeName, out var ported) && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(className, ControlClass, StringComparison.OrdinalIgnoreCase)
+                    ? !handle.IsForm
+                    : VisualBasicClasses.TryGetValue(typeName, out var ported)
+                        && string.Equals(ported.LegacyName, className, StringComparison.OrdinalIgnoreCase)
                 : null;
         }
 

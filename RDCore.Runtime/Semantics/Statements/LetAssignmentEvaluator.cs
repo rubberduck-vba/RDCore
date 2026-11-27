@@ -957,10 +957,10 @@ public sealed class LetAssignmentEvaluator(
                 : null;
 
     // MS-VBAL §5.6.13: arguments given to a member that declares no parameter apply to what it returns, called with none. An object it returns has its default
-    // member assigned with them, as `o.Inner.Item("k") = 5` would, and an array has the element they select assigned through its object. Called late, on an
-    // Object or a Variant, a Set is error 450: IDispatch is asked to Set the default member given the arguments, which is not a property that can be Set
-    // (recorded in Excel); a Let is assigned through an object it returns, and is error 451 of anything else, as a read is. What returns neither an object
-    // nor an array is error 424.
+    // member assigned with them, as `o.Inner.Item("k") = 5` would. An array has the element they select let, as `a(0) = 5` would be (recorded in Excel), and
+    // Set through the object it holds. Called late, on an Object or a Variant, a Set is error 450: IDispatch is asked to Set the default member given the
+    // arguments, which is not a property that can be Set (recorded in Excel); a Let is assigned through an object it returns, and is error 451 of anything
+    // else, as a read is. What returns neither an object nor an array is error 424.
     private RuntimeExecutionOutcome AssignThroughWhatItReturns(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess, VBTypeMemberSymbol reader,
         System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source, VBTypedValue value, bool isSet)
@@ -995,6 +995,9 @@ public sealed class LetAssignmentEvaluator(
                 return ObservedAccess(session, context, ElementOf(statement, memberAccess, indexArguments), memberAccess, returnedObject, memberName: null,
                     assumedBefore, outcome, MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember
                         | (IndexExpressionNode.IsEmptyArgumentList(indexArguments) ? 0 : MemberAccessOperationSemanticFlags.ArgumentList));
+            case VBArrayValue array when !isSet:
+                // the element they select is let as any array's is, of the array returned: a copy, assigned and dropped, and not the member's own.
+                return AssignElementOf(session, context, statement, array, memberAccess, indexArguments, source, value, isSet);
             case VBArrayValue array:
                 if (expressions.EvaluateSubscripts(session, context, indexArguments, out var subscripts) is { } failure)
                 {
@@ -1322,10 +1325,9 @@ public sealed class LetAssignmentEvaluator(
         }
 
         // the reserved synthetic "__let_op" binary operator - the same shape its own test suite
-        // exercises it with: a throwaway node carrying this statement's own identity/location, operands
+        // exercises it with: a node carrying this statement's own identity/location and kept with it, operands
         // passed directly rather than read back off the node's Children.
-        var syntheticOperator = new VBBinaryOperatorExpressionNode(
-            OperatorSymbolNames.BinaryAssignmentValueOp, statement.Identity, statement.SourceLocation, target, source);
+        var syntheticOperator = LetOperatorSites.Of(statement, statement.Identity, statement.SourceLocation, target, source);
 
         // a Variant, a record or an array can hold objects, and what the variable held is let go of when it is assigned something else: `V = 5`
         // destroys the object V was Set to, if it was the last thing to hold it (MS-VBAL §5.3.1.10).
