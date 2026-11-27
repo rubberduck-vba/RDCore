@@ -577,7 +577,7 @@ public static class SymbolRename
         var edits = named.Edits.ToList();
         if (VbNameRange(context, module) is { } attribute)
         {
-            edits.Add(new RenameEdit(attribute.Module, attribute.Range, newName));
+            edits.Add(new RenameEdit(attribute.Module, attribute.Range, newName, Document: attribute.Document));
         }
         else if (VbNameInsertion(context, module, newName) is { } inserted)
         {
@@ -586,12 +586,12 @@ public static class SymbolRename
 
         if (DesignerNameRange(context, module) is { } designed)
         {
-            edits.Add(new RenameEdit(designed.Module, designed.Range, newName));
+            edits.Add(new RenameEdit(designed.Module, designed.Range, newName, Document: designed.Document));
         }
 
-        foreach (var (at, range) in ImplementsNames(context, module))
+        foreach (var (at, range, document) in ImplementsNames(context, module))
         {
-            edits.Add(new RenameEdit(at, range, newName));
+            edits.Add(new RenameEdit(at, range, newName, Document: document));
         }
 
         if (module is VBClassModuleSymbol && BindingEdits(context, [module], newName, edits) is { } refusal)
@@ -744,8 +744,8 @@ public static class SymbolRename
     }
 
     // where a module's VB_Name attribute writes its name, between the quotes.
-    private static (Uri Module, SourceRange Range)? VbNameRange(RenameContext context, Symbol module)
-        => SourceOf(context, module) is { } source && ModuleHeader.NameRangeOf(source.Source) is { } range ? (source.Module, range) : null;
+    private static (Uri Module, SourceRange Range, Uri? Document)? VbNameRange(RenameContext context, Symbol module)
+        => SourceOf(context, module) is { } source && ModuleHeader.NameRangeOf(source.Source) is { } range ? (source.Module, range, source.Document) : null;
 
     // MS-VBAL §4.2: a module whose source does not name it is named by its file. Its rename writes its VB_Name where its first attribute goes, after
     // its header.
@@ -758,12 +758,12 @@ public static class SymbolRename
 
         var line = ModuleHeader.AttributesLineOf(source.Source);
         var newLine = source.Source.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        return new RenameEdit(source.Module, new SourceRange(line, 0, line, 0), $"Attribute VB_Name = \"{newName}\"{newLine}");
+        return new RenameEdit(source.Module, new SourceRange(line, 0, line, 0), $"Attribute VB_Name = \"{newName}\"{newLine}", Document: source.Document);
     }
 
     // a form, a user control, a designer: the designer's text names the module too, on its first Begin line (Begin VB.Form Form1,
     // Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Dialog), before its attributes.
-    private static (Uri Module, SourceRange Range)? DesignerNameRange(RenameContext context, Symbol module)
+    private static (Uri Module, SourceRange Range, Uri? Document)? DesignerNameRange(RenameContext context, Symbol module)
     {
         if (SourceOf(context, module) is not { } source || FormNameRangeOf(source.Source) is not { } range)
         {
@@ -771,7 +771,7 @@ public static class SymbolRename
         }
 
         var name = source.Source.Split('\n')[range.Start.Line][range.Start.Character..range.End.Character];
-        return string.Equals(name, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, range) : null;
+        return string.Equals(name, module.Name, StringComparison.OrdinalIgnoreCase) ? (source.Module, range, source.Document) : null;
     }
 
     // a designer block that is not terminated names no form a rename can change.
@@ -788,7 +788,7 @@ public static class SymbolRename
     }
 
     // the name an Implements directive writes, where it is the module's.
-    private static IEnumerable<(Uri Module, SourceRange Range)> ImplementsNames(RenameContext context, Symbol module)
+    private static IEnumerable<(Uri Module, SourceRange Range, Uri? Document)> ImplementsNames(RenameContext context, Symbol module)
     {
         foreach (var source in context.Modules)
         {
@@ -805,7 +805,8 @@ public static class SymbolRename
                     && RenameBinding.IsTheType(context, module, NameOccurrences.ScopeOf(context, source, directive.Location.Range.Start).Uri))
                 {
                     var start = name.Location.Range.Start;
-                    yield return (source.Module, new SourceRange(start, new SourcePosition(start.Line, start.Character + name.IdentifierName.Length)));
+                    var end = new SourcePosition(start.Line, start.Character + name.IdentifierName.Length);
+                    yield return (source.Module, new SourceRange(start, end), source.Document);
                 }
             }
         }
@@ -912,7 +913,8 @@ public static class SymbolRename
     private static IEnumerable<RenameEdit> DesignerEdits(RenameContext context, IReadOnlyList<Symbol> symbols, string newName)
         => symbols.Where(symbol => symbol.GetProperty(SymbolProperties.DesignerControl))
             .SelectMany(control => FormOf(context, control) is { Designer.Kind: FormDesignerKind.VisualBasic6 } form
-                ? FormDesigner.ControlNameRangesOf(form.Source, control.Name).Select(range => new RenameEdit(form.Module, range, newName))
+                ? FormDesigner.ControlNameRangesOf(form.Source, control.Name)
+                    .Select(range => new RenameEdit(form.Module, range, newName, Document: form.Document))
                 : []);
 
     // what makes a symbol one that is not renamed: what the workspace does not declare, a type, and a name that something else is named after.
