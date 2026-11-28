@@ -130,4 +130,87 @@ public sealed class MidStatementTests
     [TestMethod]
     public void MidB_AtTheLastCharactersFirstByte_ReplacesIt()
         => Assert.AreEqual("abcdeX", Mid("abcdef", "MidB(S, 11, 2) = \"X\""));
+
+    // every Start and Length of Mid and MidB, and each left out, over targets and values of an even and an odd number of bytes: the String the
+    // statement leaves is the one a Byte() of the target's data, with the value's bytes written over the span, makes. A count of mismatches each.
+    [TestMethod]
+    public async Task EveryStartAndLength_LeavesTheBytesAByteArrayWouldHold()
+    {
+        var printed = await Cli.ModuleWorkspace.RunAsync([], Cli.ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Private Checked As Long",
+            "Public Sub Main()",
+            "    Debug.Print Mismatches(\"ABCD\", \"xy\"); Mismatches(LeftB$(\"ABCD\", 7), \"xy\"); Mismatches(\"ABCD\", LeftB$(\"xyz\", 3))",
+            "    Debug.Print Mismatches(LeftB$(\"ABCD\", 7), LeftB$(\"xyz\", 5)); Mismatches(LeftB$(\"A\", 1), LeftB$(\"x\", 1)); Checked",
+            "End Sub",
+            "Private Function Mismatches(ByVal S As String, ByVal V As String) As Long",
+            "    Dim St As Long, Ln As Long, N As Long, T As String",
+            "    For St = 1 To LenB(S)",
+            "        For Ln = -1 To LenB(S) + 1",
+            "            T = S",
+            "            If Ln < 0 Then MidB(T, St) = V Else MidB(T, St, Ln) = V",
+            "            If Not Alike(T, S, V, St, Ln) Then N = N + 1",
+            "            If St <= Len(S) Then",
+            "                T = S",
+            "                If Ln < 0 Then Mid(T, St) = V Else Mid(T, St, Ln) = V",
+            "                If Not Alike(T, S, V, 2 * St - 1, 2 * Fewest(IIf(Ln < 0, Len(S), Ln), Len(S) - St + 1, Len(V))) Then N = N + 1",
+            "            End If",
+            "        Next",
+            "    Next",
+            "    Mismatches = N",
+            "End Function",
+            "Private Function Fewest(ByVal A As Long, ByVal B As Long, ByVal C As Long) As Long",
+            "    Fewest = A",
+            "    If B < Fewest Then Fewest = B",
+            "    If C < Fewest Then Fewest = C",
+            "End Function",
+            "Private Function Alike(ByVal T As String, ByVal S As String, ByVal V As String, ByVal St As Long, ByVal Ln As Long) As Boolean",
+            "    Dim B() As Byte, BV() As Byte, BT() As Byte, K As Long, X As Long",
+            "    B = S: BV = V: BT = T",
+            "    X = Fewest(IIf(Ln < 0, LenB(S), Ln), LenB(S) - St + 1, LenB(V))",
+            "    For K = 0 To X - 1",
+            "        B(St - 1 + K) = BV(K)",
+            "    Next",
+            "    Checked = Checked + 1",
+            "    If UBound(BT) <> UBound(B) Then Exit Function",
+            "    For K = 0 To UBound(B)",
+            "        If BT(K) <> B(K) Then Exit Function",
+            "    Next",
+            "    Alike = True",
+            "End Function"));
+
+        // each pair checks LenB + 3 lengths (one left out) at LenB starts of MidB and Len starts of Mid: 8, 7, 8, 7 and 1 bytes; 4, 3, 4, 3 and 0 characters.
+        var checkedStatements = new[] { (8, 4), (7, 3), (8, 4), (7, 3), (1, 0) }.Sum(target => (target.Item1 + 3) * (target.Item1 + target.Item2));
+        CollectionAssert.AreEqual(new[] { "0  0  0", $"0  0  {checkedStatements}" }, printed, string.Join(" | ", printed));
+    }
+
+    // a Mid statement of a 10,000-character String makes the one String it leaves: what it allocates is that String's 20,000 bytes, not a copy of the
+    // target's data besides.
+    [TestMethod]
+    public void AStatementOfALongString_MakesOnlyTheStringItLeaves()
+    {
+        const int Statements = 50;
+        var symbols = new Symbol[] { Variable("S", VBStringType.TypeInfo), Variable("I", VBLongType.TypeInfo) };
+        long Allocated(string statement)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var (session, outcome) = RuntimeSourceHarness.Run(null, symbols, output: null, standardLibrary: true,
+                "S = Space$(10000)", $"For I = 1 To {Statements}", statement, "Next");
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+            var text = (string)session.Symbols.Resolver.GetValue(symbols[0]).Value.BoxedValue!;
+            Assert.AreEqual(statement.Length == 0 ? 0 : Statements, text.Count(character => character == 'x'), "the statement ran each time");
+            return allocated;
+        }
+
+        Allocated("Mid$(S, I, 1) = \"x\""); // the first run pays for what it loads, once
+        var without = Allocated(string.Empty);
+        foreach (var statement in new[] { "Mid$(S, I, 1) = \"x\"", "MidB$(S, 2 * I - 1, 2) = \"x\"" })
+        {
+            var each = (Allocated(statement) - without) / Statements;
+            Assert.IsGreaterThanOrEqualTo(20_000L, each,
+                $"{statement} allocated {each:N0} bytes each: less than the String it leaves, so nothing was measured");
+            Assert.IsLessThan(30_000L, each, $"{statement} allocated {each:N0} bytes each: the String it leaves is 20,022");
+        }
+    }
 }
