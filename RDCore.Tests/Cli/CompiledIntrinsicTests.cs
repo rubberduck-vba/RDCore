@@ -402,43 +402,6 @@ public sealed class CompiledIntrinsicTests
             "    Wrong = E * 100 + Err.Number",
             "End Function"), [("Cut", 0), ("Wrong", 2)]);
 
-    // MS-VBAL §6.1.2.11.1.20, .26 and .31, §5.6.9.5: a Mid$, a Left$ and a Right$ compared to a String and to each other, and given to Len, Asc, AscW and
-    // InStr, which read the part where the text holds it, and one a Select Case selects on; past the end, of a zero-length String and of vbNullString too.
-    // A Start below 1 and a negative Length raise 5: the interpreter's.
-    [TestMethod]
-    public async Task PartsComparedMeasuredAndSearched_AreTheirTypedForms()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
-            "    Debug.Print Parts(\"RD-VBA platform, rd-vba\", 26)",
-            "    Debug.Print Parts(\"\", 3)",
-            "    Debug.Print Wrong(\"abc\")",
-            "End Sub",
-            "Private Function Parts(ByVal P As String, ByVal N As Long) As Long",
-            "    Dim I As Long, K As Integer, R As Long",
-            "    For I = 1 To N",
-            "        K = I",
-            "        If Mid$(P, I, 3) = \"VBA\" Then R = R + 1",
-            "        If Mid$(P, K) >= \"pl\" Then R = R + 10",
-            "        If \"RD\" = Left$(P, I) Then R = R + 100",
-            "        If Right$(P, K) < Mid$(P, 2, K) Then R = R + 1000",
-            "        R = R + Len(Mid$(P, I, 4)) + InStr(Mid$(P, I), \"a\") + InStr(2, Left$(P, K * 2), \"V\") + Len(Right$(P, 100))",
-            "        If Len(Mid$(P, I, 1)) > 0 Then R = R + AscW(Mid$(P, I, 2)) + Asc(Right$(P, K))",
-            "        Select Case Mid$(P, I, 2)",
-            "            Case \"VB\": R = R + 7",
-            "            Case Left$(P, 2): R = R + 3",
-            "        End Select",
-            "    Next",
-            "    Parts = R + Len(Mid$(vbNullString, 1, 2)) + Len(Left$(vbNullString, 3)) + InStr(Right$(vbNullString, 1), \"\")",
-            "End Function",
-            "Private Function Wrong(ByVal P As String) As Long",
-            "    Dim B As Boolean, E As Long, L As Long",
-            "    On Error Resume Next",
-            "    B = Mid$(P, 0, 1) = \"a\"",
-            "    E = Err.Number",
-            "    L = Len(Left$(P, -1))",
-            "    Wrong = E * 100 + Err.Number",
-            "End Function"), [("Parts", 0), ("Wrong", 2)]);
-
     // MS-VBAL §6.1.2.11.1.24: Trim$, LTrim$ and RTrim$ of a String remove spaces only, a tab staying; Trim, which returns a Variant, assigned to a String;
     // and the trimmed text given to Len and to Left$.
     [TestMethod]
@@ -727,4 +690,41 @@ public sealed class CompiledIntrinsicTests
             "Private Function Stamp(ByVal R As Date) As Double",
             "    Stamp = Year(R) * 10000# + Month(R) * 100 + Day(R) + Hour(R) / 100 + Minute(R) / 10000 + Second(R) / 1000000",
             "End Function"), [("Added", 2), ("Stamp", 0)], lcid);
+
+    // MS-VBAL §6.1.2.11.1.20, .26 and .31, §5.6.9.5: a Mid$, a Left$ and a Right$ compared to a String and to each other, and given to Len, Asc, AscW and
+    // InStr, which read the part where the text holds it, and one a Select Case selects on; past the end, of a zero-length String and of vbNullString too.
+    // A Start below 1 and a negative Length raise 5: the interpreter's.
+    [TestMethod]
+    public async Task PartsComparedMeasuredAndSearched_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Parts(\"RD-VBA platform, rd-vba\", 26)",
+            "    Debug.Print Parts(\"\", 3)",
+            "    Debug.Print Wrong(\"abc\")",
+            "End Sub",
+            "Private Function Parts(ByVal P As String, ByVal N As Long) As Long",
+            "    Dim I As Long, K As Integer, R As Long",
+            "    For I = 1 To N",
+            "        K = I",
+            "        If Mid$(P, I, 3) = \"VBA\" Then R = R + 1",
+            "        If Mid$(P, K) >= \"pl\" Then R = R + 10",
+            "        If \"RD\" = Left$(P, I) Then R = R + 100",
+            "        If Right$(P, K) < Mid$(P, 2, K) Then R = R + 1000",
+            "        R = R + Len(Mid$(P, I, 4)) + InStr(Mid$(P, I), \"a\") + InStr(2, Left$(P, K * 2), \"V\") + Len(Right$(P, 100))",
+            "        If Len(Mid$(P, I, 1)) > 0 Then R = R + AscW(Mid$(P, I, 2)) + Asc(Right$(P, K))",
+            "        Select Case Mid$(P, I, 2)",
+            "            Case \"VB\": R = R + 7",
+            "            Case Left$(P, 2): R = R + 3",
+            "        End Select",
+            "    Next",
+            "    Parts = R + Len(Mid$(vbNullString, 1, 2)) + Len(Left$(vbNullString, 3)) + InStr(Right$(vbNullString, 1), \"\")",
+            "End Function",
+            "Private Function Wrong(ByVal P As String) As Long",
+            "    Dim B As Boolean, E As Long, L As Long",
+            "    On Error Resume Next",
+            "    B = Mid$(P, 0, 1) = \"a\"",
+            "    E = Err.Number",
+            "    L = Len(Left$(P, -1))",
+            "    Wrong = E * 100 + Err.Number",
+            "End Function"), [("Parts", 0), ("Wrong", 2)]);
 }
