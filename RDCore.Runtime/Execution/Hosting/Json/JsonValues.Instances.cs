@@ -51,7 +51,7 @@ internal sealed partial class JsonValues
 
     // the members of an instance's JSON object, in the order the class declares them: a public variable, and a Property Get that takes no argument. A Friend
     // or a Private member, a method, a Property Let or Set that has no Get, and a Get that takes arguments are not members of it.
-    private static IEnumerable<VBTypeMemberSymbol> JsonMembersOf(VBClassModuleSymbol classModule)
+    internal static IEnumerable<VBTypeMemberSymbol> JsonMembersOf(VBClassModuleSymbol classModule)
         => classModule.DefaultInterfaceMembers
             .Where(member => IsPublic(member) && (IsVariable(member) || member is VBPropertyGetMemberSymbol get && Given(get.Parameters).Length == 0))
             .OrderBy(member => member.Range.Start.Line)
@@ -78,12 +78,12 @@ internal sealed partial class JsonValues
 
     // a member a key gives a value to, as CallByName(instance, key, VbLet or VbSet) gives it: its name, the type the value is converted to, and the call,
     // when the member decides it.
-    private readonly record struct Setter(string Name, VBType Type, VBCallType? Call);
+    internal readonly record struct Setter(string Name, VBType Type, VBCallType? Call);
 
     // the member a key names, which it can give a value to: a public variable, or a Property Let or Set that takes nothing but its value, of that value's
     // type. With both a Let and a Set, a JSON object or null is given through the Set. A key that names no such member (none at all, a Friend or a
     // Private one, a method, a Property Get with no Let or Set) has none.
-    private static Setter? SetterOf(VBClassModuleSymbol classModule, string key, JsonNode? json)
+    internal static Setter? SetterOf(VBClassModuleSymbol classModule, string key, JsonNode? json)
     {
         var named = classModule.DefaultInterfaceMembers
             .Where(member => IsPublic(member) && member.Name.Equals(key, StringComparison.OrdinalIgnoreCase))
