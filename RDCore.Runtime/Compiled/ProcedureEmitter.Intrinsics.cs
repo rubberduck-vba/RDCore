@@ -1,3 +1,4 @@
+using RDCore.Runtime.StdLib;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -35,6 +36,45 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Stloc, text);
     }
 
+    // the characters of an expression of Strings, in a local of their own (a ReadOnlySpan<char>): those of the part of a text Mid$, Left$ or Right$ takes
+    // read where the text holds them, with no String made (StdStrings.MiddleSpanOf, LeftSpanOf, RightSpanOf), and those of the text any other expression is.
+    // A Start below 1 or a negative Length goes to failure, as the form that makes the String declines it.
+    private LocalBuilder EmitCharactersInto(TextNode node, Label failure)
+    {
+        var characters = _il.DeclareLocal(typeof(ReadOnlySpan<char>));
+        if (node is IntrinsicTextNode typed && SpanForms.TryGetValue(typed.Method, out var spanForm))
+        {
+            EmitIntrinsicCall(spanForm, typed.Arguments, failure);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldloc, EmitTextInto(node, failure));
+            _il.Emit(OpCodes.Call, AsSpan);
+        }
+
+        _il.Emit(OpCodes.Stloc, characters);
+        return characters;
+    }
+
+    private static readonly MethodInfo AsSpan = typeof(MemoryExtensions).GetMethod(nameof(MemoryExtensions.AsSpan), [typeof(string)])!;
+
+    // the forms that read the characters of a part of a text where the text holds it, by the form that makes the part a String, of the same parameters.
+    private static readonly Dictionary<MethodInfo, MethodInfo> SpanForms = new[]
+        {
+            (Text: nameof(StdStrings.MiddleOf), Span: nameof(StdStrings.MiddleSpanOf)),
+            (Text: nameof(StdStrings.LeftOf), Span: nameof(StdStrings.LeftSpanOf)),
+            (Text: nameof(StdStrings.RightOf), Span: nameof(StdStrings.RightSpanOf)),
+        }
+        .SelectMany(names => typeof(StdStrings).GetMethods(BindingFlags.Public | BindingFlags.Static).Where(method => method.Name == names.Text),
+            (names, form) => (Form: form, Span: SpanFormOf(form, names.Span)))
+        .ToDictionary(pair => pair.Form, pair => pair.Span);
+
+    // the form named span of the parameters of a form that makes a String, its out String a ReadOnlySpan<char>.
+    private static MethodInfo SpanFormOf(MethodInfo form, string span)
+        => typeof(StdStrings).GetMethod(span,
+                [.. form.GetParameters()[..^1].Select(parameter => parameter.ParameterType), typeof(ReadOnlySpan<char>).MakeByRefType()])
+            ?? throw new InvalidOperationException($"{form.Name} has no {span} of its parameters");
+
     // the arguments evaluated into locals of the parameters' types (a whole number is held as a long, which an argument that widens narrows from with no
     // loss), and the activation's session for a form that reads it; then the call, which leaves what the form returns on the stack. A form that returns a
     // bool and its result in an out parameter declines with false, which goes to failure: the interpreter makes the call.
@@ -55,7 +95,7 @@ internal sealed partial class ProcedureEmitter
             var payload = given[next++];
             if (payload is TextArgumentNode { Value: var text })
             {
-                arguments.Add(EmitTextInto(text, failure));
+                arguments.Add(type == typeof(ReadOnlySpan<char>) ? EmitCharactersInto(text, failure) : EmitTextInto(text, failure));
                 continue;
             }
 
