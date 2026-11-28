@@ -240,11 +240,14 @@
   <data name="Host_ArgumentNotOptional_Verbose" xml:space="preserve">
     <value>Le paramètre {0} de {1} n'est pas Optional.</value>
   </data>
+  <data name="Host_InitializeEnded_Verbose" xml:space="preserve">
+    <value>L'objet de la classe {0} sur lequel la procédure est invoquée n'a pas été initialisé.</value>
+  </data>
   <data name="Host_NamedArgumentNotFound_Verbose" xml:space="preserve">
     <value>{0} n'a aucun paramètre nommé {1}.</value>
   </data>
   <data name="Host_NoSuchModule" xml:space="preserve">
-    <value>le programme n'a aucun module standard nommé {0}</value>
+    <value>le programme n'a aucun module standard ni aucune classe nommés {0}</value>
   </data>
   <data name="Host_NoSuchProcedure" xml:space="preserve">
     <value>{0} ne déclare aucune procédure publique nommée {1}</value>

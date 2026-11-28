@@ -3,6 +3,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.Host.Handlers;
+using RDCore.Runtime.Composer;
 using RDCore.Parsing;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -36,7 +37,7 @@ internal static class AnalysisFixture
                 "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n\r\nPublic Sub Main()\r\n    Debug.Print F1(1)\r\nEnd Sub\r\n");
 
             var fileSystem = new FileSystem();
-            var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), folder);
+            var workspace = await ProgramWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), folder);
             var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, new ErrorDetailsRecorder(), NullLoggerFactory.Instance,
                 new DirectoryLibrarySource(fileSystem, string.Empty));
             var (provider, _, problems) = await runner.LoadProgramAsync(workspace);

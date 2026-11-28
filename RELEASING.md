@@ -20,13 +20,15 @@ This is the maintainer runbook for publishing a **preview build** of the RDCore 
 - Release configuration, _framework-dependent_: users need the .NET 11 runtime for their architecture.
 - Everything is built by the **Release** workflow, each archive on its own system, from a `v*` tag a maintainer pushes, or makes by publishing the release with its notes.
 
+The same tag publishes the **RDCore.Runtime.Hosting** package to nuget.org, with the same version (see [The hosting package](#the-hosting-package)).
+
 The version depends on what started the workflow:
 
 | Trigger | Version | What it produces |
 |---|---|---|
-| tag `v0.1.0` | `0.1.0` | the release |
-| tag `v0.1.0-rc.1` | `0.1.0-rc.1` | the release |
-| **Run workflow** (dry run, run number 42) | `0.1.0-ci.42` | a short-lived workflow artifact, no release |
+| tag `v0.1.0` | `0.1.0` | the release and the package |
+| tag `v0.1.0-rc.1` | `0.1.0-rc.1` | the release and the package |
+| **Run workflow** (dry run, run number 42) | `0.1.0-ci.42` | short-lived workflow artifacts, no release, no package on nuget.org |
 | pull request #350 (release-related paths only) | `0.1.0-pr.350` | build and package; only the metadata is uploaded, no archive |
 
 Whatever the suffix, the binaries carry `AssemblyVersion` `<VersionPrefix>.0` (e.g. `0.1.0.0`) and `InformationalVersion` `<version>+<commit sha>`; `rdcore.json` carries `platformVersion` (the version, without the `+<sha>`), `commit` and `rid`.
@@ -35,7 +37,7 @@ Whatever the suffix, the binaries carry `AssemblyVersion` `<VersionPrefix>.0` (e
 
 ## One-time setup (before the first tag)
 
-Do both before pushing any `v*` tag.
+Do all three before pushing any `v*` tag.
 
 ### 1. The `release` environment
 
@@ -61,6 +63,16 @@ Do both before pushing any `v*` tag.
 
 Only people on the bypass list can then create, move or delete a release tag, and no workflow token can mint one. With the environment's `v*` tag policy, only a maintainer's tag can reach the `release` environment.
 
+### 3. NuGet trusted publishing for RDCore.Runtime.Hosting
+
+The *publish-package* job stores no API key: NuGet's trusted publishing gives it a short-lived key, for this repository's `release.yml` running in the `release` environment only. On nuget.org, signed in as a user who can act for the account that is to own the package (that user, or an organization the user administers):
+
+1. **Your account → Trusted Publishing → Add a policy**, of type **GitHub Actions**: repository owner `rubberduck-vba`, repository `RDCore`, workflow file `release.yml`, environment `release`. Pick as the policy's owner the account that is to own `RDCore.Runtime.Hosting`.
+1. **The package id's owner.** The first push creates `RDCore.Runtime.Hosting` under the policy's owner; every later push must come from an owner of the id. If the `RDCore` prefix is reserved on nuget.org, the policy's owner must be one of the prefix's owners, or the first push is refused.
+1. **The `NUGET_USER` variable**: on GitHub, **Settings → Secrets and variables → Actions → Variables**, a variable `NUGET_USER` holding the nuget.org user name of the user who created the policy (the profile name, not an email address), even when the policy's owner is an organization: *NuGet login* refuses the organization's name. Skip this if the organization already sets it for this repository.
+
+If the job's *NuGet login* step fails, check the policy's details and `NUGET_USER` against this list first.
+
 ### Optional, later
 
 - **Immutable releases** (**Settings → General → Releases → Enable release immutability**): published assets and their tag can no longer change, and `gh release verify` becomes available. Only turn this on after a clean rehearsal (e.g. a full `v0.1.0-rc.1` run): a tag name used by an immutable release can **never be reused**, even after deleting the release, so a botched first attempt would burn that version for good.
@@ -85,8 +97,8 @@ Only people on the bypass list can then create, move or delete a release tag, an
 
    - **Or create the release first**, with its title and notes: **Releases → Draft a new release**, a new tag `v…` on `main`, **Set as a pre-release**, then **Publish release**, which makes the tag. The publish job uploads the assets to that release and leaves its title and notes as they are. The release is public from the start, without its assets until the publish job has run. A release you only save as a draft makes no tag: push the tag yourself, and the publish job fills that draft the same way.
 
-1. **Let the prepare and build jobs run.** Open the run under **Actions → Release**. The prepare job resolves the version, checks the tag and the `release` environment, and writes the release notes (`tools/release/release-notes.template.md`). Then one build job per RID, each on its own system, runs the tests, publishes the platform tree (`PlatformPublish.ps1`, Release, that RID), writes `THIRD-PARTY-NOTICES.txt`, `THIRD-PARTY-NOTICES.json`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and archives it (`New-ReleaseArchive.ps1`). There is nothing to approve until every build job has finished. A required one that fails stops the release; when the `osx-arm64` one fails, the run still reaches approval, without that archive.
-1. **Review, then approve.** Once the required build jobs are green, the run pauses on the `release` environment. Before approving, open the prepare job: **Resolve version** must print `Version <version> (tag run: True)` with the version you meant, and **Write the release notes** prints the notes the release will carry. If the `osx-arm64` build job failed, approving releases the other systems only: the notes the prepare job printed still list `osx-arm64`, and the publish job takes that row out. Then **Review deployments** → tick `release` → **Approve and deploy**, within 30 days (the build jobs' assets are kept that long on a tag run).
+1. **Let the prepare and build jobs run.** Open the run under **Actions → Release**. The prepare job resolves the version, checks the tag and the `release` environment, and writes the release notes (`tools/release/release-notes.template.md`). Then one build job per RID, each on its own system, runs the tests (the `linux-x64` one then packs `RDCore.Runtime.Hosting` and checks it with `tools/release/Test-HostingPackage.ps1`), publishes the platform tree (`PlatformPublish.ps1`, Release, that RID), writes `THIRD-PARTY-NOTICES.txt`, `THIRD-PARTY-NOTICES.json`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and archives it (`New-ReleaseArchive.ps1`). There is nothing to approve until every build job has finished. A required one that fails stops the release; when the `osx-arm64` one fails, the run still reaches approval, without that archive.
+1. **Review, then approve.** Once the required build jobs are green, the run pauses on the `release` environment. Before approving, open the prepare job: **Resolve version** must print `Version <version> (tag run: True)` with the version you meant, and **Write the release notes** prints the notes the release will carry. If the `osx-arm64` build job failed, approving releases the other systems only: the notes the prepare job printed still list `osx-arm64`, and the publish job takes that row out. Then **Review deployments** → tick `release` → **Approve and deploy**, within 30 days (the build jobs' assets are kept that long on a tag run). Two jobs wait on `release`, *publish* and *publish-package* ([The hosting package](#the-hosting-package)): one approval lets both run.
    - **Tagged the wrong commit?** **Reject** the waiting deployment (**Review deployments** → **Reject**) before you delete or move the tag: runs for the same tag go one at a time, so the run the new tag starts waits behind this one. Should this run be approved after the tag has moved, its publish job stops without creating a draft.
 1. **Let the publish job run.** It checks that the tag still points at the commit the build jobs built, and finds the tag's release: it goes on when there is none, or one with no assets, drafts included. It checks each build job's checksums and joins them into one `SHA256SUMS`, and attests the build provenance of every archive and `.release.json`. Then, when the tag has no release, it creates a **draft** prerelease; either way it uploads every asset to the tag's release. It publishes nothing: a draft stays a draft.
 1. **If the publish job fails**, what to do depends on the step that stopped it. A re-run (**Re-run failed jobs**) waits for approval again.
@@ -98,9 +110,19 @@ Only people on the bypass list can then create, move or delete a release tag, an
 
 ## Dry run
 
-**Actions → Release → Run workflow** (on `main`) → **Run workflow**. It builds, tests and packages like a release, then uploads each RID's archive, its metadata and its `SHA256SUMS` as a short-lived workflow artifact (`release-assets-<rid>`), and the notes as another (`release-notes`). No tag, no release.
+**Actions → Release → Run workflow** (on `main`) → **Run workflow**. It builds, tests and packages like a release, then uploads each RID's archive, its metadata and its `SHA256SUMS` as a short-lived workflow artifact (`release-assets-<rid>`), and the notes as another (`release-notes`). The checked `RDCore.Runtime.Hosting` package is a third (`hosting-package`). No tag, no release, nothing on nuget.org.
 
-A dry run doesn't exercise the release itself (the draft and its upload): only a pushed tag does.
+A dry run does not exercise the release itself (the release, the upload of its assets and the push to nuget.org): only a pushed tag does.
+
+## The hosting package
+
+`RDCore.Runtime.Hosting` is the package a host references to run a composed program. It holds the platform's own assemblies a host needs, and names the packages they use from nuget.org as its dependencies. It holds neither the parser (`RDCore.Parsing`) nor ANTLR, which only the parser uses, and neither does anything it brings in: the parser's grammars are third-party GPL code, which the grant of `NOTICE.md` (*Your projects are yours*) does not cover.
+
+- **Checked at every build.** The `linux-x64` build job packs it once its tests pass, then `tools/release/Test-HostingPackage.ps1` checks it: the package's version, its files and the dependencies its nuspec names, then the closure a host's restore of it resolves. A package that holds or brings in the parser or ANTLR fails the build job, so nothing waits on approval. A pull request that touches the release plumbing runs the same check.
+- **Pushed on approval.** The *publish-package* job waits on the `release` environment beside *publish*, and the same approval lets it run. It checks that the tag still points at the built commit, then pushes `RDCore.Runtime.Hosting` `<version>` to nuget.org, where it is listed once nuget.org has validated and indexed it (usually within the hour). It does not wait for *publish*: the package is public once nuget.org lists it, whether the release is a draft or published.
+- **If it fails**: at *Check the tag still points at the built commit*, do not re-run it (the run the moved tag started pushes the package); at any other step, **Re-run failed jobs** (a re-run waits for approval again). A version nuget.org already has is skipped, so a re-run never pushes it twice. If *NuGet login* fails, check the [trusted publishing setup](#3-nuget-trusted-publishing-for-rdcoreruntimehosting).
+- **A tag pushed before the nuget.org setup**: *publish* still releases, and *publish-package* fails at *NuGet login*, before anything reaches nuget.org. Do the [setup](#3-nuget-trusted-publishing-for-rdcoreruntimehosting), then **Re-run failed jobs** within 30 days, while the build job's package is kept.
+- **A package with a flaw**: a version on nuget.org can be unlisted but never replaced or deleted. Unlist it on nuget.org (**Manage package → Listing**) and fix forward with a new tag.
 
 ---
 

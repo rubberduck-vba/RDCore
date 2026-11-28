@@ -142,6 +142,24 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Writes the composition of a workspace, which a host loads to run the program with no parser, and the descriptions of the libraries it references..
+        /// </summary>
+        public static string Compose_Summary {
+            get {
+                return ResourceManager.GetString("Compose_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The composition of {0} is written to {1}..
+        /// </summary>
+        public static string Compose_Written {
+            get {
+                return ResourceManager.GetString("Compose_Written", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output..
         /// </summary>
         public static string Mcp_Summary {
@@ -2004,6 +2022,78 @@ namespace RDCore.CLI {
         public static string BenchMsVba_ExcelRunsHelp {
             get {
                 return ResourceManager.GetString("BenchMsVba_ExcelRunsHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted..
+        /// </summary>
+        public static string Build_PathHelp {
+            get {
+                return ResourceManager.GetString("Build_PathHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The folder the program is written into. bin/&lt;configuration&gt;/&lt;runtime&gt;/ in the workspace when omitted..
+        /// </summary>
+        public static string Build_OutputHelp {
+            get {
+                return ResourceManager.GetString("Build_OutputHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The program's name. The project's when omitted..
+        /// </summary>
+        public static string Build_NameHelp {
+            get {
+                return ResourceManager.GetString("Build_NameHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Debug or Release..
+        /// </summary>
+        public static string Build_ConfigurationHelp {
+            get {
+                return ResourceManager.GetString("Build_ConfigurationHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The runtime identifier of the platform the program is built for (win-x64, linux-x64). rdc's when omitted..
+        /// </summary>
+        public static string Build_RuntimeHelp {
+            get {
+                return ResourceManager.GetString("Build_RuntimeHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A workspace folder (with or without a .rdproj), or a module file: a file the .rdproj of its folder lists runs that project from its module. The current folder when omitted..
+        /// </summary>
+        public static string Run_PathHelp {
+            get {
+                return ResourceManager.GetString("Run_PathHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Debug or Release..
+        /// </summary>
+        public static string Run_ConfigurationHelp {
+            get {
+                return ResourceManager.GetString("Run_ConfigurationHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nobody answers a dialog: a MsgBox or an InputBox fails the run..
+        /// </summary>
+        public static string Run_UnattendedHelp {
+            get {
+                return ResourceManager.GetString("Run_UnattendedHelp", resourceCulture);
             }
         }
         

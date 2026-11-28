@@ -405,6 +405,15 @@ namespace RDCore.Runtime.Support {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The object of the class {0} that the procedure is invoked on was not initialized..
+        /// </summary>
+        public static string Host_InitializeEnded_Verbose {
+            get {
+                return ResourceManager.GetString("Host_InitializeEnded_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to {0} has no parameter named {1}..
         /// </summary>
         public static string Host_NamedArgumentNotFound_Verbose {
@@ -412,9 +421,9 @@ namespace RDCore.Runtime.Support {
                 return ResourceManager.GetString("Host_NamedArgumentNotFound_Verbose", resourceCulture);
             }
         }
-        
+
         /// <summary>
-        ///   Looks up a localized string similar to the program has no standard module named {0}.
+        ///   Looks up a localized string similar to the program has no standard module or class named {0}.
         /// </summary>
         public static string Host_NoSuchModule {
             get {

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+    <AssemblyTitle>RDCore Runtime Composer</AssemblyTitle>
+    <Description>What composes an RD-VBA program from its files, in process: the workspace read, parsed, bound and loaded, for rdc, development and tests. rdc writes the composition a deployed host loads with RDCore.Runtime.Hosting.</Description>
+    <!-- it parses, and the parser's grammars are third-party GPL parts that NOTICE's grant does not cover: a deployed host references RDCore.Runtime.Hosting,
+         never this assembly. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="rdc" />
+    <InternalsVisibleTo Include="RDCore.Tests" />
+    <InternalsVisibleTo Include="RDCore.Benchmarks" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <!-- a program composed from its files is parsed: this assembly references RDCore.Parsing, which RDCore.Runtime.Support, a built program's closure, does
+       not. -->
+  <ItemGroup>
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
+    <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
+    <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
+    <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
+  </ItemGroup>
+
+</Project>

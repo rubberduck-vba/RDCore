@@ -2,6 +2,7 @@ using CommandLine;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
+using RDCore.Runtime.Composer;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.Runtime.Compiled;
@@ -20,19 +21,20 @@ namespace RDCore.CLI.App.Commands;
 
 internal sealed class BuildCommandOptions
 {
-    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted.")]
+    [Value(0, MetaName = "path", Required = false, HelpText = nameof(Resources.Build_PathHelp), ResourceType = typeof(Resources))]
     public string? Path { get; set; }
 
-    [Option('o', "output", Required = false, HelpText = "The folder the program is written into. bin/<configuration>/<runtime>/ in the workspace when omitted.")]
+    [Option('o', "output", Required = false, HelpText = nameof(Resources.Build_OutputHelp), ResourceType = typeof(Resources))]
     public string? Output { get; set; }
 
-    [Option('n', "name", Required = false, HelpText = "The program's name. The project's when omitted.")]
+    [Option('n', "name", Required = false, HelpText = nameof(Resources.Build_NameHelp), ResourceType = typeof(Resources))]
     public string? Name { get; set; }
 
-    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = "Debug or Release.")]
+    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = nameof(Resources.Build_ConfigurationHelp),
+        ResourceType = typeof(Resources))]
     public VBBuildConfiguration Configuration { get; set; }
 
-    [Option('r', "runtime", Required = false, HelpText = "The runtime identifier of the platform the program is built for (win-x64, linux-x64). rdc's when omitted.")]
+    [Option('r', "runtime", Required = false, HelpText = nameof(Resources.Build_RuntimeHelp), ResourceType = typeof(Resources))]
     public string? Runtime { get; set; }
 }
 
@@ -57,10 +59,10 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         }
 
         var options = parsed.Value;
-        BenchWorkspace workspace;
+        ProgramWorkspace workspace;
         try
         {
-            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
+            workspace = await ProgramWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
                 ansiCodePage: runner.Environment.AnsiCodePage, inItsProject: true, workspace: runner.Workspace);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)

@@ -9,6 +9,7 @@ using RDCore.External.Native;
 using RDCore.External.Windows.Automation;
 using RDCore.External.Windows.Forms;
 using RDCore.External.Windows.Native;
+using RDCore.SDK.Client;
 using RDCore.SDK.Server;
 using System.Runtime.CompilerServices;
 
@@ -28,6 +29,19 @@ namespace RDCore.Runtime.Support.Host;
 /// </param>
 public sealed class MachineExternalHost(string? logFileName, bool hostsRDForms = true) : RDCorePlatformServerHost<ExternalHostApp>
 {
+    // whether this process was started as the external host of a program, from its own executable: a built program, or a host that is its own.
+    internal static bool IsThisProcess => string.Equals(
+        Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase);
+
+    // this process run as that external host, with nothing to log to, until the process that started it stops it. It hosts RDForms' forms when the assembly
+    // that hosts them is beside it, which a built program with no such form leaves out.
+    internal static async Task<int> RunThisProcessAsync(string[] args)
+    {
+        using var host = new MachineExternalHost(
+            logFileName: null, hostsRDForms: File.Exists(Path.Combine(AppContext.BaseDirectory, $"{Build.BuiltProgram.FormsAssembly}.dll")));
+        return await host.RunAsync(args);
+    }
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         base.ConfigureAdditionalExternalServices(services, configuration);

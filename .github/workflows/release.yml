@@ -12,7 +12,10 @@
 #      RID, framework-dependent), writes THIRD-PARTY-NOTICES.txt, SOURCE.md and release.json into it, gates it
 #      (tools/release/Test-PlatformTree.ps1), smoke-launches the language server, and archives it (a zip on Windows, a
 #      tar.gz elsewhere, which keeps the execute bit) with its release.json and SHA256SUMS alongside. The osx-arm64 job is
-#      optional: when it fails, the release goes ahead without its archive, and the publish job says so.
+#      optional: when it fails, the release goes ahead without its archive, and the publish job says so. The linux-x64 job
+#      also packs RDCore.Runtime.Hosting, the package a host references to run a composed program, once its tests passed,
+#      and checks that neither the package nor what a host's restore of it resolves holds the parser or ANTLR
+#      (tools/release/Test-HostingPackage.ps1).
 #   3. publish, tag runs only, once a required reviewer approves the `release` environment: checks the tag still points at
 #      the built commit and finds its release (none, or one with no assets, drafts included), joins the checksums, attests
 #      the build provenance of every archive and release.json, creates a draft prerelease when the tag has no release, and
@@ -21,6 +24,9 @@
 # and no release. A pull request that touches the release plumbing builds and packages too, without osx-arm64, but uploads
 # only the metadata: never an archive or the binaries. On any run, a failed Test step also uploads what a test hang left (the
 # blame collector's sequence file and dumps), for 3 days.
+# Beside publish, a fourth job, publish-package (tag runs only, on the same approval), checks the tag still points at the
+# built commit and pushes RDCore.Runtime.Hosting to nuget.org, with a short-lived key from NuGet trusted publishing (no
+# stored secret). A manual run uploads the checked package as a workflow artifact; a pull request only packs and checks it.
 #
 # ── One-time setup before this works (a maintainer, before the first tag) ─────────────────────
 #   • Settings → Environments: create `release`, with a Required reviewers protection rule and, under Deployment
@@ -29,6 +35,9 @@
 #     finds it requires reviewers and restricts deployment branches and tags; it warns if admins can bypass its rules.
 #   • Settings → Rules → Rulesets: a tag ruleset on refs/tags/v* restricting creation, update and deletion to the
 #     maintainers, with no bypass for GitHub Actions (or any other app).
+#   • nuget.org: a trusted publishing policy for this repository's release.yml and the `release` environment, owned by
+#     the account that owns (or is to own) RDCore.Runtime.Hosting, and the variable NUGET_USER naming the user who created
+#     the policy (a user even when the owner is an organization).
 #   • Optional, later: immutable releases (only after a clean rehearsal, e.g. a full v0.1.0-rc.1 run: the tag name of
 #     an immutable release can never be reused), and "Require actions to be pinned to a full-length commit SHA".
 #   See RELEASING.md for the step-by-step runbook.
@@ -303,6 +312,37 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+      # RDCore.Runtime.Hosting, the package a host references to run a composed program, which nuget.org gets at a tag: packed
+      # once, on linux-x64 after its tests passed, and built apart (--artifacts-path) with deterministic paths, so the tree the
+      # tests built and the platform's publish are left as they are
+      - name: Pack RDCore.Runtime.Hosting
+        if: matrix.rid == 'linux-x64'
+        env:
+          VERSION_SUFFIX: ${{ needs.prepare.outputs.suffix }}
+        run: |
+          $pack = @('RDCore.Runtime.Hosting/RDCore.Runtime.Hosting.csproj', '--configuration', 'Release', '-p:ContinuousIntegrationBuild=true',
+            '--artifacts-path', "$env:RUNNER_TEMP/nuget-build", '--output', "$env:RUNNER_TEMP/nuget")
+          if ($env:VERSION_SUFFIX) { $pack += "-p:VersionSuffix=$env:VERSION_SUFFIX" }
+          dotnet pack @pack
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # neither the parser nor ANTLR, in the package or in the closure a host's restore of it resolves
+      - name: Check the hosting package
+        if: matrix.rid == 'linux-x64'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: ./tools/release/Test-HostingPackage.ps1 -Packages "$env:RUNNER_TEMP/nuget" -Version $env:VERSION
+
+      # never from a pull request, whose build is untrusted
+      - name: Upload the hosting package
+        if: matrix.rid == 'linux-x64' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosting-package
+          path: ${{ runner.temp }}/nuget/
+          if-no-files-found: error
+          retention-days: ${{ needs.prepare.outputs.is_tag == 'true' && 30 || 3 }}
+
       - name: Publish the platform tree
         env:
           VERSION_SUFFIX: ${{ needs.prepare.outputs.suffix }}
@@ -521,3 +561,57 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release upload "$TAG" assets/* --repo "$GITHUB_REPOSITORY"
+
+  # RDCore.Runtime.Hosting to nuget.org, beside publish: the same approval of the `release` environment lets both run, and
+  # each re-runs on its own. It runs none of the repository's code, needs every required build job (their tests included),
+  # and pushes with a short-lived key from NuGet trusted publishing: no key is stored.
+  publish-package:
+    needs: [prepare, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # as publish does: never push one commit's package under a tag that has since been moved to another
+      - name: Check the tag still points at the built commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$TAG" --jq .sha) || {
+            echo "::error::Could not resolve $TAG; was it deleted? Nothing is pushed from this run (see RELEASING.md)."
+            exit 1
+          }
+          if [ "$sha" != "$GITHUB_SHA" ]; then
+            echo "::error::$TAG now points at $sha, not the built $GITHUB_SHA. Do not re-run: the moved tag's run pushes its package (RELEASING.md)."
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: hosting-package
+          path: package
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 11.0.x
+
+      - name: NuGet login (trusted publishing)
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      # the build job checked the package; its symbols, when there are any, go with it. A version nuget.org already has is
+      # skipped, so a re-run after a failure pushes only what is missing.
+      - name: Push RDCore.Runtime.Hosting
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          package="package/RDCore.Runtime.Hosting.$VERSION.nupkg"
+          [ -f "$package" ] || { echo "::error::No $package in the build job's artifact."; exit 1; }
+          dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

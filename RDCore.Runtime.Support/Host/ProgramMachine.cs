@@ -21,7 +21,8 @@ namespace RDCore.Runtime.Support.Host;
 
 // a machine of a program: the session of one provider, which runs one invocation at a time, by name, with arguments and a result as JSON (JsonValues).
 // Composing a pipeline makes the session's lifecycle its own (ClassLifecycle), so one is composed only while nothing runs: an invocation or a reset that
-// finds another running is answered without one. ownsSession: whether disposing the machine disposes the provider.
+// finds another running is answered without one. ownsSession: whether disposing the machine disposes the provider. A machine disposed while it runs an
+// invocation or a reset lets go of its session once that ends, not under it.
 internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IErrorDetailsRecorder errorDetails, bool ownsSession) : IProgramMachine
 {
     private int _busy;
@@ -39,7 +40,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         try
         {
             var session = provider.Session;
-            if (ProcedureOf(session, invocation, out var explanation) is not { } procedure)
+            if (ProcedureOf(session, invocation, out var classModule, out var explanation) is not { } procedure)
             {
                 return ProgramInvocationResult.Ended(ExecutionOutcome.NotFound, explanation);
             }
@@ -47,7 +48,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
             var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, errorDetails, cancellationToken, outside: provider.Outside);
             JsonNode? value = null;
             var result = await provider.Execution.InvokeAsync(
-                pipeline, procedure, bound => Bind(bound, pipeline, procedure, invocation.Arguments),
+                pipeline, procedure, bound => Bind(bound, pipeline, procedure, classModule, invocation.Arguments),
                 returned => new JsonValues(session, session.Symbols.Resolver).ToJson(returned, out value), cancellationToken);
 
             return result.Outcome switch
@@ -62,6 +63,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         finally
         {
             Volatile.Write(ref _busy, 0);
+            ReleaseIfDisposed();
         }
     }
 
@@ -84,29 +86,43 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         finally
         {
             Volatile.Write(ref _busy, 0);
+            ReleaseIfDisposed();
         }
     }
 
     public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 0 && ownsSession)
-        {
-            provider.Dispose();
-        }
-
+        Volatile.Write(ref _disposed, 1);
+        ReleaseIfDisposed();
         return ValueTask.CompletedTask;
     }
 
-    // a Public (or implicitly public) Sub, Function or Property Get of a standard module: a member of a class needs an object, and a Declare is not code
-    // the program wrote.
-    private static VBTypeMemberSymbol? ProcedureOf(IRuntimeSession session, ProgramInvocation invocation, out string explanation)
+    // once the machine is disposed, whichever comes last, the dispose or the end of what runs, lets go of the session, only once: it holds the machine as
+    // busy for good, so that nothing runs in the session after.
+    private void ReleaseIfDisposed()
     {
-        explanation = string.Empty;
-        if (!session.Symbols.TryGetModule(invocation.Module, out var module) || module is not VBStandardModuleSymbol)
+        if (Volatile.Read(ref _disposed) != 0 && Interlocked.CompareExchange(ref _busy, 1, 0) == 0 && ownsSession)
+        {
+            provider.Dispose();
+        }
+    }
+
+    // a Public (or implicitly public) Sub, Function or Property Get of a standard module, or of a class of the program, which runs on the class's default
+    // instance or on an object made for the invocation (Bind). A document module's object is its host's, a library's class has no code of the program, and
+    // a Declare is not code the program wrote.
+    private static VBTypeMemberSymbol? ProcedureOf(
+        IRuntimeSession session, ProgramInvocation invocation, out VBClassModuleSymbol? classModule, out string explanation)
+    {
+        (classModule, explanation) = (null, string.Empty);
+        if (!session.Symbols.TryGetModule(invocation.Module, out var module)
+            || module is not (VBStandardModuleSymbol or VBClassModuleSymbol { IsDocument: false })
+            || module is VBClassModuleSymbol library && library.GetProperty(SymbolProperties.Library) is not null)
         {
             explanation = string.Format(CultureInfo.CurrentCulture, Resources.Host_NoSuchModule, invocation.Module);
             return null;
         }
+
+        classModule = module as VBClassModuleSymbol;
 
         var procedure = session.Symbols.MembersOf(module.Uri).FirstOrDefault(member =>
             member.Name.Equals(invocation.Procedure, StringComparison.OrdinalIgnoreCase)
@@ -125,14 +141,20 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
     // the arguments by their parameters' names, as RD-VBA compares names: one naming no parameter is 448, a parameter given none that is not Optional is 449,
     // and a value of no parameter's type is the error its conversion is (13, or 94 for null). An Optional one given none is what a call that omits it passes;
     // a ParamArray is given nothing. Two names that differ only by case are one name given twice: 448 as well.
+    // The Me of a member of a class is taken once the names are bound and before the arguments are made. A predeclared class's is its default instance,
+    // the program's, which keeps its state from one invocation to the next: a reference to it makes it when it holds none, as the class's name does in code.
+    // Any other class's is a new object of the class, made as New makes one and held as the invocation's temporary, which lets go of it once the value is
+    // taken: its Class_Terminate runs then. A Class_Initialize runs when the object is made, and an error it leaves unhandled is the invocation's.
     private static (IRuntimeValue[]? Arguments, IVBRaisableError? Refusal) Bind(
-        IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, IReadOnlyDictionary<string, JsonNode?> arguments)
+        IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, VBClassModuleSymbol? classModule,
+        IReadOnlyDictionary<string, JsonNode?> arguments)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
         var named = new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, argument) in arguments)
         {
-            if (!parameters.Any(parameter => parameter is not ParamArrayParameterSymbol && parameter.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            if (!parameters.Any(parameter => parameter is not ParamArrayParameterSymbol && !IsMe(parameter)
+                && parameter.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
                 return (null, Refused(VBRuntimeErrorId.NamedArgumentNotFound, Verbose(Resources.Host_NamedArgumentNotFound_Verbose, procedure.Name, name)));
             }
@@ -148,7 +170,20 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         for (var index = 0; index < parameters.Length; index++)
         {
             var parameter = parameters[index];
-            if (parameter is ParamArrayParameterSymbol)
+            if (IsMe(parameter) && classModule is not null)
+            {
+                var target = classModule.GetProperty(SymbolProperties.PredeclaredId)
+                    ? RuntimeExpressionEvaluator.DefaultInstanceOf(session, classModule)
+                    : RuntimeExpressionEvaluator.CreateObject(session, classModule);
+                if (!target.IsSuccess || target.Result is not VBObjectValue instance)
+                {
+                    return (null, target.ErrorInfo ?? Refused(
+                        VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, Verbose(Resources.Host_InitializeEnded_Verbose, classModule.Name)));
+                }
+
+                bound[index] = instance.RuntimeValue;
+            }
+            else if (parameter is ParamArrayParameterSymbol)
             {
                 bound[index] = new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])));
             }
@@ -174,6 +209,9 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
 
         return (bound, null);
     }
+
+    // the first parameter of every member of a class, which no argument names.
+    private static bool IsMe(VBParameterSymbol parameter) => parameter.Name == Tokens.Me && parameter.ParameterKind == ParameterKind.ImplicitByRef;
 
     private static VBRuntimeErrorInfo Refused(VBRuntimeErrorId id, string verbose) => VBRuntimeErrorInfo.For(id, default, verbose);
 
