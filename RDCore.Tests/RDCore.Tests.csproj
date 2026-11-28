@@ -30,6 +30,8 @@
     <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
     <ProjectReference Include="..\RDCore.Runtime.Composer\RDCore.Runtime.Composer.csproj" />
     <ProjectReference Include="..\RDCore.Runtime.Hosting\RDCore.Runtime.Hosting.csproj" />
+    <!-- a host that is its own external host, started from the tests' folder -->
+    <ProjectReference Include="..\RDCore.Tests.Host\RDCore.Tests.Host.csproj" />
   </ItemGroup>
 
   <ItemGroup>

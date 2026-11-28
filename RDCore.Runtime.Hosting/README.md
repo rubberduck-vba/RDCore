@@ -39,7 +39,24 @@ Disposing the program disposes none of its machines.
 
 ## The outside world
 
-A machine makes its forms, the objects of automation servers and its native calls in an external host: `rdc`, run in external mode, as `rdc run` runs a program. It is started the first time a machine needs it. `ComposedProgramOptions.ExternalHost` names the `rdc` executable, which is the one beside the host's own assemblies when it is not given.
+A machine makes its forms, the objects of automation servers and its native calls in an external host, a process started the first time a machine needs it. `ComposedProgramOptions.ExternalHost` names its executable: `rdc`, run in external mode as `rdc run` runs a program, or the host itself. It is the `rdc` beside the host's own assemblies when it is not given.
+
+A host that deploys no `rdc` is its own external host, as a built program is. Its `Main` runs as the external host when it was started as one, and names its own executable:
+
+```csharp
+public static int Main(string[] args)
+{
+    if (ProgramExternalHost.IsThisProcess)
+    {
+        return ProgramExternalHost.Run(args);
+    }
+
+    var options = new ComposedProgramOptions { ExternalHost = ProgramExternalHost.Executable };
+    // load the program with the options, and run the host
+}
+```
+
+`ProgramExternalHost.Executable` is `null` for a host run with `dotnet`, whose executable cannot run as an external host: its machines then start the `rdc` beside the host's own assemblies. Forms are made in RDForms on every operating system. Automation servers and native calls work on Windows only.
 
 ## Licence
 

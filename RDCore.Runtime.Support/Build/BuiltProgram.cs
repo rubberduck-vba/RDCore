@@ -91,10 +91,9 @@ public static class BuiltProgram
     private static async Task<int> EntryAsync(Assembly program, string[] args)
     {
         // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
-        if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
+        if (MachineExternalHost.IsThisProcess)
         {
-            using var host = new MachineExternalHost(logFileName: null, hostsRDForms: File.Exists(Path.Combine(AppContext.BaseDirectory, $"{FormsAssembly}.dll")));
-            return await host.RunAsync(args);
+            return await MachineExternalHost.RunThisProcessAsync(args);
         }
 
         if (ExecutableOf(program) is { } executable)
