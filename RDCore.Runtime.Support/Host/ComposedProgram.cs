@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RDCore.External;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.Runtime.Support.Host.Handlers;
@@ -67,9 +68,9 @@ internal sealed record class ProgramCompositionImage(
 }
 
 // what the machines of a composed program use where they run: the file system their sessions act on, the libraries the project references, what they log
-// to, and the workspace's settings (the defaults when none are given).
+// to, the workspace's settings (the defaults when none are given), and the outside world of the machine they reach (MachineExternal.World when none is).
 internal sealed record class ProgramServices(
-    IFileSystem FileSystem, ILibrarySource Libraries, ILoggerFactory Loggers, IOptions<SdkAppOptions>? Options = null);
+    IFileSystem FileSystem, ILibrarySource Libraries, ILoggerFactory Loggers, IOptions<SdkAppOptions>? Options = null, ExternalWorld? Outside = null);
 
 // a program composed once, which makes as many machines as its host runs at once, concurrently. The session it was composed in (loaded), when it is given,
 // is the first machine's: nothing ran in it. Every other machine has a session of its own, composed again from the image. Disposing the program disposes
@@ -106,7 +107,8 @@ internal sealed class ComposedProgram(ProgramCompositionImage image, ProgramServ
     {
         var profile = image.Profile;
         var provider = new EnvironmentSessionProvider(
-            profile, services.FileSystem, services.Loggers.CreateLogger<EnvironmentSessionProvider>(), services.Libraries, options: services.Options);
+            profile, services.FileSystem, services.Loggers.CreateLogger<EnvironmentSessionProvider>(), services.Libraries, services.Outside,
+            options: services.Options);
         try
         {
             provider.Compose(image.Project, image.Root, image.Known);

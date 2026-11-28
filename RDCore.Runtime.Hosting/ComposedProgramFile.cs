@@ -25,6 +25,14 @@ public sealed record class ComposedProgramOptions
     /// What the machines log to. Nothing is logged when it is not given.
     /// </summary>
     public ILoggerFactory? Loggers { get; init; }
+
+    /// <summary>
+    /// The executable the machines' external host is started from: the process that makes their calls to the outside world of the machine, such as the forms
+    /// they make, the automation servers they create objects of and the native libraries they call. It is <c>rdc</c>, run in external mode, as
+    /// <c>rdc run</c> runs a program. <c>rdc</c> beside the host's own assemblies when it is not given. Nothing is started until a machine reaches out, and
+    /// the machines of every program given the same executable share one external host.
+    /// </summary>
+    public string? ExternalHost { get; init; }
 }
 
 /// <summary>
@@ -61,7 +69,8 @@ public static class ComposedProgramFile
         var image = ProgramCompositionImage.Of(await fileSystem.File.ReadAllTextAsync(full, cancellationToken), full);
         var folder = options.LibrariesFolder ?? fileSystem.Path.Combine(fileSystem.Path.GetDirectoryName(full)!, PlatformEnvironment.SymbolsDirectory);
         var services = new ProgramServices(
-            fileSystem, PlatformLibraries.With(new DirectoryLibrarySource(fileSystem, folder)), options.Loggers ?? NullLoggerFactory.Instance);
+            fileSystem, PlatformLibraries.With(new DirectoryLibrarySource(fileSystem, folder)), options.Loggers ?? NullLoggerFactory.Instance,
+            Outside: options.ExternalHost is { } executable ? MachineExternal.WorldOf(executable) : null);
         return new ComposedProgram(image, services);
     }
 }

@@ -43,6 +43,14 @@ public sealed record class ProgramCompositionOptions
     /// What the composition and the machines log to. Nothing is logged when it is not given.
     /// </summary>
     public ILoggerFactory? Loggers { get; init; }
+
+    /// <summary>
+    /// The executable the machines' external host is started from: the process that makes their calls to the outside world of the machine, such as the forms
+    /// they make, the automation servers they create objects of and the native libraries they call. It is <c>rdc</c>, run in external mode, as
+    /// <c>rdc run</c> runs a program. <c>rdc</c> beside the host's own assemblies when it is not given. Nothing is started until a machine reaches out, and
+    /// the machines of every program given the same executable share one external host.
+    /// </summary>
+    public string? ExternalHost { get; init; }
 }
 
 /// <summary>
@@ -103,7 +111,8 @@ public static class ProgramComposer
             options.LibrariesFolder is { } folder ? new DirectoryLibrarySource(fileSystem, folder) : new CompositeLibrarySource());
         var workspaceOptions = options.Workspace ?? new SdkWorkspaceOptions();
         var services = new ProgramServices(
-            fileSystem, libraries, loggers, Microsoft.Extensions.Options.Options.Create(new SdkAppOptions { Workspace = workspaceOptions }));
+            fileSystem, libraries, loggers, Microsoft.Extensions.Options.Options.Create(new SdkAppOptions { Workspace = workspaceOptions }),
+            options.ExternalHost is { } executable ? MachineExternal.WorldOf(executable) : null);
 
         // a project file is read as the folder it is in, which is its project's: a file is otherwise a module.
         var full = fileSystem.Path.GetFullPath(path);
@@ -123,7 +132,7 @@ public static class ProgramComposer
         var profile = environment.Profile with { ExecutionEngine = language.ExecutionEngine };
         var definitions = new List<DefineSymbolsParams>();
         var loader = new WorkspaceProgramLoader(fileSystem, new ErrorDetailsRecorder(), loggers, libraries, services.Options);
-        var loaded = await loader.LoadAsync(workspace, profile, outside: null, cancellationToken, definitions);
+        var loaded = await loader.LoadAsync(workspace, profile, services.Outside, cancellationToken, definitions);
         if (loaded.Problems.Count > 0)
         {
             loaded.Provider.Dispose();
