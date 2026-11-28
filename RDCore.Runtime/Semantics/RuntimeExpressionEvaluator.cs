@@ -955,6 +955,23 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     internal static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, VBClassModuleSymbol classModule)
         => Initialized(session, NewExpressionRuntimeSemantics.Create(session, classModule, default));
 
+    // the object the default instance of a predeclared class holds, for a member a host invokes on it (ProgramMachine), as a reference to the class's name
+    // reads it: made by this reference when it holds none, and initialized then (MS-VBAL §5.2.4.1.2, §2.5.1). The variable keeps it, and the invocation
+    // does not hold it.
+    internal static RuntimeSemanticsEvaluationResult DefaultInstanceOf(IRuntimeSession session, VBClassModuleSymbol classModule)
+    {
+        var resolver = session.Symbols.Resolver;
+        var instance = new VBPredeclaredInstanceSymbol(classModule);
+        if (!resolver.TryGetAddress(instance, out var address) || !resolver.TryRead(address, out var handle))
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        return DeclaredValues.Of(instance.ResolvedType, handle.ForReading()) is VBObjectValue held && !held.IsNothing()
+            ? RuntimeSemanticsEvaluationResult.Success(held)
+            : AutoInstantiate(session, handle, classModule, isDefaultInstance: true);
+    }
+
     private static RuntimeSemanticsEvaluationResult Initialized(IRuntimeSession session, RuntimeSemanticsEvaluationResult created)
     {
         // the new object is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily): whatever

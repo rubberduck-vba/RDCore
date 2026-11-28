@@ -107,8 +107,9 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         }
     }
 
-    // a Public (or implicitly public) Sub, Function or Property Get of a standard module, or of a class of the program, which runs on an object made for the
-    // invocation (Bind). A document module's object is its host's, a library's class has no code of the program, and a Declare is not code the program wrote.
+    // a Public (or implicitly public) Sub, Function or Property Get of a standard module, or of a class of the program, which runs on the class's default
+    // instance or on an object made for the invocation (Bind). A document module's object is its host's, a library's class has no code of the program, and
+    // a Declare is not code the program wrote.
     private static VBTypeMemberSymbol? ProcedureOf(
         IRuntimeSession session, ProgramInvocation invocation, out VBClassModuleSymbol? classModule, out string explanation)
     {
@@ -140,9 +141,10 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
     // the arguments by their parameters' names, as RD-VBA compares names: one naming no parameter is 448, a parameter given none that is not Optional is 449,
     // and a value of no parameter's type is the error its conversion is (13, or 94 for null). An Optional one given none is what a call that omits it passes;
     // a ParamArray is given nothing. Two names that differ only by case are one name given twice: 448 as well.
-    // The Me of a member of a class is a new object of the class, made as New makes one once the names are bound and before the arguments are made: its
-    // Class_Initialize runs first, and an error it leaves unhandled is the invocation's. It is held as the invocation's temporary, which lets go of it once
-    // the value is taken, and its Class_Terminate runs then.
+    // The Me of a member of a class is taken once the names are bound and before the arguments are made. A predeclared class's is its default instance,
+    // the program's, which keeps its state from one invocation to the next: a reference to it makes it when it holds none, as the class's name does in code.
+    // Any other class's is a new object of the class, made as New makes one and held as the invocation's temporary, which lets go of it once the value is
+    // taken: its Class_Terminate runs then. A Class_Initialize runs when the object is made, and an error it leaves unhandled is the invocation's.
     private static (IRuntimeValue[]? Arguments, IVBRaisableError? Refusal) Bind(
         IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol procedure, VBClassModuleSymbol? classModule,
         IReadOnlyDictionary<string, JsonNode?> arguments)
@@ -170,10 +172,12 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
             var parameter = parameters[index];
             if (IsMe(parameter) && classModule is not null)
             {
-                var created = RuntimeExpressionEvaluator.CreateObject(session, classModule);
-                if (!created.IsSuccess || created.Result is not VBObjectValue instance)
+                var target = classModule.GetProperty(SymbolProperties.PredeclaredId)
+                    ? RuntimeExpressionEvaluator.DefaultInstanceOf(session, classModule)
+                    : RuntimeExpressionEvaluator.CreateObject(session, classModule);
+                if (!target.IsSuccess || target.Result is not VBObjectValue instance)
                 {
-                    return (null, created.ErrorInfo ?? Refused(
+                    return (null, target.ErrorInfo ?? Refused(
                         VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, Verbose(Resources.Host_InitializeEnded_Verbose, classModule.Name)));
                 }
 
