@@ -2,6 +2,7 @@
 #
 # Builds the RDCore platform for every supported system, tests it and packages it. A pushed `v*` tag then attaches it to
 # a DRAFT GitHub PRERELEASE, which a maintainer checks and publishes by hand: a preview for evaluation, not a certified build.
+# A release a maintainer created with its notes, which made the tag, gets the assets instead, its title and notes kept.
 #   1. prepare (ubuntu-latest): resolves the version, <VersionPrefix> from Directory.Build.props plus a suffix taken from
 #      the tag (v0.1.0-rc.1 -> rc.1), the pull request (pr.<number>) or the run (ci.<run_number>); on a tag run, checks the
 #      tag is on main and the `release` environment is protected; writes the release notes.
@@ -13,8 +14,9 @@
 #      tar.gz elsewhere, which keeps the execute bit) with its release.json and SHA256SUMS alongside. The osx-arm64 job is
 #      optional: when it fails, the release goes ahead without its archive, and the publish job says so.
 #   3. publish, tag runs only, once a required reviewer approves the `release` environment: checks the tag still points at
-#      the built commit and has no release (or draft) yet, joins the checksums, attests the build provenance of every archive
-#      and release.json, creates a draft prerelease and uploads the assets. The draft stays a draft: a maintainer publishes it.
+#      the built commit and finds its release (none, or one with no assets, drafts included), joins the checksums, attests
+#      the build provenance of every archive and release.json, creates a draft prerelease when the tag has no release, and
+#      uploads the assets to the tag's release. A draft stays a draft: a maintainer publishes it.
 # A manual run (workflow_dispatch) is a dry run: everything up to the archives, uploaded as short-lived workflow artifacts,
 # and no release. A pull request that touches the release plumbing builds and packages too, without osx-arm64, but uploads
 # only the metadata: never an archive or the binaries. On any run, a failed Test step also uploads what a test hang left (the
@@ -416,20 +418,41 @@ jobs:
             exit 1
           fi
 
-      # `gh release create --draft` checks for nothing, and GitHub accepts a second draft for the same tag, so a re-run
-      # after a failure must stop here. The listing includes drafts because this token can push.
-      - name: Check the tag has no release yet
+      # a tag has one release. One made on the Releases page with its notes, which makes the tag, is the one this run
+      # fills: the assets are uploaded to it, and its title and notes stay as they are. A tag pushed without one gets a
+      # draft prerelease. `gh release create` checks for nothing, and GitHub accepts a second release for the same tag, so
+      # anything else stops here: a release that already has assets, or more than one release. The listing includes
+      # drafts because this token can push.
+      - name: Find the tag's release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[] | select(.tag_name == env.TAG) | if .draft then "draft" else "published" end')
-          if grep -qx published <<< "$releases"; then
-            echo "::error::$TAG is already published; check its assets. There is nothing to re-run."
+          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq '.[] | select(.tag_name == env.TAG) | "\(.id)\t\(if .draft then "draft" else "published" end)\t\(.assets | length)\t\(.prerelease)"')
+          count=$(grep -c . <<< "$releases" || true)
+          if [ "$count" -eq 0 ]; then
+            echo "$TAG has no release: this run creates a draft prerelease."
+            echo "id=" >> "$GITHUB_OUTPUT"
+          elif [ "$count" -gt 1 ]; then
+            found=$(awk -F'\t' '{ printf "%s%s release %s with %s asset(s)", (NR > 1 ? ", " : ""), $2, $1, $3 }' <<< "$releases")
+            message="$count releases for $TAG exist: $found. Keep the one whose notes you want and delete the others, keeping the tag:"
+            message+=" 'gh api -X DELETE repos/$GITHUB_REPOSITORY/releases/<id>' for each other id. Then re-run this job (see RELEASING.md)."
+            echo "::error::$message"
             exit 1
-          elif [ -n "$releases" ]; then
-            echo "::error::$(wc -l <<< "$releases") draft release(s) for $TAG already exist, left by an earlier attempt. Delete them but keep the tag: 'gh release delete $TAG -R $GITHUB_REPOSITORY --yes' (without --cleanup-tag) removes one at a time, until 'gh release list -R $GITHUB_REPOSITORY' shows none for $TAG. Then re-run this job (see RELEASING.md)."
-            exit 1
+          else
+            IFS=$'\t' read -r id kind assets prerelease <<< "$releases"
+            if [ "$assets" -gt 0 ]; then
+              message="$TAG's $kind release ($id) already has $assets asset(s). If they are this version's, there is nothing to re-run."
+              message+=" Otherwise delete them, keeping the release and its notes: 'gh release delete-asset $TAG <asset> -R $GITHUB_REPOSITORY --yes'"
+              message+=" for each asset 'gh release view $TAG -R $GITHUB_REPOSITORY' lists. Then re-run this job (see RELEASING.md)."
+              echo "::error::$message"
+              exit 1
+            fi
+            [ "$prerelease" = true ] || echo "::warning::$TAG's release is not marked as a pre-release, as the drafts this workflow creates are."
+            echo "$TAG has a $kind release with no assets ($id): this run uploads the assets to it, and leaves its title and notes as they are."
+            echo "id=$id" >> "$GITHUB_OUTPUT"
           fi
 
       # one folder per RID (release-assets-<rid>): each build job wrote its own SHA256SUMS
@@ -485,12 +508,14 @@ jobs:
 
       # a draft, which only maintainers see: the assets are all in place, and checked by a person, before anyone else can see the release
       - name: Create the draft prerelease
+        if: steps.release.outputs.id == ''
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --prerelease --title "RDCore $VERSION (preview)" --notes-file notes/release-notes.md
 
+      # to the draft just created, or to the release the tag already had
       - name: Upload the assets
         env:
           GH_TOKEN: ${{ github.token }}

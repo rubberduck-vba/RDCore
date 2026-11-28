@@ -129,6 +129,30 @@ public sealed class MidAndMidBTests
         CollectionAssert.AreEqual(new byte[] { 0x42 }, BytesOf(Module().MidB(V(Bytes(0x41, 0x42, 0x43)), L(2), V(1))));
     }
 
+    // a MidB, a LeftB and a RightB of a long String read the bytes they take where the String holds them: none copies the rest of its 20,000 bytes.
+    [TestMethod]
+    public void MidBLeftBAndRightB_OfALongString_CopyNoneOfTheRest()
+    {
+        var module = Module();
+        var text = V(new string('x', 10_000));
+        CollectionAssert.AreEqual(new byte[] { 0x00, 0x78, 0x00 }, BytesOf(module.MidB(text, L(5002), V(3))));
+        CollectionAssert.AreEqual(new byte[] { 0x78, 0x00, 0x78 }, BytesOf(module.LeftB(text, L(3))));
+        CollectionAssert.AreEqual(new byte[] { 0x00, 0x78, 0x00 }, BytesOf(module.RightB(text, L(3))));
+
+        foreach (var (name, take) in new (string, Action)[]
+        {
+            ("MidB", () => module.MidB(text, L(5002), V(3))),
+            ("LeftB", () => module.LeftB(text, L(3))),
+            ("RightB", () => module.RightB(text, L(3))),
+        })
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            take();
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.IsLessThan(4_096L, allocated, $"{name} of 3 bytes of a 20,000-byte String allocated {allocated:N0} bytes");
+        }
+    }
+
     [TestMethod]
     public void MidB_Errors()
     {
