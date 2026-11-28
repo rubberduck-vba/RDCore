@@ -1447,9 +1447,10 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         if (inBytes)
         {
-            var bytes = text.GetBytes();
-            var taken = Math.Min(count, bytes.Length);
-            return InVariant(VBStringValue.FromBytes(fromEnd ? bytes.AsSpan(bytes.Length - taken) : bytes.AsSpan(0, taken)));
+            // the bytes taken, read where the String holds them: none of the rest is copied.
+            var byteLength = text.ByteLength;
+            var taken = Math.Min(count, byteLength);
+            return InVariant(text.SliceBytes(fromEnd ? byteLength - taken : 0, taken));
         }
 
         var characters = Text(text);
@@ -1670,9 +1671,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         if (inBytes)
         {
-            var bytes = text.GetBytes();
-            var (byteIndex, byteCount) = MidRange(bytes.Length, from, count)!.Value;
-            return InVariant(VBStringValue.FromBytes(bytes.AsSpan(byteIndex, byteCount)));
+            // the bytes taken, read where the String holds them: a 2-byte MidB of a long String copies none of the rest.
+            var (byteIndex, byteCount) = MidRange(text.ByteLength, from, count)!.Value;
+            return InVariant(text.SliceBytes(byteIndex, byteCount));
         }
 
         var characters = Text(text);
