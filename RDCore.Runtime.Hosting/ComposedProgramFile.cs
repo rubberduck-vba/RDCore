@@ -29,8 +29,9 @@ public sealed record class ComposedProgramOptions
     /// <summary>
     /// The executable the machines' external host is started from: the process that makes their calls to the outside world of the machine, such as the forms
     /// they make, the automation servers they create objects of and the native libraries they call. It is <c>rdc</c>, run in external mode, as
-    /// <c>rdc run</c> runs a program. <c>rdc</c> beside the host's own assemblies when it is not given. Nothing is started until a machine reaches out, and
-    /// the machines of every program given the same executable share one external host.
+    /// <c>rdc run</c> runs a program, or the host's own executable (<see cref="ProgramExternalHost.Executable"/>) for a host that is its own external host.
+    /// <c>rdc</c> beside the host's own assemblies when it is not given. Nothing is started until a machine reaches out, and the machines of every program
+    /// given the same executable share one external host.
     /// </summary>
     public string? ExternalHost { get; init; }
 }

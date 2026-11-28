@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- a host of the tests that deploys no rdc and is the external host of its own machines (ProgramExternalHost): RDCore.Tests starts it from its own
+       folder, where the reference puts it. It is not packed or deployed. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyTitle>RDCore Tests Host</AssemblyTitle>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
+    <ProjectReference Include="..\RDCore.Runtime.Hosting\RDCore.Runtime.Hosting.csproj" />
+  </ItemGroup>
+
+</Project>

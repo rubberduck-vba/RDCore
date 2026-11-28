@@ -39,7 +39,24 @@ Disposer le programme ne dispose aucune de ses machines.
 
 ## Le monde extérieur
 
-Une machine crée ses formulaires, les objets des serveurs d'automatisation et ses appels natifs dans un hôte externe : `rdc`, exécuté en mode externe, comme `rdc run` exécute un programme. Il est démarré la première fois qu'une machine en a besoin. `ComposedProgramOptions.ExternalHost` nomme l'exécutable `rdc`, qui est celui à côté des assemblys de l'hôte lorsqu'il n'est pas donné.
+Une machine crée ses formulaires, les objets des serveurs d'automatisation et ses appels natifs dans un hôte externe, un processus démarré la première fois qu'une machine en a besoin. `ComposedProgramOptions.ExternalHost` nomme son exécutable : `rdc`, exécuté en mode externe comme `rdc run` exécute un programme, ou l'hôte lui-même. C'est le `rdc` à côté des assemblys de l'hôte lorsqu'il n'est pas donné.
+
+Un hôte qui ne déploie aucun `rdc` est son propre hôte externe, comme l'est un programme compilé. Son `Main` s'exécute comme hôte externe quand il a été démarré comme tel, et nomme son propre exécutable :
+
+```csharp
+public static int Main(string[] args)
+{
+    if (ProgramExternalHost.IsThisProcess)
+    {
+        return ProgramExternalHost.Run(args);
+    }
+
+    var options = new ComposedProgramOptions { ExternalHost = ProgramExternalHost.Executable };
+    // load the program with the options, and run the host
+}
+```
+
+`ProgramExternalHost.Executable` est `null` pour un hôte exécuté avec `dotnet`, dont l'exécutable ne peut pas s'exécuter comme hôte externe. Les formulaires sont créés dans RDForms sur tous les systèmes d'exploitation. Les serveurs d'automatisation et les appels natifs sont ceux de Windows.
 
 ## Licence
 

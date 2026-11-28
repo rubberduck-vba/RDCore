@@ -66,30 +66,42 @@ public sealed class ExternalHostOptionTests
         Directory.Delete(_host, recursive: true);
     }
 
-    // the project of a form and the module that makes it, whose libraries are the repository's; a program of it, given the external host.
-    private async Task<IComposedProgram> ProgramAsync(string how, string externalHost)
+    // the project of a form and the module that makes it (Program.Made), written to root, whose libraries are the repository's; the path of its .rdproj.
+    internal static string WriteFormProject(string root)
     {
-        File.WriteAllText(Path.Combine(_root, "Program.bas"), Program);
-        File.WriteAllText(Path.Combine(_root, "Form1.frm"), Form);
-        var project = Path.Combine(_root, ".rdproj");
+        File.WriteAllText(Path.Combine(root, "Program.bas"), Program);
+        File.WriteAllText(Path.Combine(root, "Form1.frm"), Form);
+        var project = Path.Combine(root, ".rdproj");
         File.WriteAllText(project, """
             { "Version": "0.1.0", "ProjectInfo": { "Name": "Forms", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "Form1.frm" } ],
               "References": [ { "Name": "VB" }, { "Name": "VBRUN" } ] } }
             """);
+        return project;
+    }
 
+    // the composition of the form project in root, written to the host's folder; its file.
+    internal static async Task<string> WriteFormCompositionAsync(string root, string host)
+    {
+        var composed = await ProgramComposer.ComposeImageAsync(
+            WriteFormProject(root), new ProgramCompositionOptions { LibrariesFolder = ShippedLibrariesTests.Symbols }, default);
+        composed.Loaded.Dispose();
+        var file = Path.Combine(host, "Forms" + ComposedProgramFile.Extension);
+        await File.WriteAllTextAsync(file, composed.Image.ToJson());
+        return file;
+    }
+
+    // a program of the form project, given the external host.
+    private async Task<IComposedProgram> ProgramAsync(string how, string externalHost)
+    {
         if (how is ComposedFromItsFiles)
         {
             return await ProgramComposer.ComposeAsync(
-                project, new ProgramCompositionOptions { LibrariesFolder = ShippedLibrariesTests.Symbols, ExternalHost = externalHost });
+                WriteFormProject(_root), new ProgramCompositionOptions { LibrariesFolder = ShippedLibrariesTests.Symbols, ExternalHost = externalHost });
         }
 
-        var composed = await ProgramComposer.ComposeImageAsync(
-            project, new ProgramCompositionOptions { LibrariesFolder = ShippedLibrariesTests.Symbols }, default);
-        composed.Loaded.Dispose();
-        var file = Path.Combine(_host, "Forms" + ComposedProgramFile.Extension);
-        await File.WriteAllTextAsync(file, composed.Image.ToJson());
         return await ComposedProgramFile.LoadAsync(
-            file, new ComposedProgramOptions { LibrariesFolder = ShippedLibrariesTests.Symbols, ExternalHost = externalHost });
+            await WriteFormCompositionAsync(_root, _host),
+            new ComposedProgramOptions { LibrariesFolder = ShippedLibrariesTests.Symbols, ExternalHost = externalHost });
     }
 
     // rdc, run in external mode, makes the machine's form.
