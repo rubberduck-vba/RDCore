@@ -44,12 +44,28 @@ public sealed class ShippedLibrariesTests
 
     private static LibraryIdentity[] ShippedNames => [.. Shipped.Select(name => new LibraryIdentity(name))];
 
+    // the libraries the platform defines itself, which no type library describes: a project references one by its name.
+    private static readonly string[] PlatformDefined = ["RDJson"];
+
     [TestMethod]
     public void TheLibrariesTheProjectsAskedFor_Ship()
     {
         foreach (var name in new[] { "Excel", "Access", "Word", "ADODB", "Scripting" })
         {
             CollectionAssert.Contains(Shipped, name);
+        }
+    }
+
+    [TestMethod]
+    public void TheLibrariesThePlatformDefines_Ship_StateNoTypeLibrary_AndLoadByName()
+    {
+        foreach (var name in PlatformDefined)
+        {
+            Assert.IsTrue(Source.TryGet(name, out var description), name);
+            Assert.IsNull(description.Origin, name);
+            var libraries = ReferencedLibraries.Load(Source, [new LibraryIdentity(name)], ["VBA"]);
+            Assert.IsEmpty(libraries.Problems, $"{name}: {string.Join("; ", libraries.Problems.Select(problem => $"{problem.Name}: {problem.Kind}"))}");
+            CollectionAssert.Contains(libraries.Libraries.Select(library => library.Name).ToArray(), name);
         }
     }
 
@@ -86,7 +102,14 @@ public sealed class ShippedLibrariesTests
         foreach (var file in files)
         {
             var identity = LibraryIdentity.Of(LibraryJson.Read(File.ReadAllText(file)));
-            Assert.IsNotNull(identity.Guid, $"{Path.GetFileName(file)} states the type library it was made from");
+            if (PlatformDefined.Contains(identity.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                Assert.IsNull(identity.Guid, $"{Path.GetFileName(file)} is the platform's own, made from no type library");
+            }
+            else
+            {
+                Assert.IsNotNull(identity.Guid, $"{Path.GetFileName(file)} states the type library it was made from");
+            }
 
             Assert.IsTrue(source.TryGet(identity, out var found), identity.ToString());
             Assert.AreEqual(identity, LibraryIdentity.Of(found), Path.GetFileName(file));

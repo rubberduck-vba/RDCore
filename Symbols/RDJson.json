@@ -1,0 +1,134 @@
+{
+  "formatVersion": 7,
+  "name": "RDJson",
+  "description": "RD-VBA JSON values",
+  "enums": [
+    {
+      "name": "JsonMemberHandling",
+      "description": "What a conversion from JSON does with a key or a member that does not match.",
+      "members": [
+        {
+          "name": "jsonIgnore"
+        },
+        {
+          "name": "jsonRaise",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "JsonSerializationOptions",
+      "progId": "RDJson.JsonSerializationOptions",
+      "isCreatable": true,
+      "description": "How JsonValue.Deserialize gives a JSON object's keys to the members of a class.",
+      "members": [
+        {
+          "name": "UnknownMembers",
+          "kind": "propertyGet",
+          "type": "JsonMemberHandling",
+          "description": "A key that names no member the JSON object can give a value to: ignored, or error 438 (error 450 for a method)."
+        },
+        {
+          "name": "UnknownMembers",
+          "kind": "propertyLet",
+          "description": "A key that names no member the JSON object can give a value to: ignored, or error 438 (error 450 for a method).",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "JsonMemberHandling",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "MissingMembers",
+          "kind": "propertyGet",
+          "type": "JsonMemberHandling",
+          "description": "A member that can be given a value and that no key names: kept as it is, or error 449."
+        },
+        {
+          "name": "MissingMembers",
+          "kind": "propertyLet",
+          "description": "A member that can be given a value and that no key names: kept as it is, or error 449.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "JsonMemberHandling",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ReadOnlyMembers",
+          "kind": "propertyGet",
+          "type": "JsonMemberHandling",
+          "description": "A key that names a Property Get with no Property Let or Set: ignored, or error 451."
+        },
+        {
+          "name": "ReadOnlyMembers",
+          "kind": "propertyLet",
+          "description": "A key that names a Property Get with no Property Let or Set: ignored, or error 451.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "JsonMemberHandling",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "JsonValue",
+      "description": "Converts a value to JSON text, and JSON text to a value.",
+      "members": [
+        {
+          "name": "Serialize",
+          "type": "String",
+          "description": "The JSON text of a value.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "JsonSerializationOptions",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Deserialize",
+          "type": "Variant",
+          "description": "The value of JSON text, or the object given as Into, filled from a JSON object and returned.",
+          "parameters": [
+            {
+              "name": "Json",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Into",
+              "type": "Object",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "JsonSerializationOptions",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

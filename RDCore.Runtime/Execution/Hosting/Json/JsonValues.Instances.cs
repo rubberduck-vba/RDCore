@@ -52,10 +52,20 @@ internal sealed partial class JsonValues
     // the members of an instance's JSON object, in the order the class declares them: a public variable, and a Property Get that takes no argument. A Friend
     // or a Private member, a method, a Property Let or Set that has no Get, and a Get that takes arguments are not members of it.
     private static IEnumerable<VBTypeMemberSymbol> JsonMembersOf(VBClassModuleSymbol classModule)
-        => classModule.DefaultInterfaceMembers
-            .Where(member => IsPublic(member) && (IsVariable(member) || member is VBPropertyGetMemberSymbol get && Given(get.Parameters).Length == 0))
-            .OrderBy(member => member.Range.Start.Line)
-            .ThenBy(member => member.Range.Start.Character);
+        => InDeclarationOrder(classModule.DefaultInterfaceMembers
+            .Where(member => IsPublic(member) && (IsVariable(member) || member is VBPropertyGetMemberSymbol get && Given(get.Parameters).Length == 0)));
+
+    // the members a key can give a value to, in the order the class declares them, each once: a public variable, and a Property Let or Set that takes
+    // nothing but its value.
+    private static IEnumerable<VBTypeMemberSymbol> SettableMembersOf(VBClassModuleSymbol classModule)
+        => InDeclarationOrder(classModule.DefaultInterfaceMembers.Where(member => IsPublic(member)
+                && (IsVariable(member)
+                    || member is VBPropertyLetMemberSymbol let && Given(let.Parameters).Length == 1
+                    || member is VBPropertySetMemberSymbol set && Given(set.Parameters).Length == 1)))
+            .DistinctBy(member => member.Name, StringComparer.OrdinalIgnoreCase);
+
+    private static IEnumerable<VBTypeMemberSymbol> InDeclarationOrder(IEnumerable<VBTypeMemberSymbol> members)
+        => members.OrderBy(member => member.Range.Start.Line).ThenBy(member => member.Range.Start.Character);
 
     // each member read as CallByName(instance, name, VbGet) reads it: a Property Get runs, and what it raises is the conversion's error.
     private JsonObject OutInstance(VBObjectValue instance, VBClassModuleSymbol classModule, HashSet<VBRuntimeObjectId> way)
@@ -104,28 +114,96 @@ internal sealed partial class JsonValues
         return let is null ? null : new(name, let[0].ResolvedType, VBCallType.VBLet);
     }
 
-    // a JSON object for a class of the workspace: a New object of the class (its Class_Initialize runs), then each key that names a member it can give a
-    // value to gives it the key's value, converted to the member's type, in the order of the keys. A key that names no such member is ignored, and a member
-    // no key names keeps what Class_Initialize gave it. Two keys that name one member, in different cases, are 457, as a Collection's key given twice is.
-    private VBObjectValue Instance(JsonObject record, VBClassModuleSymbol classModule)
+    // the keys, checked before any member is given a value, so that a JSON object refused changes nothing. Two keys that name one member, in different
+    // cases, are 457, as a Collection's key given twice is. Where the rules raise, a key that names no member the object can give a value to is the error
+    // CallByName raises for it: 438 for no public member, 450 for a method, 451 for a Property Get with no Let or Set. A member no key names is 449, as a
+    // required argument no call gives is.
+    private void Check(JsonObject record, VBClassModuleSymbol classModule)
     {
         var keys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, _) in record)
+        foreach (var (key, item) in record)
         {
-            if (classModule.DefaultInterfaceMembers.Any(member => IsPublic(member) && member.Name.Equals(key, StringComparison.OrdinalIgnoreCase))
-                && !keys.TryAdd(key, key))
+            var named = classModule.DefaultInterfaceMembers
+                .Where(member => IsPublic(member) && member.Name.Equals(key, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (named.Length > 0 && !keys.TryAdd(key, key))
             {
                 throw new Refused(VBRuntimeErrorId.KeyAlreadyAssociatedWithAnElementOfCollection,
                     Verbose(Exceptions.JsonValues_KeyGivenTwice_Verbose, keys[key], key, classModule.Name));
             }
+
+            if (SetterOf(classModule, key, item) is not null)
+            {
+                continue;
+            }
+
+            if (named.Length == 0)
+            {
+                if (rules.RaiseUnknown)
+                {
+                    throw new Refused(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod,
+                        Verbose(Exceptions.JsonValues_KeyNamesNoMember_Verbose, key, classModule.Name));
+                }
+            }
+            else if (named.Any(member => member is VBPropertyGetMemberSymbol))
+            {
+                if (rules.RaiseReadOnly)
+                {
+                    throw new Refused(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                        Verbose(Exceptions.JsonValues_KeyNamesReadOnly_Verbose, named[0].Name, classModule.Name));
+                }
+            }
+            else if (rules.RaiseUnknown)
+            {
+                throw new Refused(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment,
+                    Verbose(Exceptions.JsonValues_KeyNamesMethod_Verbose, named[0].Name, classModule.Name));
+            }
         }
 
+        if (rules.RaiseMissing && SettableMembersOf(classModule).FirstOrDefault(member => !keys.ContainsKey(member.Name)) is { } missing)
+        {
+            throw new Refused(VBRuntimeErrorId.ArgumentNotOptional, Verbose(Exceptions.JsonValues_MemberNotGiven_Verbose, missing.Name, classModule.Name));
+        }
+    }
+
+    // a JSON object for a class of the workspace: a New object of the class (its Class_Initialize runs), then filled.
+    private VBObjectValue Instance(JsonObject record, VBClassModuleSymbol classModule)
+    {
+        Check(record, classModule);
         var created = RuntimeExpressionEvaluator.CreateObject(session, classModule);
         if (!created.IsSuccess || created.Result is not VBObjectValue instance || session.Halt.Pending is not null)
         {
             throw Unwound(created.ErrorInfo, Verbose(Exceptions.JsonValues_InitializeEnded_Verbose, classModule.Name));
         }
 
+        Fill(record, classModule, instance);
+        return instance;
+    }
+
+    // an object the program has, filled as a New one is, though nothing makes it: Deserialize(json, instance) patches the instance, and a member no key
+    // names keeps the value it has.
+    private VBObjectValue Into(JsonNode? json, VBObjectValue into)
+    {
+        var classModule = !into.IsNothing() && session.Symbols.TryGetInstance(into.Value, out var instance) ? instance.ClassModule : null;
+        if (classModule is null || !IsWorkspaceClass(classModule))
+        {
+            throw Mismatch(Verbose(Exceptions.JsonValues_IntoNotAnInstance_Verbose, classModule?.Name ?? into.TypeInfo.Name));
+        }
+
+        if (json is not JsonObject record)
+        {
+            throw Mismatch(Verbose(Exceptions.JsonValues_KindNotType_Verbose, KindOf(json), classModule.Name));
+        }
+
+        Check(record, classModule);
+        Fill(record, classModule, into);
+        return into;
+    }
+
+    // each key that names a member the object can give a value to gives it the key's value, converted to the member's type, in the order of the keys. A key
+    // that names no such member is left alone, as Check let it be, and a member no key names keeps its value.
+    private void Fill(JsonObject record, VBClassModuleSymbol classModule, VBObjectValue instance)
+    {
         var interaction = new StdInteraction(session);
         foreach (var (key, item) in record)
         {
@@ -142,7 +220,5 @@ internal sealed partial class JsonValues
                 throw Unwound(given.ErrorInfo, Verbose(Exceptions.JsonValues_MemberGivenEnded_Verbose, setter.Name));
             }
         }
-
-        return instance;
     }
 }
