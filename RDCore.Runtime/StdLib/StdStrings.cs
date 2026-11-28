@@ -251,8 +251,18 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             _ => RuntimeSemanticsEvaluationResult<VBStringValue>.InternalError(),
         };
 
-    // the one-character Strings of the 7-bit ASCII code points, which every code page reads the same (MS-VBAL §6.1.2.11.1.4): made once.
-    internal static readonly string[] AsciiCharacters = [.. Enumerable.Range(0, 128).Select(code => ((char)code).ToString())];
+    // the Strings of one character of the codes 0 to 255, made once: what Mid, Left and Right of one such character and ChrW of its code give, so that a
+    // loop that walks a String a character at a time makes none. The first 128 are the 7-bit ASCII code points, which every code page reads the same
+    // (MS-VBAL §6.1.2.11.1.4): what Chr of one of them gives. No String is written in place (the Mid statement makes another), so one is never changed.
+    internal static readonly string[] OneCharacterStrings = [.. Enumerable.Range(0, 256).Select(code => ((char)code).ToString())];
+
+    // the part of a text of count characters from index: one of OneCharacterStrings for one character up to 255, as the whole text and a part of none
+    // are the text and the empty String, made once.
+    internal static string PartOf(string text, int index, int count)
+        => count == 1 && text[index] < OneCharacterStrings.Length ? OneCharacterStrings[text[index]] : text.Substring(index, count);
+
+    // the String of the one character of a UTF-16 code unit.
+    private static string OneCharacterOf(int code) => code < OneCharacterStrings.Length ? OneCharacterStrings[code] : ((char)code).ToString();
 
     // the character a code names in the environment's ANSI code page: one byte up to 255, a lead and a trail byte above it. A
     // single-byte code page names one with every byte. A double-byte code page names one only where it reads the bytes as exactly
@@ -262,12 +272,22 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     {
         if (code < 128)
         {
-            character = AsciiCharacters[code];
+            character = OneCharacterStrings[code];
+            return true;
+        }
+
+        var encoding = session.Environment.AnsiEncoding;
+        if (encoding.IsSingleByte && code <= 0xFF)
+        {
+            // one of the Strings made once when the code page reads the byte as a character up to 255 (ISO-8859-1's are those of their own codes).
+            ReadOnlySpan<byte> single = [(byte)code];
+            Span<char> read = stackalloc char[2];
+            var length = encoding.GetChars(single, read);
+            character = length == 1 ? OneCharacterOf(read[0]) : new string(read[..length]);
             return true;
         }
 
         byte[] bytes = code <= 0xFF ? [(byte)code] : [(byte)(code >> 8), (byte)code];
-        var encoding = session.Environment.AnsiEncoding;
         if (encoding.IsSingleByte)
         {
             character = encoding.GetString(bytes);
@@ -382,10 +402,10 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <c>Len</c> of a <c>String</c> held as text, which has no byte past its characters (<strong>MS-VBAL §6.1.2.11.1.22</strong>): what
     /// <see cref="Len"/> returns for it. Compiled code calls it in place of <see cref="Len"/> (<see cref="StdLibIntrinsicAttribute"/>).
     /// </summary>
-    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="text">The characters of the text, none for <c>vbNullString</c>: a part of a text is not made a <c>String</c> first.</param>
     /// <returns>The number of characters of the text.</returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Len))]
-    public static int LengthOf(string? text) => text?.Length ?? 0;
+    public static int LengthOf(ReadOnlySpan<char> text) => text.Length;
 
     /// <summary>
     /// <c>LenB</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.11.1.22</strong>): two bytes a character, what <see cref="LenB"/> returns for
@@ -459,31 +479,31 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <c>Asc</c> of a <c>String</c> held as text whose first character is ASCII (<strong>MS-VBAL §6.1.2.11.1.1</strong>): its 7-bit code point, what
     /// <see cref="Asc"/> returns for it in any code page.
     /// </summary>
-    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="text">The characters of the text, none for <c>vbNullString</c>: a part of a text is not made a <c>String</c> first.</param>
     /// <param name="code">The code point of the first character.</param>
     /// <returns>
     /// <see langword="false"/> for a zero-length text, which <see cref="Asc"/> raises error 5 for, and for a first character that is not ASCII, whose
     /// code is the code page's.
     /// </returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(Asc))]
-    public static bool AsciiCodeOf(string? text, out short code)
+    public static bool AsciiCodeOf(ReadOnlySpan<char> text, out short code)
     {
-        code = text is { Length: > 0 } && text[0] < 128 ? (short)text[0] : (short)0;
-        return text is { Length: > 0 } && text[0] < 128;
+        code = text.Length > 0 && text[0] < 128 ? (short)text[0] : (short)0;
+        return text.Length > 0 && text[0] < 128;
     }
 
     /// <summary>
     /// <c>AscW</c> of a <c>String</c> held as text (<strong>MS-VBAL §6.1.2.11.1.3</strong>): its first UTF-16 code unit, what <see cref="AscW"/> returns
     /// for it, one from 32,768 on being negative.
     /// </summary>
-    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="text">The characters of the text, none for <c>vbNullString</c>: a part of a text is not made a <c>String</c> first.</param>
     /// <param name="code">The code of the first character.</param>
     /// <returns><see langword="false"/> for a zero-length text: <see cref="AscW"/> raises error 5.</returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(AscW))]
-    public static bool WideCodeOf(string? text, out short code)
+    public static bool WideCodeOf(ReadOnlySpan<char> text, out short code)
     {
-        code = text is { Length: > 0 } ? unchecked((short)text[0]) : (short)0;
-        return text is { Length: > 0 };
+        code = text.Length > 0 ? unchecked((short)text[0]) : (short)0;
+        return text.Length > 0;
     }
 
     // "If the argument is the null string ("") Error Number 5"; a String that is a single byte has no first character either.
@@ -563,11 +583,26 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         var code = charCode.Value;
         return code is < LowestWideCode or > ushort.MaxValue
             ? Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, nameof(ChrW), $"CharCode is -32768 to 65535, not {code}")
-            : InVariant(((char)(code < 0 ? code + 0x10000 : code)).ToString());
+            : InVariant(OneCharacterOf(code < 0 ? code + 0x10000 : code));
     }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBStringValue> ChrWString(VBLongValue charCode) => Twin("ChrW$", ChrW(charCode));
+
+    /// <summary>
+    /// <c>ChrW$</c> of a code (<strong>MS-VBAL §6.1.2.11.1.6</strong>): the character of its 16-bit code point, a negative code being the code plus 65,536,
+    /// what <see cref="ChrWString"/> returns for it. Compiled code calls it in place of <see cref="ChrW"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="code">The code point.</param>
+    /// <param name="text">The String of the one character.</param>
+    /// <returns><see langword="false"/> for a code outside -32,768 to 65,535: <see cref="ChrW"/> raises error 5.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(ChrW))]
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(ChrWString))]
+    public static bool WideCharacterOf(int code, [NotNullWhen(true)] out string? text)
+    {
+        text = code is < LowestWideCode or > ushort.MaxValue ? null : OneCharacterOf(code < 0 ? code + 0x10000 : code);
+        return text is not null;
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -1180,32 +1215,32 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <c>InStr</c> of two <c>String</c>s held as text, compared as <c>Option Compare Binary</c> compares them (<strong>MS-VBAL §6.1.2.11.1.14</strong>):
     /// what <see cref="InStr"/> returns for them from the first character.
     /// </summary>
-    /// <param name="text">The text to search; <see langword="null"/> for <c>vbNullString</c>.</param>
-    /// <param name="pattern">The text to search for; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="text">The characters to search, none for <c>vbNullString</c>: a part of a text is not made a <c>String</c> first.</param>
+    /// <param name="pattern">The characters to search for, none for <c>vbNullString</c>.</param>
     /// <returns>The 1-based position of the first occurrence of <paramref name="pattern"/>, or 0.</returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(InStr))]
-    public static int PositionOf(string? text, string? pattern) => BinaryPosition(text ?? string.Empty, pattern ?? string.Empty, 1);
+    public static int PositionOf(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern) => BinaryPosition(text, pattern, 1);
 
     /// <summary>
     /// <c>InStr</c> of two <c>String</c>s held as text from a start, compared as <c>Option Compare Binary</c> compares them
     /// (<strong>MS-VBAL §6.1.2.11.1.14</strong>): what <see cref="InStr"/> returns for them.
     /// </summary>
     /// <param name="start">The 1-based position the search begins at.</param>
-    /// <param name="text">The text to search; <see langword="null"/> for <c>vbNullString</c>.</param>
-    /// <param name="pattern">The text to search for; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="text">The characters to search, none for <c>vbNullString</c>: a part of a text is not made a <c>String</c> first.</param>
+    /// <param name="pattern">The characters to search for, none for <c>vbNullString</c>.</param>
     /// <param name="position">The 1-based position of the first occurrence of <paramref name="pattern"/> from <paramref name="start"/>, or 0.</param>
     /// <returns><see langword="false"/> for a start below 1: <see cref="InStr"/> raises error 5.</returns>
     [StdLibIntrinsic(typeof(IStdStringsModule), nameof(InStr), LetCoerces = true)]
-    public static bool PositionOf(int start, string? text, string? pattern, out int position)
+    public static bool PositionOf(int start, ReadOnlySpan<char> text, ReadOnlySpan<char> pattern, out int position)
     {
-        position = start < 1 ? 0 : BinaryPosition(text ?? string.Empty, pattern ?? string.Empty, start);
+        position = start < 1 ? 0 : BinaryPosition(text, pattern, start);
         return start >= 1;
     }
 
     // CharacterPosition under Option Compare Binary, which compares the characters' codes.
-    private static int BinaryPosition(string text, string pattern, int from)
+    private static int BinaryPosition(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern, int from)
         => PositionWithoutComparing(text, pattern, from)
-            ?? (from <= text.Length && text.AsSpan(from - 1).IndexOf(pattern.AsSpan()) is >= 0 and var index ? from + index : 0);
+            ?? (from <= text.Length && text[(from - 1)..].IndexOf(pattern) is >= 0 and var index ? from + index : 0);
 
     // the 1-based position of the first run of characters from the start that is equal to the pattern, or 0. A zero-length String has
     // none, and a zero-length pattern is found at the start, wherever it is (MS-VBA, observed in Excel: InStr(9, "abc", "") is 9).
@@ -1215,7 +1250,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
     // the position a search finds without its Compare, which is why MS-VBA's checks no Compare for it (observed in Excel): in a zero-length String, and of a
     // zero-length pattern; null when the search compares, from past the end too.
-    private static int? PositionWithoutComparing(string text, string pattern, int from)
+    private static int? PositionWithoutComparing(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern, int from)
         => text.Length == 0 ? 0
             : pattern.Length == 0 ? from
             : null;
@@ -1419,7 +1454,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         var characters = Text(text);
         var kept = Math.Min(count, characters.Length);
-        return InVariant(fromEnd ? characters[^kept..] : characters[..kept]);
+        return InVariant(PartOf(characters, fromEnd ? characters.Length - kept : 0, kept));
     }
 
     /// <summary>
@@ -1454,8 +1489,37 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         var characters = text ?? string.Empty;
         var kept = Math.Min(length, characters.Length);
-        part = fromEnd ? characters[^kept..] : characters[..kept];
+        part = PartOf(characters, fromEnd ? characters.Length - kept : 0, kept);
         return true;
+    }
+
+    /// <summary>
+    /// The characters <see cref="LeftOf"/> takes, read where the text holds them: what compiled code gives a form that takes characters
+    /// (<see cref="LengthOf"/>, <see cref="AsciiCodeOf"/>, <see cref="WideCodeOf"/>, <see cref="PositionOf(ReadOnlySpan{char}, ReadOnlySpan{char})"/>)
+    /// and a comparison of Strings in place of the <c>String</c> <c>Left$</c> makes (<strong>MS-VBAL §6.1.2.11.1.20</strong>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="length">How many characters to take.</param>
+    /// <param name="part">The first <paramref name="length"/> characters, or every one when the text has fewer.</param>
+    /// <returns><see langword="false"/> for a negative Length: <see cref="Left"/> raises error 5.</returns>
+    public static bool LeftSpanOf(string? text, int length, out ReadOnlySpan<char> part) => TryTakeSpanOf(text, length, fromEnd: false, out part);
+
+    /// <summary>
+    /// The characters <see cref="RightOf"/> takes, read where the text holds them, as <see cref="LeftSpanOf"/> reads those of <c>Left$</c>
+    /// (<strong>MS-VBAL §6.1.2.11.1.31</strong>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="length">How many characters to take.</param>
+    /// <param name="part">The last <paramref name="length"/> characters, or every one when the text has fewer.</param>
+    /// <returns><see langword="false"/> for a negative Length: <see cref="Right"/> raises error 5.</returns>
+    public static bool RightSpanOf(string? text, int length, out ReadOnlySpan<char> part) => TryTakeSpanOf(text, length, fromEnd: true, out part);
+
+    private static bool TryTakeSpanOf(string? text, int length, bool fromEnd, out ReadOnlySpan<char> part)
+    {
+        var characters = (text ?? string.Empty).AsSpan();
+        var kept = Math.Clamp(length, 0, characters.Length);
+        part = fromEnd ? characters[^kept..] : characters[..kept];
+        return length >= 0;
     }
 
     /// <inheritdoc/>
@@ -1613,7 +1677,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         var characters = Text(text);
         var (index, taken) = MidRange(characters.Length, from, count)!.Value;
-        return InVariant(characters.Substring(index, taken));
+        return InVariant(PartOf(characters, index, taken));
     }
 
     /// <summary>
@@ -1664,8 +1728,36 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     private static bool TryMiddleOf(string? text, int start, int? length, [NotNullWhen(true)] out string? part)
     {
         var characters = text ?? string.Empty;
-        part = MidRange(characters.Length, start, length) is var (index, count) ? characters.Substring(index, count) : null;
+        part = MidRange(characters.Length, start, length) is var (index, count) ? PartOf(characters, index, count) : null;
         return part is not null;
+    }
+
+    /// <summary>
+    /// The characters <see cref="MiddleOf(string, int, out string)"/> takes, read where the text holds them, as <see cref="LeftSpanOf"/> reads those of
+    /// <c>Left$</c> (<strong>MS-VBAL §6.1.2.11.1.26</strong>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="start">The 1-based position the part begins at.</param>
+    /// <param name="part">The characters from <paramref name="start"/> to the end.</param>
+    /// <returns><see langword="false"/> for a Start below 1: <see cref="Mid"/> raises error 5.</returns>
+    public static bool MiddleSpanOf(string? text, int start, out ReadOnlySpan<char> part) => TryMiddleSpanOf(text, start, null, out part);
+
+    /// <summary>
+    /// The characters <see cref="MiddleOf(string, int, int, out string)"/> takes, read where the text holds them, as <see cref="LeftSpanOf"/> reads those
+    /// of <c>Left$</c> (<strong>MS-VBAL §6.1.2.11.1.26</strong>).
+    /// </summary>
+    /// <param name="text">The text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="start">The 1-based position the part begins at.</param>
+    /// <param name="length">How many characters to take.</param>
+    /// <param name="part">Up to <paramref name="length"/> characters from <paramref name="start"/>.</param>
+    /// <returns><see langword="false"/> for a Start below 1 or a negative Length: <see cref="Mid"/> raises error 5.</returns>
+    public static bool MiddleSpanOf(string? text, int start, int length, out ReadOnlySpan<char> part) => TryMiddleSpanOf(text, start, length, out part);
+
+    private static bool TryMiddleSpanOf(string? text, int start, int? length, out ReadOnlySpan<char> part)
+    {
+        var characters = (text ?? string.Empty).AsSpan();
+        part = MidRange(characters.Length, start, length) is var (index, count) ? characters.Slice(index, count) : default;
+        return MidRange(characters.Length, start, length) is not null;
     }
 
     /// <inheritdoc/>

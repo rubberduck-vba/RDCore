@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -121,4 +122,20 @@ internal static class ScalarKinds
 
     /// <summary>Whether a value of the kind is held as a <see cref="long"/>: an integer type, a <c>Boolean</c> or a <c>Currency</c>.</summary>
     public static bool IsIntegral(ScalarKind kind) => kind is not (ScalarKind.Single or ScalarKind.Double or ScalarKind.Date);
+
+    /// <summary>
+    /// How a record field or an array element of the kind is held as bytes (<see cref="RecordShape"/>): a <c>Date</c> as the <c>Double</c> that is its serial.
+    /// </summary>
+    public static RecordFieldEncoding EncodingOf(ScalarKind kind) => kind switch
+    {
+        ScalarKind.Byte => RecordFieldEncoding.Byte,
+        ScalarKind.Integer => RecordFieldEncoding.Int16,
+        ScalarKind.Long => RecordFieldEncoding.Int32,
+        ScalarKind.LongLong => RecordFieldEncoding.Int64,
+        ScalarKind.Boolean => RecordFieldEncoding.Boolean,
+        ScalarKind.Currency => RecordFieldEncoding.Currency,
+        ScalarKind.Single => RecordFieldEncoding.Single,
+        ScalarKind.Double or ScalarKind.Date => RecordFieldEncoding.Double,
+        _ => RecordFieldEncoding.None,
+    };
 }

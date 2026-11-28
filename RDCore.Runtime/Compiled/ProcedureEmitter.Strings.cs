@@ -150,11 +150,12 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, Fail(failure));
     }
 
-    // the bool of two texts compared, on the stack (CompiledActivation.CompareText).
+    // the bool of two texts compared, on the stack (CompiledActivation.CompareText): their characters, a part of a text Mid$, Left$ or Right$ takes being
+    // compared where the text holds it (EmitCharactersInto).
     private void EmitTextCompare(TextCompareNode compared, Label failure)
     {
-        var left = EmitTextInto(compared.Left, failure);
-        var right = EmitTextInto(compared.Right, failure);
+        var left = EmitCharactersInto(compared.Left, failure);
+        var right = EmitCharactersInto(compared.Right, failure);
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldc_I4, (int)compared.Operator);
         _il.Emit(OpCodes.Ldloc, left);

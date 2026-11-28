@@ -137,7 +137,6 @@ public sealed class VisualBasicFormControlsTests
     }
 
     [TestMethod]
-    [Ignore("not implemented: a control array of an RDForms form as an object of its own, reached by its name in Controls")]
     public async Task AControlArray_ReachedByItsName_IsTheArray_WhichHasNoName()
     {
         var lines = await RunAsync(

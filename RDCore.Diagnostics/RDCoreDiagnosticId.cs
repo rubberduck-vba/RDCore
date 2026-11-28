@@ -132,6 +132,7 @@ public enum RDCoreDiagnosticId
     ParameterCanBeByVal = 1023, // [RD2:ParameterCanBeByValInspection] Sub Show(n As Long) that never assigns n nor passes it on ByRef
     DefaultProjectName = 1024, // [RD2:DefaultProjectNameInspection] a project named VBAProject, reported against its .rdproj at the name
     ProcedureNotUsed = 1025, // a procedure or a property no code calls, its own calls aside
+    CodeLeftOutByConditionalCompilation = 1026, // #If DEBUGMODE Then, DEBUGMODE 0: the branch's lines; the language server tells it from the dead branches
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,

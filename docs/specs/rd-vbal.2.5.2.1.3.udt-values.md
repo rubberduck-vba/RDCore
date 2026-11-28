@@ -14,16 +14,22 @@ A UDT has location identity. A UDT is never copied by value at the level of its 
 
 ## Field Store
 
-A UDT value carries a **field store**: one cell per declared field, in **declaration order**.
+A UDT value is a view of its **field store**, a [RecordBlock](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.RecordBlock.html): the storage of one record, laid out in **declaration order** by the type's [RecordShape](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.RecordShape.html).
 
-A UDT value carries its field store in the same way as an array value carries its element block ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)), and for the same reason: a UDT's real data is its fields, which a scalar managed value has nowhere to hold.
+|Field|Held in the block|
+|---|---|
+|`Byte`, `Integer`, `Boolean`, `Long`, `LongLong`, `LongPtr`, `Single`, `Double`, `Currency`, `Date`, an `Enum`|As bytes, read and written through the field's [RecordBytesCell](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.RecordBytesCell.html).|
+|A nested UDT|Inline: its bytes and slots are the outer record's own, and the nested UDT value is a view of the same block.|
+|Any other field: a `String` (fixed-length or not), an object, a `Variant`, an array, a `Decimal`|In a reference slot, as a value in a cell of its own.|
+
+A UDT value carries its field store for the same reason an array value carries its element block ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)): a UDT's real data is its fields, which a scalar managed value has nowhere to hold.
 
 The declaration order of the field store is normative rather than incidental. It is:
 
 - the order [**MS-VBAL §5.4.5.11** Put Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/46eeacb8-7a06-4ec8-9736-eea42de4eeca) writes a record in (see [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md));
 - the order [VBUserDefinedTypeLayout](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html) assigns field offsets in.
 
-Each field-store cell starts at its field's declared type's own default value, because VBA gives a UDT no initializer.
+Each field starts at its declared type's own default value, because VBA gives a UDT no initializer: a field held as bytes starts as zero bytes.
 
 A UDT field is not an addressable symbol the way a variable is: a `Let` assignment to a UDT field writes the field's cell. See [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
 
@@ -35,7 +41,7 @@ Like an array, a UDT value is **location-identified**. Three pieces preserve a U
 |---|---|
 |[VBRuntimeUserDefinedTypeValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeUserDefinedTypeValue.html) boxing|Boxes a UDT value when it is stored, into the handle a symbol's storage allocation reserves.|
 |[VBUserDefinedType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUserDefinedType.html)`.CreateValue(IBindingHandle)` unboxing|Unboxes the stored UDT value back out unchanged, rather than rebuilding one with default fields.|
-|The `VBUserDefinedTypeValue` copy constructor|Gives every `with`-derived copy a field store of its own.|
+|The `VBUserDefinedTypeValue` copy constructor|Makes every `with`-derived copy another view of the same field store, at the same offsets: a field written through one is written through the other.|
 
 Three kinds of value are location-identified this way: an array, a `Variant`, and a UDT (`VBRuntimeUserDefinedTypeValue`).
 
@@ -45,7 +51,7 @@ Reconstructing a UDT value from a handle, instead of unboxing it, would return a
 
 ### Copies
 
-A copy of a UDT value gets a field store of its own. The copy is deep through a nested UDT. This is because VBA copies a UDT on assignment; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
+The copy an assignment makes (`DataCopy`) gets a field store of its own: the record's bytes copied, and each reference field a copy in a cell of its own, deep through an array and what a `Variant` holds. A nested UDT is inline, so the copy is deep through it. This is because VBA copies a UDT on assignment; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
 
 ## Sizes
 

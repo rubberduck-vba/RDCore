@@ -298,6 +298,7 @@ public sealed class RuntimeExecutionPipeline
         var app = new AppCallProvider(session) { Forms = world.Forms };
         var script = new ScriptHostCallProvider(session, cancellation);
         var scripting = new External.Scripting.ScriptingCallProvider(session);
+        var json = new Hosting.Json.JsonCallProvider(session);
         var external = analysis
             ? new ExternalCallPipeline(session, observation is null ? [] : [new AssumedCallInterceptor(observation)], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
             // a member a form's designer declares is the form host's, which calls the members of the form object itself through the servers' provider.
@@ -317,6 +318,8 @@ public sealed class RuntimeExecutionPipeline
                     // the Scripting library's Dictionary and FileSystemObject are the platform's own too, ahead of the server that would answer them
                     // where there is one.
                     scripting,
+                    // and RDJson's JsonValue, which converts the program's values to JSON and back.
+                    json,
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
                     // the shlwapi function that connects an object of the program's own to a server's events is the session's to run, not the native library's.
@@ -324,8 +327,8 @@ public sealed class RuntimeExecutionPipeline
                     new DeclaredProcedureProvider(session, world.Libraries),
                 ],
                 // a library the platform implements does not count as automation: an environment that allows none still has stdole's pictures
-                // and fonts, App, WScript, and Scripting's Dictionary and FileSystemObject.
-                implementations: [pictures, fonts, app, script, scripting]);
+                // and fonts, App, WScript, Scripting's Dictionary and FileSystemObject, and RDJson.
+                implementations: [pictures, fonts, app, script, scripting, json]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         // Unload runs a form's QueryClose and Terminate, which are code the bindings call: the last edge of that cycle too.
         forms.Bindings = bindings;

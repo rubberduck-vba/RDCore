@@ -20,9 +20,10 @@ namespace RDCore.LanguageServer.Symbols;
 /// </remarks>
 internal sealed class ModuleLiveBranches(IWorkspaceDocumentService documents, IParsingClientService parsing)
 {
-    // by document: the version of the text the host was sent, its blocks, and the ordinals of the branches that are dead of them.
-    private readonly ConcurrentDictionary<Uri, (int Version, ConditionalCompilationBlocks Blocks, IReadOnlyList<(int Block, int Branch)> Dead)> _modules
-        = new();
+    // by document: the version of the text the host was sent, its blocks, the ordinals of the branches that are dead of them, and where those are in that
+    // text.
+    private readonly ConcurrentDictionary<Uri, (int Version, ConditionalCompilationBlocks Blocks, IReadOnlyList<(int Block, int Branch)> Dead,
+        IReadOnlyList<SourceLocation> Locations)> _modules = new();
 
     /// <summary>
     /// Records what the host said is dead of a parse of a module it was sent, when that parse is of the document as it reads now; forgets what it knew of the
@@ -45,8 +46,19 @@ internal sealed class ModuleLiveBranches(IWorkspaceDocumentService documents, IP
         }
 
         var blocks = ConditionalCompilationBlocks.Of(sent.PrecompilerTrivia);
-        _modules[document] = (current.Version, blocks, blocks.DeadOrdinals(dead));
+        _modules[document] = (current.Version, blocks, blocks.DeadOrdinals(dead), [.. dead]);
     }
+
+    /// <summary>
+    /// The branches that are not live of a document as it reads now, where they are in its text; <see langword="null"/> when that is not known: the host
+    /// evaluated no parse of the document as it reads now.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    public IReadOnlyList<SourceLocation>? DeadBranchesOf(Uri document)
+        => _modules.TryGetValue(document, out var recorded)
+            && documents.TryGetDocument(document, out var current) && current.Version == recorded.Version
+            ? recorded.Locations
+            : null;
 
     /// <summary>
     /// Whether a location of a parse of a module is in a branch that is not live; <see langword="null"/> when that is not known: the host

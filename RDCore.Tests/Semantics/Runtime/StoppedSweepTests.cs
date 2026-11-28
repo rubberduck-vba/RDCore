@@ -73,14 +73,14 @@ public sealed class StoppedSweepTests
         Assert.IsFalse(complete, "the sweep stopped before it was complete");
     }
 
-    // an array of the largest length costs nothing until its elements are used: the sweep makes none, and the first one used then asks the token whether
-    // to stop: the token says it is, so that one is not made either. A value that is boxed is in the cell the array makes of its default, made with
-    // nothing asked.
+    // an array of the largest length costs nothing until its elements are used: the sweep makes none. The first element used of an array of cells then
+    // asks the token whether to stop: the token says it is, so that one is not made either. An element held as bytes is made with nothing asked, and so is
+    // a value that is boxed, in the cell the array makes of its default: the analysis stops at its next instruction.
     [TestMethod]
-    [DataRow("Byte", DisplayName = "of a Byte, in a cell of its own")]
-    [DataRow("Variant", DisplayName = "of a Variant, in a Variant's cell")]
-    [DataRow("TPoint", DisplayName = "of a record")]
-    public async Task AnArrayOfTheLargestLength_IsMadeNoElementOf_UntilOneIsUsed(string type)
+    [DataRow("Byte", false, DisplayName = "of a Byte, held as bytes")]
+    [DataRow("Variant", true, DisplayName = "of a Variant, in a Variant's cell")]
+    [DataRow("TPoint", true, DisplayName = "of a record")]
+    public async Task AnArrayOfTheLargestLength_IsMadeNoElementOf_UntilOneIsUsed(string type, bool asks)
     {
         if (type is not "TPoint" && !UnboxedEvaluation.IsEnabled)
         {
@@ -92,6 +92,15 @@ public sealed class StoppedSweepTests
 
         Assert.IsNull(thrown, $"{thrown}");
         Assert.AreEqual(MostElements, array.Length);
-        Assert.ThrowsExactly<OperationCanceledException>(() => array.CellAt(0));
+        Assert.IsEmpty(array.MadeCells, "no element is made");
+        Assert.AreEqual(!asks, array.ElementEncoding != RecordFieldEncoding.None, "the premise: an element made with nothing asked is held as bytes");
+        if (asks)
+        {
+            Assert.ThrowsExactly<OperationCanceledException>(() => array.CellAt(0));
+        }
+        else
+        {
+            Assert.IsNotNull(array.CellAt(0));
+        }
     }
 }

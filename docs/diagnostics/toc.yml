@@ -600,6 +600,8 @@
   href: rdc01024.md
 - name: "RDC01025: Procedure not used"
   href: rdc01025.md
+- name: "RDC01026: Code left out by conditional compilation"
+  href: rdc01026.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"

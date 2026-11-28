@@ -106,7 +106,8 @@ internal sealed class DocumentDiagnosticsService(
     IWorkspaceRefresh refresh,
     ILogger<DocumentDiagnosticsService> logger,
     IEditStatusMonitor? editStatus = null,
-    IDisabledDiagnostics? disabled = null) : IDocumentDiagnosticsService
+    IDisabledDiagnostics? disabled = null,
+    ModuleLiveBranches? liveBranches = null) : IDocumentDiagnosticsService
 {
     // the codes disabled for the workspace's documents, which the providers are sent: none when nothing says.
     private IReadOnlySet<RDCoreDiagnosticCode> Disabled => disabled?.Codes ?? new HashSet<RDCoreDiagnosticCode>();
@@ -220,7 +221,10 @@ internal sealed class DocumentDiagnosticsService(
         {
             var cached = parsing.TryGetCached(documentUri, out var parsed) ? parsed : null;
             IReadOnlyList<Diagnostic> own =
-                [.. tellsEdits ? EditsNotApplied(document, cached) : [], .. RefusalsOf(RefusedOf(document, token), document, phase)];
+            [
+                .. tellsEdits ? EditsNotApplied(document, cached) : [], .. RefusalsOf(RefusedOf(document, token), document, phase),
+                .. LeftOutOf(document, phase),
+            ];
             own = cached is not null ? IgnoreAnnotations.Apply(documentUri, cached, own, phase, Disabled) : own;
             return DocumentDiagnosticsResult.Fresh(version, own.Count == 0 ? [] : InTheTextOf(document, own), generation);
         }
@@ -270,7 +274,8 @@ internal sealed class DocumentDiagnosticsService(
 
         // what the annotations suppress is dropped once every provider has answered: the analyzers ran, and their findings are not published.
         var found = IgnoreAnnotations.Apply(documentUri, parseResult,
-            [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. RefusalsOf(refused, document, phase)], phase, Disabled);
+            [.. Aggregate(reports), .. tellsEdits ? EditsNotApplied(document, parseResult) : [], .. RefusalsOf(refused, document, phase),
+                .. LeftOutOf(document, phase)], phase, Disabled);
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 
@@ -329,6 +334,37 @@ internal sealed class DocumentDiagnosticsService(
 
     // a core diagnostic the language server reports itself: the core extension's registry of RDC codes names it EditNotApplied.
     private static readonly RDCoreDiagnosticCode EditNotApplied = new(RDCoreDiagnosticCode.CorePrefix, 20001);
+
+    // RDC01026, MS-VBAL §3.4: each branch of the document's #If blocks that the host evaluated as not live when it last defined the module's symbols from
+    // the text as it reads now, over its whole lines: from the start of the line after its directive to the end of the line before the next one. A block
+    // written in a dead branch is in its lines; a branch of no line is none. The static phase tells them; none when the code is disabled, or what is dead is
+    // not known.
+    private IEnumerable<Diagnostic> LeftOutOf(WorkspaceDocument document, AnalysisPhase phase)
+    {
+        if (!phase.HasFlag(AnalysisPhase.Static) || Disabled.Contains(LeftOut)
+            || liveBranches?.DeadBranchesOf(document.Id.Uri.ToUri()) is not { Count: > 0 } dead)
+        {
+            yield break;
+        }
+
+        // a branch's range runs to the start of the line of the directive after it, and is of the parse: a program of the BASIC has a header its text does
+        // not.
+        var lines = document.Text.Split('\n');
+        var header = BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath()) ? BasicProgramText.HeaderLines : 0;
+        foreach (var branch in dead.Select(location => location.Range).Where(range => !range.IsEmpty))
+        {
+            var last = branch.End.Character == 0 ? branch.End.Line - 1 : branch.End.Line;
+            var length = last - header is var line && line >= 0 && line < lines.Length ? lines[line].TrimEnd('\r').Length : 0;
+            var range = new SourceRange(new SourcePosition(branch.Start.Line, 0), new SourcePosition(last, length));
+            yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(LeftOut, range, DiagnosticSeverity.Hint, DeadBranchMessages.LeftOut)
+            {
+                Tags = [DiagnosticTag.Unnecessary],
+            });
+        }
+    }
+
+    // a core diagnostic the language server reports itself: the core extension's registry of RDC codes names it CodeLeftOutByConditionalCompilation.
+    private static readonly RDCoreDiagnosticCode LeftOut = new(RDCoreDiagnosticCode.CorePrefix, 1026);
 
     private static readonly DiagnosticFactory Findings = new();
 

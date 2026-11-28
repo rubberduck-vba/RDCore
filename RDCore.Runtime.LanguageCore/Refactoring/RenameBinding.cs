@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
@@ -33,6 +34,11 @@ public static class RenameBinding
 
         if (NameOccurrences.NameAt(source, position) is not { } name)
         {
+            if (DebugNameAt(source, position) is { } debug)
+            {
+                return DebugSymbolOf(context, source, position, debug.Name, debug.IsMember) is { } named ? (debug.Range, named) : null;
+            }
+
             return NameOccurrences.TypeNameAt(source, position) is { } typeName
                 && context.Resolver.ResolveType(typeName.Name, ScopeKind.Local, NameOccurrences.ScopeOf(context, source, position).Uri).Symbol is { } declared
                 ? (typeName.Range, declared)
@@ -54,6 +60,42 @@ public static class RenameBinding
         return here.Scope is { } scope && context.Resolver.ResolveType(name, ScopeKind.Local, scope.Uri).Symbol is { } type
             ? (here.Range, type)
             : null;
+    }
+
+    // where a statement against the Debug object writes Debug or its member, which the parse keeps (DebugStatementNode): the name, and whether it is the
+    // member.
+    private static (SourceRange Range, string Name, bool IsMember)? DebugNameAt(RenameModule source, SourcePosition position)
+    {
+        foreach (var statement in source.Syntax.Descendants().OfType<DebugStatementNode>())
+        {
+            if (statement.ObjectRange is { } written && Contains(written, position))
+            {
+                return (written, StandardLibrary.DebugObjectName, false);
+            }
+
+            if (statement.MemberRange is { } member && Contains(member, position))
+            {
+                return (member, statement is DebugAssertStatementNode ? Tokens.Assert : Tokens.Print, true);
+            }
+        }
+
+        return null;
+    }
+
+    // what Debug.Print and Debug.Assert name: the standard library's Debug object's class - the object is its default instance, which says
+    // nothing of its own - and its Print or Assert (StandardLibrary.IsDebugObject). A Debug of the workspace that hides it names nothing here: the statement
+    // is the Debug object's still, which the parse told apart by its spelling.
+    private static Symbol? DebugSymbolOf(RenameContext context, RenameModule source, SourcePosition position, string name, bool isMember)
+    {
+        if (context.Resolver.ResolveValue(StandardLibrary.DebugObjectName, ScopeKind.Local, NameOccurrences.ScopeOf(context, source, position).Uri).Symbol
+            is not VBPredeclaredInstanceSymbol debug || !StandardLibrary.IsDebugObject(debug))
+        {
+            return null;
+        }
+
+        return isMember
+            ? debug.ClassModule.Members.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase))
+            : debug.ClassModule;
     }
 
     // a property is defined by each of its procedures - its Property Get, Let and Set: what an access calls is not known from the name alone.

@@ -436,50 +436,11 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
         // "If a <redim-statement> containing the keyword Preserve results in more elements in a dimension,
         // each of the extra elements is set to its default data value" - which they already are; and an element
-        // now outside the bounds is simply not copied, its data value discarded.
-        Kept(array, resized);
+        // now outside the bounds is simply not copied, its data value discarded. Of a shape that is only assumed, nothing may be kept: the array made is
+        // not known.
+        _ = resized.TryPreserveFrom(array);
 
         return Store(session, context, redim, target, isKnown ? resized : (VBArrayValue)resized.AsIndeterminate());
-    }
-
-    // only the last dimension's upper bound moves (MS-VBAL §5.4.3.3), and the elements are stored in the order MS-VBAL §5.4.2.4.1 enumerates them, the
-    // last subscript varying slowest, so an element still in the bounds is at the flat index it was at, and the kept ones are the first of either array.
-    // Each cell made is moved there; an element with no cell holds the default, as a cell the resized array makes holds it, unless the elements without
-    // one are not known: then each kept element is given its cell.
-    private static void Kept(VBArrayValue array, VBArrayValue resized)
-    {
-        var kept = Math.Min(array.Length, resized.Length);
-        var next = 0;
-        var unmade = -1;
-        foreach (var (flat, cell) in array.MadeCells)
-        {
-            if (flat >= kept)
-            {
-                break;
-            }
-
-            if (unmade < 0 && flat > next)
-            {
-                unmade = next;
-            }
-
-            resized.TrySetElementAt(flat, cell);
-            next = flat + 1;
-        }
-
-        if (unmade < 0 && next < kept)
-        {
-            unmade = next;
-        }
-
-        // every element without a cell holds the same default value, so what one of them is known to hold, each is.
-        if (unmade >= 0 && array.CellAt(unmade) is IKnowledgeBinding { IsKnown: false })
-        {
-            for (var flat = 0; flat < kept; flat++)
-            {
-                resized.TrySetElementAt(flat, array.CellAt(flat)!);
-            }
-        }
     }
 
     // TODO raise error 10 ("This array is fixed or temporarily locked") when the variable is currently

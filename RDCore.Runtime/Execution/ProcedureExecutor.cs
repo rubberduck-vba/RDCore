@@ -1666,11 +1666,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return null;
         }
 
-        // an element of an array of a scalar type is let-assigned to a Variant control variable as the payload it is: the Variant holds a value of
-        // the element's type, as the assignment makes it hold. A control variable that holds an object is assigned boxed, which lets go of it.
+        // an element of an array of a scalar type is let-assigned to a Variant control variable as the payload it is, read in the bytes the array holds it
+        // in: the Variant holds a value of the element's type, as the assignment makes it hold. A control variable that holds an object is assigned boxed,
+        // which lets go of it.
         var payloads = state.RuntimeState as ForEachPayloads ?? NewForEachPayloads(activation, state);
         if (observation is null && UnboxedEvaluation.IsEnabled && !state.Array.IsIndeterminate && payloads.Control is { } slot
-            && state.Array.CellAt(nextIndex) is ScalarCell elementCell && elementCell.TryRead(out var payload)
+            && ScalarPayload.TryOfElement(state.Array, nextIndex, out var payload)
             && activation.TryReadSlot(slot, (Symbol)state.Control, out var controlCell, out var referenced) && referenced is null
             && controlCell is VariantCell { HoldsNoObject: true } control)
         {

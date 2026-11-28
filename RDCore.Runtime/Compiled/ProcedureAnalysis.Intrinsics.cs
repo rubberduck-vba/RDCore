@@ -188,8 +188,10 @@ internal sealed partial class ProcedureAnalysis
                 return null;
             }
 
+            // a form that takes the characters of a text (ReadOnlySpan<char>) takes a String as one that takes the text does: the emitter gives it the
+            // characters of the String, or of the part of one a Mid$, a Left$ or a Right$ takes, which is then not made a String (EmitCharactersInto).
             var type = parameters[i].ParameterType;
-            if (type == typeof(string) && declared is VBStringType and not VBFixedStringType && IsStringItem(value))
+            if ((type == typeof(string) || type == typeof(ReadOnlySpan<char>)) && declared is VBStringType and not VBFixedStringType && IsStringItem(value))
             {
                 if (Text(value) is not { } text)
                 {

@@ -4,11 +4,14 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Facts;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Statements;
@@ -93,15 +96,51 @@ public sealed record class MidStatementRuntimeSemantics(
 
     // the same in bytes: the string's data as it is stored - UTF-16 little-endian code units, and the byte left over of an
     // odd one - so a byte offset can fall inside a character. They are the string's own bytes (VBStringValue.GetBytes),
-    // not a text encoding of its characters, which would read the lone surrogate an odd offset can make as U+FFFD.
+    // not a text encoding of its characters, which would read the lone surrogate an odd offset can make as U+FFFD. The new
+    // String is made once, the bytes of the value written over the target's where it is made; the byte left over of an odd
+    // target stays beside its characters, or is the value's byte that replaces it.
     private static VBStringValue ReplaceBytes(VBStringValue target, int offset, long? length, VBStringValue value)
     {
-        var bytes = target.GetBytes();
-        var source = value.GetBytes();
-        var count = (int)Math.Min(Math.Min(length ?? int.MaxValue, bytes.Length - offset), source.Length);
-        Array.Copy(source, 0, bytes, offset, count);
-        return VBStringValue.FromBytes(bytes);
+        var text = Text(target);
+        var source = Text(value);
+        var count = (int)Math.Min(Math.Min(length ?? int.MaxValue, target.ByteLength - offset), value.ByteLength);
+        var characters = string.Create(text.Length, (text, source, value.TrailingByte, offset, count), static (made, state) =>
+        {
+            state.text.AsSpan().CopyTo(made);
+            var bytes = MemoryMarshal.AsBytes(made);
+            var end = Math.Min(state.offset + state.count, bytes.Length);
+            if (end > state.offset)
+            {
+                CopyValueBytes(state.source, state.TrailingByte, bytes[state.offset..end]);
+            }
+        });
+
+        var trailing = target.TrailingByte;
+        var trailingAt = 2 * text.Length;
+        if (trailing is not null && offset + count > trailingAt)
+        {
+            trailing = ValueByteAt(source, value.TrailingByte, trailingAt - offset);
+        }
+
+        return new(new ValueBindingHandle(trailing is { } left
+            ? new VBRuntimeByteStringValue(characters, left)
+            : new VBRuntimeValue<string>(characters)));
     }
+
+    // the first bytes of a value's data: its characters' bytes, then the byte left over of an odd one.
+    private static void CopyValueBytes(string source, byte? trailing, Span<byte> into)
+    {
+        var characterBytes = MemoryMarshal.AsBytes(source.AsSpan());
+        var copied = Math.Min(into.Length, characterBytes.Length);
+        characterBytes[..copied].CopyTo(into);
+        if (copied < into.Length)
+        {
+            into[copied] = trailing!.Value;
+        }
+    }
+
+    private static byte ValueByteAt(string source, byte? trailing, int index)
+        => index < 2 * source.Length ? MemoryMarshal.AsBytes(source.AsSpan())[index] : trailing!.Value;
 
     // "The data value of <string-argument> MUST be Let-coercible to String", and so must the value assigned into it.
     private bool TryEvaluateString(

@@ -102,12 +102,12 @@ public sealed class VBArrayValueTests
     [TestMethod]
     public void GetElementHandle_ReadsTheCellsOwnBinding()
     {
-        var a = Fixed([(1, 2)], VBLongType.TypeInfo);
-        var binding = new ValueBindingHandle(new VBRuntimeValue<int>(7));
+        var a = Strings([(1, 2)]);
+        var binding = Text("seven");
         a.TrySetElement(binding, 2);
 
         Assert.AreSame(binding, a.GetElementHandle(2));
-        Assert.AreEqual(0, ((VBLongValue)a[1]!).Value, "an unassigned cell still holds its default");
+        Assert.AreEqual(VBStringType.TypeInfo.DefaultValue.RuntimeValue.BoxedValue, TextAt(a, 1), "an unassigned cell still holds its default");
     }
 
     [TestMethod]
@@ -168,6 +168,19 @@ public sealed class VBArrayValueTests
 
     private static ValueBindingHandle Handle(int value) => new(new VBRuntimeValue<int>(value));
 
+    private static ValueBindingHandle Text(string value) => new(new VBStringValue(value).RuntimeValue);
+
+    private static object? TextAt(VBArrayValue array, int subscript) => array[subscript]!.RuntimeValue.BoxedValue;
+
+    // an array whose elements are held in cells, which an element is rebound to: a String's. An element of a fixed-width type is held as bytes, written
+    // where it is (VBArrayValue.TrySetElement).
+    private static VBFixedSizeArrayValue Strings((int lBound, int uBound)[] dims)
+    {
+        var array = Fixed(dims, VBStringType.TypeInfo);
+        Assert.AreEqual(RecordFieldEncoding.None, array.ElementEncoding, "the premise: a String element is held in a cell");
+        return array;
+    }
+
     [TestMethod]
     public void TryAllocateIn_BindsTheAllocatedAddressAsItsOwnValue_AndPreservesDerivedType()
     {
@@ -205,15 +218,15 @@ public sealed class VBArrayValueTests
     // through either value's own element accessor must not be visible through the other's.
     public void TryAllocateIn_GivesTheAllocatedCopyIndependentCells()
     {
-        var array = Fixed([(1, 3)], VBLongType.TypeInfo);
+        var array = Strings([(1, 3)]);
         var storage = new SessionStorage(new SessionMemory(new(), PointerSize.x86));
         array.TryAllocateIn(storage, out var allocated);
 
-        array.TrySetElement(Handle(1), 2);
-        allocated!.TrySetElement(Handle(2), 2);
+        array.TrySetElement(Text("one"), 2);
+        allocated!.TrySetElement(Text("two"), 2);
 
-        Assert.AreEqual(1, ((VBLongValue)array[2]!).Value);
-        Assert.AreEqual(2, ((VBLongValue)allocated[2]!).Value);
+        Assert.AreEqual("one", TextAt(array, 2));
+        Assert.AreEqual("two", TextAt(allocated, 2));
     }
 
     [TestMethod]

@@ -40,38 +40,41 @@ public static class RecordOperations
     public static object? FieldRecord(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBUserDefinedTypeValue;
 
     /// <summary>
-    /// The payload the field at <paramref name="index"/> of <paramref name="record"/>, of an integral kind, holds.
+    /// The payload the field at <paramref name="place"/> of <paramref name="record"/>, of an integral kind, holds: a field of the record, or of a record it
+    /// nests (<see cref="RecordShape.PlaceOf"/>).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ReadIntegral(object? record, int index, ScalarKind kind, out long value)
+    public static bool ReadIntegral(object? record, int place, ScalarKind kind, out long value)
     {
-        var read = TryRead(record, index, kind, out var payload);
+        var read = TryRead(record, place, kind, out var payload);
         value = payload.Integral;
         return read;
     }
 
     /// <summary>
-    /// The payload the field at <paramref name="index"/> of <paramref name="record"/>, of a floating-point kind, holds.
+    /// The payload the field at <paramref name="place"/> of <paramref name="record"/>, of a floating-point kind, holds.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ReadFloating(object? record, int index, ScalarKind kind, out double value)
+    public static bool ReadFloating(object? record, int place, ScalarKind kind, out double value)
     {
-        var read = TryRead(record, index, kind, out var payload);
+        var read = TryRead(record, place, kind, out var payload);
         value = payload.Floating;
         return read;
     }
 
     /// <summary>
-    /// Let-assigns a payload of the field's integral kind to the field at <paramref name="index"/> of <paramref name="record"/> (MS-VBAL §5.4.3.8). The payload is
-    /// written in the field's cell, which a <c>ByRef</c> parameter given the field is bound to, as <c>AssignField</c> writes it
-    /// (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>).
+    /// Let-assigns a payload of the field's integral kind to the field at <paramref name="place"/> of <paramref name="record"/> (MS-VBAL §5.4.3.8): a field
+    /// of the record, or of a record it nests (<see cref="RecordShape.PlaceOf"/>). The payload is written where the record holds the field, which the cell
+    /// a <c>ByRef</c> parameter given the field is bound to reads, as <c>AssignField</c> writes it (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>).
     /// </summary>
-    public static bool WriteIntegral(object? record, int index, ScalarKind kind, long value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
+    public static bool WriteIntegral(object? record, int place, ScalarKind kind, long value)
+        => TryWrite(record, place, kind, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
 
     /// <summary>
-    /// Let-assigns a payload of the field's floating-point kind to the field at <paramref name="index"/> of <paramref name="record"/>.
+    /// Let-assigns a payload of the field's floating-point kind to the field at <paramref name="place"/> of <paramref name="record"/>.
     /// </summary>
-    public static bool WriteFloating(object? record, int index, ScalarKind kind, double value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), 0, value));
+    public static bool WriteFloating(object? record, int place, ScalarKind kind, double value)
+        => TryWrite(record, place, kind, new ScalarPayload(ScalarKinds.TypeOf(kind), 0, value));
 
     /// <summary>
     /// The payload the <c>Variant</c> field at <paramref name="index"/> of <paramref name="record"/> holds, when it holds a known value of a scalar type.
@@ -161,11 +164,24 @@ public static class RecordOperations
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ArrayField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBArrayValue;
 
-    // a field held as a payload (DeclaredVariableDefaults) is read where it is, with no value boxed; any other, of the value it holds.
-    private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
+    // a field held as bytes of the kind's encoding, or as a payload (DeclaredVariableDefaults), is read where it is, with no value boxed; any other, of
+    // the value it holds. A field of the record itself is at the place of its position (StoredFieldAt); a field of a record it nests that is not held as
+    // bytes is the interpreter's.
+    private static bool TryRead(object? record, int place, ScalarKind kind, out ScalarPayload payload)
     {
         payload = default;
-        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is not { } field)
+        if (record is not VBUserDefinedTypeValue held)
+        {
+            return false;
+        }
+
+        if (held.TryReadBytesField(place, ScalarKinds.EncodingOf(kind), out var integral, out var floating))
+        {
+            payload = new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating);
+            return true;
+        }
+
+        if (held.StoredFieldAt(place) is not { } field)
         {
             return false;
         }
@@ -176,9 +192,21 @@ public static class RecordOperations
     }
 
     // the field holds a value of its declared type, as the interpreter's Let makes it: a LongPtr field a LongPtr, of the payload of the type it is an alias of.
-    private static bool TryWrite(object? record, int index, ScalarPayload payload)
+    // A field held as bytes of the kind's encoding is written in them, which is what letting it a value of its type writes, with no cell made of it. Any
+    // other is a field of the record itself, at the place of its position, as TryRead reads it.
+    private static bool TryWrite(object? record, int place, ScalarKind kind, ScalarPayload payload)
     {
-        if (record is not VBUserDefinedTypeValue held || held.StoredFieldAt(index) is not { } before)
+        if (record is not VBUserDefinedTypeValue held)
+        {
+            return false;
+        }
+
+        if (held.TryWriteBytesField(place, ScalarKinds.EncodingOf(kind), payload.Integral, payload.Floating))
+        {
+            return true;
+        }
+
+        if (held.StoredFieldAt(place) is not { } before)
         {
             return false;
         }
@@ -197,7 +225,7 @@ public static class RecordOperations
 
         if (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86)
         {
-            return held.TryLetFieldAt(index, (payload with { Type = before.TypeInfo }).Typed());
+            return held.TryLetFieldAt(place, (payload with { Type = before.TypeInfo }).Typed());
         }
 
         // a field of the payload's own type is written in its cell, as TryLetFieldAt writes a value of the field's type: the value stored there, with no value
@@ -208,7 +236,7 @@ public static class RecordOperations
             return true;
         }
 
-        return held.TryLetFieldAt(index, payload.Typed());
+        return held.TryLetFieldAt(place, payload.Typed());
     }
 
     // the class of the value of a scalar type, as the type makes one (ScalarPayload.Typed): what a field of the type holds.

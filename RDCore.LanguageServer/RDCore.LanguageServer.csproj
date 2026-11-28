@@ -43,6 +43,15 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>DebuggerMessages.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <Compile Update="Diagnostics\DeadBranchMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>DeadBranchMessages.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Diagnostics\DeadBranchMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>DeadBranchMessages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <Compile Update="Diagnostics\SuppressionMessages.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
