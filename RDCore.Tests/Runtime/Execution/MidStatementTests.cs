@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Execution;
@@ -185,32 +186,40 @@ public sealed class MidStatementTests
     }
 
     // a Mid statement of a 10,000-character String makes the one String it leaves: what it allocates is that String's 20,000 bytes, not a copy of the
-    // target's data besides.
+    // target's data besides. What the loop allocates is read where it runs, between two Debug.Print, on the thread that runs it: the parsing and the
+    // session around it, which earlier tests in the process change, are outside it.
     [TestMethod]
-    public void AStatementOfALongString_MakesOnlyTheStringItLeaves()
+    [DataRow("Mid$(S, I, 1) = \"x\"", DisplayName = "Mid$")]
+    [DataRow("MidB$(S, 2 * I - 1, 2) = \"x\"", DisplayName = "MidB$")]
+    public void AStatementOfALongString_MakesOnlyTheStringItLeaves(string statement)
     {
-        const int Statements = 50;
+        const int Length = 10_000;
+        const int Statements = 100;
         var symbols = new Symbol[] { Variable("S", VBStringType.TypeInfo), Variable("I", VBLongType.TypeInfo) };
-        long Allocated(string statement)
-        {
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            var (session, outcome) = RuntimeSourceHarness.Run(null, symbols, output: null, standardLibrary: true,
-                "S = Space$(10000)", $"For I = 1 To {Statements}", statement, "Next");
-            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
-            var text = (string)session.Symbols.Resolver.GetValue(symbols[0]).Value.BoxedValue!;
-            Assert.AreEqual(statement.Length == 0 ? 0 : Statements, text.Count(character => character == 'x'), "the statement ran each time");
-            return allocated;
-        }
+        var marks = new AllocationMarks();
+        var (session, outcome) = RuntimeSourceHarness.Run(null, symbols, marks, standardLibrary: true,
+            $"S = Space$({Length})", "Debug.Print", $"For I = 1 To {Statements}", statement, "Next", "Debug.Print");
 
-        Allocated("Mid$(S, I, 1) = \"x\""); // the first run pays for what it loads, once
-        var without = Allocated(string.Empty);
-        foreach (var statement in new[] { "Mid$(S, I, 1) = \"x\"", "MidB$(S, 2 * I - 1, 2) = \"x\"" })
-        {
-            var each = (Allocated(statement) - without) / Statements;
-            Assert.IsGreaterThanOrEqualTo(20_000L, each,
-                $"{statement} allocated {each:N0} bytes each: less than the String it leaves, so nothing was measured");
-            Assert.IsLessThan(30_000L, each, $"{statement} allocated {each:N0} bytes each: the String it leaves is 20,022");
-        }
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        var text = (string)session.Symbols.Resolver.GetValue(symbols[0]).Value.BoxedValue!;
+        Assert.AreEqual(Statements, text.Count(character => character == 'x'), "the statement ran each time");
+        Assert.HasCount(2, marks.Allocated, "a mark before the loop and one after it");
+
+        // the String a statement leaves holds its Length characters, two bytes each.
+        var each = (marks.Allocated[1] - marks.Allocated[0]) / Statements;
+        Assert.IsGreaterThanOrEqualTo(2L * Length, each, $"{statement} allocated {each:N0} bytes each: less than the String it leaves");
+        Assert.IsLessThan(3L * Length, each, $"{statement} allocated {each:N0} bytes each: the String it leaves is {2 * Length:N0} and more");
+    }
+
+    // the bytes the thread that runs a body has allocated, read at each Debug.Print line it ends.
+    private sealed class AllocationMarks : IRuntimeOutput
+    {
+        public List<long> Allocated { get; } = new(2);
+
+        public int LinePosition => 1;
+
+        public void Write(string text) { }
+
+        public void WriteLine() => Allocated.Add(GC.GetAllocatedBytesForCurrentThread());
     }
 }
