@@ -1082,12 +1082,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // called late, on an Object or a Variant, the arguments go to IDispatch with the member: an object it returns takes them, at its default member, and
-        // what is no object is error 451, as of a default member (CallDefaultMember; recorded in Excel).
+        // what is not an object is error 451, as of a default member (CallDefaultMember; recorded in Excel).
         var returned = InvokeProcedure(session, context, found.Member, [], found.Receiver, call: qualified);
         return returned.IsSuccess && UnwrappedOwner(returned.Result!) is not VBObjectValue
             && DeclaredTypeOfOwner(session, context, qualified.Owner ?? context.EnclosingWithTargetExpression) is VBObjectType or VBVariantType
                 ? (RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
-                    indexExpression.Location, "The member takes no arguments, and what it returned is not an object to give them to.")), true)
+                    indexExpression.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, qualified.Member.IdentifierName))), true)
                 : (returned, false);
     }
 

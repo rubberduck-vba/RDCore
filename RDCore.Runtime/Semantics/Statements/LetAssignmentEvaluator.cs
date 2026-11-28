@@ -884,14 +884,14 @@ public sealed class LetAssignmentEvaluator(
             && expressions.DenotesAVariable(session, context, reachedThrough)
             && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBVariantType;
 
-        // a property or a function that takes no argument and returns no object, given some, is error 451: there is nothing to give them to (`c.Count(1) = 5`
-        // of a Collection, whose Count is a function; recorded in Excel).
+        // a property or a function that takes no argument, declared to return neither an object nor a `Variant`, given some, is error 451: there is nothing to
+        // give them to (`c.Count(1) = 5` of a Collection, whose Count is a function; recorded in Excel).
         if (read is VBReturningMemberSymbol { ResolvedType: not (VBClassType or VBObjectType or VBVariantType) }
                 and (VBPropertyGetMemberSymbol or VBFunctionMemberSymbol)
             && parameters.Length == 0 && !indexArguments.IsEmpty && !isSet && !throughAVariant)
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
-                memberAccess.Location, string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name)));
+                memberAccess.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, name)));
         }
 
         if (read is null || indexArguments.Length < required || !isProperty && (isSet || indexArguments.IsEmpty || throughAVariant)
@@ -982,7 +982,7 @@ public sealed class LetAssignmentEvaluator(
             && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
-                memberAccess.Location, string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, memberAccess.Member.IdentifierName)));
+                memberAccess.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, memberAccess.Member.IdentifierName)));
         }
 
         switch (Held(returned.Result))

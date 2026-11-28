@@ -231,6 +231,9 @@
   <data name="VBMemberAssignment_ReadOnlyProperty_Verbose" xml:space="preserve">
     <value>The object's {0} property has a Property Get and no Property Let, and what it returns is no object whose default member could be assigned instead.</value>
   </data>
+  <data name="VBMemberAccess_TakesNoArguments_Verbose" xml:space="preserve">
+    <value>The {0} member takes no arguments, and what it returns is not an object whose default member could take them.</value>
+  </data>
   <data name="VBMemberAccess_NoSuchMember_Verbose" xml:space="preserve">
     <value>The object has no member named {0}.</value>
   </data>
