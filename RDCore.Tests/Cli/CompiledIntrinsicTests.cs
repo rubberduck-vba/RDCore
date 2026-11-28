@@ -402,9 +402,9 @@ public sealed class CompiledIntrinsicTests
             "    Wrong = E * 100 + Err.Number",
             "End Function"), [("Cut", 0), ("Wrong", 2)]);
 
-    // MS-VBAL §6.1.2.11.1.20, .26 and .31, §5.6.9.5: a Mid$, a Left$ and a Right$ compared to a String, to each other and in a Select Case, and given to Len,
-    // Asc, AscW and InStr, which read the part where the text holds it; past the end, of a zero-length String and of vbNullString too. A Start below 1 and
-    // a negative Length raise 5: the interpreter's.
+    // MS-VBAL §6.1.2.11.1.20, .26 and .31, §5.6.9.5: a Mid$, a Left$ and a Right$ compared to a String and to each other, and given to Len, Asc, AscW and
+    // InStr, which read the part where the text holds it, and one a Select Case selects on; past the end, of a zero-length String and of vbNullString too.
+    // A Start below 1 and a negative Length raise 5: the interpreter's.
     [TestMethod]
     public async Task PartsComparedMeasuredAndSearched_AreTheirTypedForms()
         => await AssertAlikeAsync(Program(
