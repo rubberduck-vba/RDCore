@@ -251,8 +251,18 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             _ => RuntimeSemanticsEvaluationResult<VBStringValue>.InternalError(),
         };
 
-    // the one-character Strings of the 7-bit ASCII code points, which every code page reads the same (MS-VBAL §6.1.2.11.1.4): made once.
-    internal static readonly string[] AsciiCharacters = [.. Enumerable.Range(0, 128).Select(code => ((char)code).ToString())];
+    // the Strings of one character of the codes 0 to 255, made once: what Mid, Left and Right of one such character and ChrW of its code give, so that a
+    // loop that walks a String a character at a time makes none. The first 128 are the 7-bit ASCII code points, which every code page reads the same
+    // (MS-VBAL §6.1.2.11.1.4): what Chr of one of them gives. No String is written in place (the Mid statement makes another), so one is never changed.
+    internal static readonly string[] OneCharacterStrings = [.. Enumerable.Range(0, 256).Select(code => ((char)code).ToString())];
+
+    // the part of a text of count characters from index: one of OneCharacterStrings for one character up to 255, as the whole text and a part of none
+    // are the text and the empty String, made once.
+    internal static string PartOf(string text, int index, int count)
+        => count == 1 && text[index] < OneCharacterStrings.Length ? OneCharacterStrings[text[index]] : text.Substring(index, count);
+
+    // the String of the one character of a UTF-16 code unit.
+    private static string OneCharacterOf(int code) => code < OneCharacterStrings.Length ? OneCharacterStrings[code] : ((char)code).ToString();
 
     // the character a code names in the environment's ANSI code page: one byte up to 255, a lead and a trail byte above it. A
     // single-byte code page names one with every byte. A double-byte code page names one only where it reads the bytes as exactly
@@ -262,12 +272,22 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     {
         if (code < 128)
         {
-            character = AsciiCharacters[code];
+            character = OneCharacterStrings[code];
+            return true;
+        }
+
+        var encoding = session.Environment.AnsiEncoding;
+        if (encoding.IsSingleByte && code <= 0xFF)
+        {
+            // one of the Strings made once when the code page reads the byte as a character up to 255 (ISO-8859-1's are those of their own codes).
+            ReadOnlySpan<byte> single = [(byte)code];
+            Span<char> read = stackalloc char[2];
+            var length = encoding.GetChars(single, read);
+            character = length == 1 ? OneCharacterOf(read[0]) : new string(read[..length]);
             return true;
         }
 
         byte[] bytes = code <= 0xFF ? [(byte)code] : [(byte)(code >> 8), (byte)code];
-        var encoding = session.Environment.AnsiEncoding;
         if (encoding.IsSingleByte)
         {
             character = encoding.GetString(bytes);
@@ -563,11 +583,26 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         var code = charCode.Value;
         return code is < LowestWideCode or > ushort.MaxValue
             ? Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, nameof(ChrW), $"CharCode is -32768 to 65535, not {code}")
-            : InVariant(((char)(code < 0 ? code + 0x10000 : code)).ToString());
+            : InVariant(OneCharacterOf(code < 0 ? code + 0x10000 : code));
     }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBStringValue> ChrWString(VBLongValue charCode) => Twin("ChrW$", ChrW(charCode));
+
+    /// <summary>
+    /// <c>ChrW$</c> of a code (<strong>MS-VBAL §6.1.2.11.1.6</strong>): the character of its 16-bit code point, a negative code being the code plus 65,536,
+    /// what <see cref="ChrWString"/> returns for it. Compiled code calls it in place of <see cref="ChrW"/> (<see cref="StdLibIntrinsicAttribute"/>).
+    /// </summary>
+    /// <param name="code">The code point.</param>
+    /// <param name="text">The String of the one character.</param>
+    /// <returns><see langword="false"/> for a code outside -32,768 to 65,535: <see cref="ChrW"/> raises error 5.</returns>
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(ChrW))]
+    [StdLibIntrinsic(typeof(IStdStringsModule), nameof(ChrWString))]
+    public static bool WideCharacterOf(int code, [NotNullWhen(true)] out string? text)
+    {
+        text = code is < LowestWideCode or > ushort.MaxValue ? null : OneCharacterOf(code < 0 ? code + 0x10000 : code);
+        return text is not null;
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -1419,7 +1454,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         var characters = Text(text);
         var kept = Math.Min(count, characters.Length);
-        return InVariant(fromEnd ? characters[^kept..] : characters[..kept]);
+        return InVariant(PartOf(characters, fromEnd ? characters.Length - kept : 0, kept));
     }
 
     /// <summary>
@@ -1454,7 +1489,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         var characters = text ?? string.Empty;
         var kept = Math.Min(length, characters.Length);
-        part = fromEnd ? characters[^kept..] : characters[..kept];
+        part = PartOf(characters, fromEnd ? characters.Length - kept : 0, kept);
         return true;
     }
 
@@ -1613,7 +1648,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
         var characters = Text(text);
         var (index, taken) = MidRange(characters.Length, from, count)!.Value;
-        return InVariant(characters.Substring(index, taken));
+        return InVariant(PartOf(characters, index, taken));
     }
 
     /// <summary>
@@ -1664,7 +1699,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     private static bool TryMiddleOf(string? text, int start, int? length, [NotNullWhen(true)] out string? part)
     {
         var characters = text ?? string.Empty;
-        part = MidRange(characters.Length, start, length) is var (index, count) ? characters.Substring(index, count) : null;
+        part = MidRange(characters.Length, start, length) is var (index, count) ? PartOf(characters, index, count) : null;
         return part is not null;
     }
 
