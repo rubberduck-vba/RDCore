@@ -27,7 +27,8 @@ namespace RDCore.CLI.Host.Handlers;
 /// analysis session of a project the host does not run (<see cref="IProjectAnalysisSessions"/>). One asked for by its name is a module of the runtime session.
 /// </para>
 /// </remarks>
-internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionProvider, IProjectAnalysisSessions analyses)
+internal sealed class HostSemanticsHandler(
+    IEnvironmentSessionProvider sessionProvider, IProjectAnalysisSessions analyses, IHostExtensionAnnotations? extensionAnnotations = null)
     : RDCoreRequestHandler<HostSemanticsParams, HostSemanticsResult>
 {
     protected override async Task<HostSemanticsResult> HandleAsync(HostSemanticsParams request, CancellationToken token)
@@ -60,9 +61,11 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
         var named = asked.Select(module => module.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
         List<VBModuleSymbol> project = [.. session.Symbols.ScopeOf(StaticSymbol.GlobalUri)?.Declarations.OfType<VBModuleSymbol>()
             .Where(module => module.GetProperty(SymbolProperties.Library) is null) ?? []];
-        // a program's Public members are counted, and a library's count as used by the projects that reference it.
+        // a program's Public members are counted, and a library's count as used by the projects that reference it. A member an extension calls by an
+        // annotation it declares as an entry point is said to be one.
         var entryPoint = MemberRoles.EntryPointOf(session, project);
-        var models = store.AcrossProject(project, entryPoint, session.Build?.IsLibrary == true, module => session.Symbols.MembersOf(module.Uri))
+        var models = store.AcrossProject(project, entryPoint, session.Build?.IsLibrary == true, module => session.Symbols.MembersOf(module.Uri),
+                extensionAnnotations is null ? null : extensionAnnotations.IsEntryPoint)
             .Where(model => named.Contains(model.Module.AbsoluteUri))
             .Select(store.WithNativeCalls)
             .Select(ModuleSemanticsDto.From);

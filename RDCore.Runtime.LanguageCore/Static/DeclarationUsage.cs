@@ -218,12 +218,15 @@ public static class DeclarationUsage
     // (HandsOutObjects), which are counted as a program's are. An argument a call takes by reference is followed into the procedure called where
     // the module's own count follows it, and into a procedure of a standard module of the project, which is the one a call of its name runs from any module
     // of the project (byRefArguments, by the module's address, ByRefFlow): for the declarations each module's own count counted as well, once every module
-    // has a model. A member of a class called through a variable may run another class's that implements it, and is not followed.
+    // has a model. A member of a class called through a variable may run another class's that implements it, and is not followed. A member an extension
+    // calls from outside the project, by an annotation it declares as an entry point (extensionEntryPoints), is said to be one unless it has a role of its
+    // own; as the program's entry point's, its references are not counted.
     public static IReadOnlyCollection<ModuleSemanticModel> AcrossProject(
         IReadOnlyCollection<ModuleSemanticModel> models, IReadOnlyDictionary<string, ModuleDeclarationFacts> declarations, IEnumerable<VBModuleSymbol> project,
         IReadOnlyDictionary<string, IReadOnlySet<string>>? excludedBranchNames = null, SemanticId? entryPoint = null, bool isLibrary = false,
         IReadOnlyDictionary<string, LateBoundNames>? lateBound = null, Func<VBModuleSymbol, IEnumerable<VBTypeMemberSymbol>>? membersOf = null,
-        IReadOnlyDictionary<string, IReadOnlySet<string>>? unanalyzedNames = null, IReadOnlyDictionary<string, ByRefArguments>? byRefArguments = null)
+        IReadOnlyDictionary<string, IReadOnlySet<string>>? unanalyzedNames = null, IReadOnlyDictionary<string, ByRefArguments>? byRefArguments = null,
+        IReadOnlySet<SemanticId>? extensionEntryPoints = null)
     {
         // the members of a module as the session's symbols have them: a standard module's symbol does not hold its own.
         membersOf ??= module => module.Members;
@@ -233,6 +236,18 @@ public static class DeclarationUsage
                 ? model with
                 {
                     Declarations = [.. model.Declarations.Select(fact => fact.Symbol == start ? fact with { Role = DeclarationRole.EntryPoint } : fact)],
+                }
+                : model)];
+        }
+
+        if (extensionEntryPoints is { Count: > 0 } called)
+        {
+            models = [.. models.Select(model => model.Declarations.Any(fact => IsCalledByAnExtension(fact, called))
+                ? model with
+                {
+                    Declarations = [.. model.Declarations.Select(fact => IsCalledByAnExtension(fact, called)
+                        ? fact with { Role = DeclarationRole.ExtensionEntryPoint }
+                        : fact)],
                 }
                 : model)];
         }
@@ -561,6 +576,10 @@ public static class DeclarationUsage
 
     // a Private handler that does not match the event it is named for is no handler: no event calls it, and nothing outside the module can, so what calls it is an
     // expression of the module's code. A Public one may be called through the form's interface, by code the pass does not see.
+    // a member with a role of its own keeps it: an event handler is called by its event, whatever it is annotated with.
+    private static bool IsCalledByAnExtension(DeclarationFact fact, IReadOnlySet<SemanticId> called)
+        => fact.Role is DeclarationRole.None && called.Contains(fact.Symbol);
+
     private static bool IsCalledOnlyByItsOwnCode(Symbol symbol, DeclarationRole role)
         => role is DeclarationRole.UnmatchedEventHandler && symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private };
 

@@ -18,6 +18,7 @@ using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
 using RDCore.External;
@@ -624,7 +625,9 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
                 };
             })
             .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>()
-            .AddSingleton<IProjectAnalysisSessions, ProjectAnalysisSessions>();
+            .AddSingleton<IProjectAnalysisSessions, ProjectAnalysisSessions>()
+            // the annotations the platform's extensions declare, which say the members an extension calls from outside the project.
+            .AddSingleton<IHostExtensionAnnotations, HostExtensionAnnotations>();
     }
 
     protected override string? LogFileName => "RDCore.EnvironmentHost.log";
@@ -673,6 +676,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
         => services
             .AddSingleton(sessionProvider)
             .AddSingleton(_ => ExternalServices.GetRequiredService<IProjectAnalysisSessions>())
+            .AddSingleton(_ => ExternalServices.GetRequiredService<IHostExtensionAnnotations>())
             .AddSingleton(projectFileLoader)
             .AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>())
             .AddSingleton(_ => ExternalServices.GetRequiredService<IErrorDetailsRecorder>());
