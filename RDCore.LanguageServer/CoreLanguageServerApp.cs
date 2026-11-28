@@ -292,12 +292,12 @@ internal sealed class CoreLanguageServerApp(
     /// </summary>
     private async Task LoadWorkspaceAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
     {
-        // the folders a client gives (LSP 3.17 workspaceFolders); the server is started on the first, or on rootUri when it gives none.
+        // the folders a client gives (LSP 3.17 workspaceFolders), and the workspace's root as the SDK took it: the folder the client opened, or else the one
+        // the server was started on (--workspace), which a client that opens none, or knows nothing of it, still gets loaded.
         var folders = (request.WorkspaceFolders ?? []).Select(folder => folder.Uri.GetFileSystemPath()).ToList();
-        var root = request.RootUri?.GetFileSystemPath() ?? folders.FirstOrDefault();
-        if (root is null)
+        if (WorkspaceRoot is not { } root)
         {
-            LogIfEnabled(LogLevel.Warning, "No RootUri in the initialize request; workspace will not be loaded.");
+            LogIfEnabled(LogLevel.Warning, "Neither the initialize request nor --workspace names a folder; no workspace is loaded.");
             return;
         }
 
