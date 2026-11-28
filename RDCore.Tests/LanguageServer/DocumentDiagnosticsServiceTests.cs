@@ -931,6 +931,21 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.IsNull(PayloadSentTo(provider).Semantics);
     }
 
+    // a module the client supplied is in no project: it is the kind its text says.
+    [TestMethod]
+    [DataRow("Public Sub Foo()\r\nEnd Sub", ModuleType.StdModule)]
+    [DataRow("VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nPublic Sub Foo()\r\nEnd Sub", ModuleType.ClassModule)]
+    public async Task AModuleTheClientSupplied_IsSentAsTheKindItsTextSays(string source, ModuleType kind)
+    {
+        FragmentParses();
+        var provider = Provider("RDCore.Diagnostics", 0);
+        ProvidersAre(provider);
+
+        await Sut().AnalyzeFragmentAsync(FragmentUri, source, CancellationToken.None);
+
+        Assert.AreEqual(kind, PayloadSentTo(provider).ModuleKind);
+    }
+
     // what an analysis reports of its progress, as it reports it.
     private sealed class Steps : IProgress<WorkProgressStep>
     {
@@ -1164,6 +1179,43 @@ public sealed class DocumentDiagnosticsServiceTests
         }
 
         CollectionAssert.AreEquivalent(new[] { 0, 3, 7 }, result.Diagnostics.Select(diagnostic => diagnostic.Range.Start.Line).ToArray());
+    }
+
+    // each module is sent with the kind the workspace has it, which a block's part of the parse does not say: the file's own module what its text says, a
+    // block's module its block's.
+    [TestMethod]
+    public async Task EachModuleOfAFile_IsSentWithItsKind()
+    {
+        BackupParses();
+        HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        var provider = Provider("RDCore.Diagnostics", 1);
+        ProvidersAre(provider);
+        var file = BackupFile.Id.Uri.ToUri();
+
+        await Sut().GetAsync(file, previousResultId: null, CancellationToken.None);
+
+        var kinds = PayloadsSentTo(provider).ToDictionary(payload => payload.DocumentUri, payload => payload.ModuleKind);
+        Assert.AreEqual(ModuleType.StdModule, kinds[file]);
+        Assert.AreEqual(ModuleType.ClassModule, kinds[RDCoreDocument.BlockUri(file, "Account")]);
+        Assert.AreEqual(ModuleType.StdModule, kinds[RDCoreDocument.BlockUri(file, "Helpers")]);
+    }
+
+    // a document module is the project's word, which its text does not say: an export with no header is sent as one.
+    [TestMethod]
+    public async Task ADocumentModule_IsSentAsOne()
+    {
+        var sheet = new WorkspaceDocument("src/Sheet1.doccls", Root, "Attribute VB_Name = \"Sheet1\"\r\nPublic Sub Foo()\r\nEnd Sub\r\n")
+        {
+            Super = DocClassType.ExcelWorksheet,
+        };
+        WorkspaceHas(sheet);
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(new ModuleParser().Parse(sheet.Id.Uri.ToUri(), sheet.Text));
+        var provider = Provider("RDCore.Diagnostics", 1);
+        ProvidersAre(provider);
+
+        await Sut().GetAsync(sheet.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(ModuleType.DocumentModule, Assert.ContainsSingle(PayloadsSentTo(provider)).ModuleKind);
     }
 
     // an edit of a block's module as a whole is told on the module's first line, which is its header.
