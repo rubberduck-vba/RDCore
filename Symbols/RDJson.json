@@ -28,12 +28,12 @@
           "name": "UnknownMembers",
           "kind": "propertyGet",
           "type": "JsonMemberHandling",
-          "description": "A key that names no member the JSON object can give a value to: ignored, or error 438 (error 450 for a method, or a property that takes arguments besides its value)."
+          "description": "A key that names no member it can give a value to: ignored, or error 438 (450 for a method or an indexed property)."
         },
         {
           "name": "UnknownMembers",
           "kind": "propertyLet",
-          "description": "A key that names no member the JSON object can give a value to: ignored, or error 438 (error 450 for a method, or a property that takes arguments besides its value).",
+          "description": "A key that names no member it can give a value to: ignored, or error 438 (450 for a method or an indexed property).",
           "parameters": [
             {
               "name": "Value",
