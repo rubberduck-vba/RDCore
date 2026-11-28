@@ -208,7 +208,8 @@ public sealed class MidStatementTests
         foreach (var statement in new[] { "Mid$(S, I, 1) = \"x\"", "MidB$(S, 2 * I - 1, 2) = \"x\"" })
         {
             var each = (Allocated(statement) - without) / Statements;
-            Assert.IsGreaterThanOrEqualTo(20_000L, each, $"{statement} allocated {each:N0} bytes each: less than the String it leaves, so nothing was measured");
+            Assert.IsGreaterThanOrEqualTo(20_000L, each,
+                $"{statement} allocated {each:N0} bytes each: less than the String it leaves, so nothing was measured");
             Assert.IsLessThan(30_000L, each, $"{statement} allocated {each:N0} bytes each: the String it leaves is 20,022");
         }
     }
