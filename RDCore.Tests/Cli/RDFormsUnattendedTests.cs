@@ -32,11 +32,18 @@ public sealed class RDFormsUnattendedTests
         "Attribute VB_PredeclaredId = True",
         "Attribute VB_Exposed = False",
         "Option Explicit",
+        "Public Answer As String",
+        "Private Sub Form_Initialize()",
+        "    Debug.Print \"Initialize\"",
+        "End Sub",
         "Private Sub Form_Load()",
         "    Debug.Print \"Load\"",
         "End Sub",
         "Private Sub Form_Unload(Cancel As Integer)",
         "    Debug.Print \"Unload\"",
+        "End Sub",
+        "Private Sub Form_Terminate()",
+        "    Debug.Print \"Terminate\"",
         "End Sub",
         string.Empty);
 
@@ -119,6 +126,32 @@ public sealed class RDFormsUnattendedTests
         Assert.AreEqual(0, exit, context);
         CollectionAssert.IsSubsetOf(new[] { "Load", "probe", "Unload", "end" }, printed, context);
         Assert.IsLessThan(Array.IndexOf(printed, "end"), Array.IndexOf(printed, "Unload"), context);
+    }
+
+    // a program that shows a form, lets its state change, closes it, then asks its default instance for that state, as a smart-UI program does (VB6): Hide
+    // keeps the form loaded, with its controls' state and its variables; Unload drops its controls, which the next member of its form loads again as designed,
+    // and keeps the instance and its variables, with no second Initialize; only Set Form1 = Nothing lets the instance go, and its name then makes another.
+    // What the run prints after "end" is the run's end, which is not this test's.
+    [TestMethod]
+    [DataRow(new[] { "Load Form1", "Form1.Text1.Text = \"typed\"", "Form1.Answer = \"ok\"", "Form1.Hide",
+            "Debug.Print Form1.Text1.Text & \"/\" & Form1.Answer", "Dim f As Form1", "Set f = Form1", "Debug.Print f Is Form1", "Unload Form1" },
+        new[] { "Initialize", "Load", "typed/ok", "True", "Unload" },
+        DisplayName = "Hide keeps its controls' state and its variables")]
+    [DataRow(new[] { "Dim f As Form1", "Set f = Form1", "Load Form1", "Form1.Text1.Text = \"typed\"", "Form1.Answer = \"ok\"", "Unload Form1",
+            "Debug.Print Form1.Answer", "Debug.Print f Is Form1", "Debug.Print Form1.Text1.Text", "Unload Form1" },
+        new[] { "Initialize", "Load", "Unload", "ok", "True", "Load", "Text1", "Unload" },
+        DisplayName = "Unload keeps the instance and its variables, and its next control is loaded again as designed")]
+    [DataRow(new[] { "Load Form1", "Form1.Answer = \"ok\"", "Unload Form1", "Set Form1 = Nothing", "Debug.Print \"[\" & Form1.Answer & \"]\"" },
+        new[] { "Initialize", "Load", "Unload", "Terminate", "Initialize", "[]" },
+        DisplayName = "Set Form1 = Nothing lets the instance go, and its name makes another")]
+    public async Task AFormsDefaultInstance_KeepsTheStateTheProgramAsksForOnceTheFormIsClosed(string[] main, string[] printed)
+    {
+        var (exit, run, errors) = await RunUnattendedAsync([.. main, "Debug.Print \"end\""]);
+
+        var context = $"{string.Join("\n", run)}\n{errors}";
+        Assert.AreEqual(0, exit, context);
+        CollectionAssert.Contains(run, "end", context);
+        CollectionAssert.AreEqual(printed, run.TakeWhile(line => line != "end").ToArray(), context);
     }
 
     // a form shown, after it is loaded, and the dialogs of the standard library, are what nobody answers: the run fails with VBR50001, whatever handler the
