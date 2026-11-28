@@ -233,13 +233,10 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // the module is the workspace's own (Program.bas), as edited: its members are defined under the root, and its code is loaded into the module the
-    // environment host composed of the project, which is addressed by the folder as its file URI names it. On Windows the root of a client that opens no
-    // folder is the --workspace folder with its drive in the case the command line gives, another spelling of that folder: the module's members are not the
-    // host's module's, its code is loaded into nothing, and Main has no body. It runs everywhere else, where a folder is written one way.
+    // environment host composed of the project, which is addressed by the folder as its file URI names it. The root of a client that opens no folder is the
+    // --workspace folder written as a request writes one (WorkspaceRootChoice.Started): on Windows its drive is written as the host's modules are addressed,
+    // whatever the case the command line gives, so the members defined are the host's module's, and Main has the body loaded into it.
     [TestMethod]
-    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows,
-        IgnoreMessage = "Windows: NotImplemented until RDCore.SDK's WorkspaceRootChoice writes the folder the server was started on as a request writes one "
-        + "(fork branch fix/workspace-root-started-form, next SDK batch)")]
     public async Task AClientThatOpensNoFolder_RunsAModuleOfTheWorkspace()
     {
         await using var platform = await Platform.StartAsync();
@@ -266,7 +263,46 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
-    private const string UnreadableProjectFile = "{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\" ";
+    // what the environment host finds of the module's code is asked for by the module's address under the root, as the analysis the diagnostics extensions
+    // are given is: the root of a client that opens no folder addresses the host's module, and an expression of it is described.
+    [TestMethod]
+    public async Task AClientThatOpensNoFolder_IsToldWhatTheHostFindsOfAnExpression()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclaresButProgress, opensAFolder: false));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+
+        const string text = "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Debug.Print Twice(2)\r\nEnd Sub\r\n"
+            + "Public Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\n";
+        await rpc.NotifyAsync("textDocument/didOpen", new JsonObject
+        {
+            ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = text },
+        });
+
+        // the workspace is up, and the document analyzed, once the server asks the client to pull its diagnostics again.
+        var pulled = await rpc.RequestAsync(3, "textDocument/diagnostic",
+            new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
+        Assert.IsNull(pulled["error"], pulled.ToJsonString());
+        _ = await rpc.FirstAsked(DiagnosticRefresh);
+
+        // Twice(2) in Debug.Print Twice(2).
+        var described = await rpc.RequestAsync(4, "rdcore/semantics/describe",
+            new JsonObject { ["uri"] = platform.ModuleUri, ["position"] = new JsonObject { ["line"] = 2, ["character"] = 18 } });
+
+        var told = $"{described.ToJsonString()}\nlogged by the server:\n{string.Join("\n", rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(described["error"], told);
+        var expression = described["result"]?["expression"];
+        Assert.IsNotNull(expression, $"the host's analysis of the module is not found: {told}");
+        Assert.AreEqual("Function", expression["classification"]?.GetValue<string>(), told);
+        Assert.AreEqual("Long", expression["declaredType"]?.GetValue<string>(), told);
+        await platform.ShutdownAsync(5);
+    }
+
+    private const string UnreadableProjectFile ="{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\" ";
     private const string AProjectOfOtherModules = "{ \"ProjectInfo\": { \"Name\": \"Other\", \"Modules\": [ { \"RelativeUri\": \"Other0.bas\" } ] } }";
     private const string AProjectFileOfANewerFormat =
         "{ \"Version\": \"100.0.0\", \"ProjectInfo\": { \"Name\": \"Newer\", \"Modules\": [ { \"RelativeUri\": \"Other0.bas\" } ], \"PrecompilerConstants\": { \"NEWER\": \"1\" } } }";
