@@ -402,6 +402,35 @@ public sealed class CompiledIntrinsicTests
             "    Wrong = E * 100 + Err.Number",
             "End Function"), [("Cut", 0), ("Wrong", 2)]);
 
+    // MS-VBAL §6.1.2.11.1.6 and §6.1.2.11.1.25: ChrW$ and ChrW of a Long, of an Integer and of a negative code, the character of every code from 0 to 300
+    // and of 65,535 and -32,768; and Mid$, Mid, Left$ and Right$ of one character of each. A code outside -32,768 to 65,535 raises 5: the interpreter's.
+    [TestMethod]
+    public async Task ChrWAndPartsOfOneCharacter_AreTheirTypedForms()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Codes(300)",
+            "    Debug.Print Wrong(65536)",
+            "End Sub",
+            "Private Function Codes(ByVal N As Long) As Long",
+            "    Dim I As Long, K As Integer, R As Long, S As String, T As String",
+            "    For I = 0 To N",
+            "        S = ChrW$(I) & ChrW(-I - 1)",
+            "        T = Mid$(S, 1, 1) & Left$(S, 1) & Right$(S, 1) & Mid(S, 2, 1)",
+            "        R = R + AscW(T) + AscW(Mid$(T, 2, 1)) + AscW(Right$(T, 1)) + Len(T)",
+            "    Next",
+            "    K = -32768",
+            "    S = ChrW$(K) & ChrW(65535)",
+            "    Codes = R + AscW(S) + AscW(Mid$(S, 2, 1))",
+            "End Function",
+            "Private Function Wrong(ByVal C As Long) As Long",
+            "    Dim S As String",
+            "    On Error Resume Next",
+            "    S = ChrW$(C)",
+            "    Wrong = Err.Number * 100",
+            "    S = ChrW$(-32769)",
+            "    Wrong = Wrong + Err.Number",
+            "End Function"), [("Codes", 0), ("Wrong", 2)]);
+
     // MS-VBAL §6.1.2.11.1.24: Trim$, LTrim$ and RTrim$ of a String remove spaces only, a tab staying; Trim, which returns a Variant, assigned to a String;
     // and the trimmed text given to Len and to Left$.
     [TestMethod]

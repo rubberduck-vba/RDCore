@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.StdLib;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -29,6 +30,25 @@ public sealed class ChrTests
     [DataRow(129, "\u0081")]
     public void Chr_From128To255_IsTheCharacterOfTheAnsiCodePage(int code, string expected)
         => Assert.AreEqual(expected, TextOf(Module().Chr(L(code))));
+
+    [TestMethod]
+    [DataRow(1252)]
+    [DataRow(1251)]
+    [DataRow(1253)]
+    [DataRow(1255)]
+    [DataRow(437)]
+    [DataRow(28591)]
+    public void Chr_From128To255_OnASingleByteCodePage_IsWhatTheCodePageReadsTheByteAs(int codePage)
+    {
+        var session = SessionOf(codePage: codePage);
+        var encoding = session.Environment.AnsiEncoding;
+        Assert.IsTrue(encoding.IsSingleByte, $"code page {codePage} is a single-byte one, or the test needs another");
+        var module = new StdStrings(session);
+        for (var code = 128; code <= 255; code++)
+        {
+            Assert.AreEqual(encoding.GetString([(byte)code]), TextOf(module.Chr(L(code))), $"Chr({code}) in code page {codePage}");
+        }
+    }
 
     [TestMethod]
     [DataRow(256)]

@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.StdLib;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -20,6 +21,40 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.11.1.27 MidB$")]
 public sealed class MidAndMidBTests
 {
+    // a loop that walks a String a character at a time makes no String for each character up to 255: the forms compiled code calls give the String of it
+    // made once, as Mid does, and a character above 255 is that character all the same.
+    [TestMethod]
+    public void PartsOfOneCharacter_UpTo255_MakeNoString_AndOneAbove255_IsThatCharacter()
+    {
+        const string Text = "aÿĀb";
+        const int Calls = 3000;
+        Assert.IsTrue(StdStrings.MiddleOf(Text, 2, 1, out var first));
+        Assert.IsTrue(StdStrings.LeftOf("ÿz", 1, out var left));
+        Assert.IsTrue(StdStrings.RightOf("zÿ", 1, out var right));
+        Assert.AreEqual("ÿ", first);
+        Assert.AreSame(first, left);
+        Assert.AreSame(first, right);
+        Assert.AreSame(first, TextOf(Module().Mid(V("xÿ"), L(2), V(1))), "Mid gives the String the form compiled code gives");
+        Assert.IsTrue(StdStrings.MiddleOf(Text, 3, 1, out var above));
+        Assert.AreEqual("Ā", above);
+
+        long Allocated()
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var call = 0; call < Calls; call++)
+            {
+                _ = StdStrings.MiddleOf(Text, 1 + call % 2, 1, out _) && StdStrings.LeftOf(Text, 1, out _) && StdStrings.RightOf(Text, 1, out _)
+                    && StdStrings.WideCharacterOf(call % 256, out _);
+            }
+
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        Allocated(); // the first calls pay for what they load, once
+        var allocated = Allocated();
+        Assert.IsLessThan(Calls, allocated, $"{Calls} calls of each allocated {allocated:N0} bytes: a String of one character is at least 22");
+    }
+
     [TestMethod]
     public void Mid_TakesCharactersFromTheStart()
     {
