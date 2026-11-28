@@ -5,7 +5,7 @@ using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions;
 
-namespace RDCore.Runtime.Hosting;
+namespace RDCore.Runtime.Composer;
 
 /// <summary>
 /// A module of a program's workspace: its name and kind, as the module says them, and where it is.

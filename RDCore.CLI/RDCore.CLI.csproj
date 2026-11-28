@@ -85,8 +85,8 @@
     <!-- rdc bench (and, later, rdc build) parse a workspace and build its symbols in-process, as the language server does. -->
     <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
-    <!-- and load it to run it, as a composer does. -->
-    <ProjectReference Include="..\RDCore.Runtime.Hosting\RDCore.Runtime.Hosting.csproj" />
+    <!-- and load it to run it, or to write the composition a host loads. -->
+    <ProjectReference Include="..\RDCore.Runtime.Composer\RDCore.Runtime.Composer.csproj" />
   </ItemGroup>
 
   <!-- rdc build makes a program's executable out of the .NET application host, and a machine with the .NET runtime has none: only the .NET SDK

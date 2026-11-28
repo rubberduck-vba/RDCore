@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
-using RDCore.Runtime.Hosting;
+using RDCore.Runtime.Composer;
 using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Server.Configuration;

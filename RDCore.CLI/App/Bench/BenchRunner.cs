@@ -8,7 +8,7 @@ using RDCore.External.Interaction;
 using RDCore.Parsing;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Hosting;
+using RDCore.Runtime.Composer;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;

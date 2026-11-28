@@ -35,6 +35,7 @@
   <Project Path="RDCore.ParseServer/RDCore.ParseServer.csproj" />
   <Project Path="RDCore.Runtime/RDCore.Runtime.csproj" Id="4af376a2-f215-4064-96b0-c90c797ec5fa" />
   <Project Path="RDCore.Runtime.Generators/RDCore.Runtime.Generators.csproj" />
+  <Project Path="RDCore.Runtime.Composer/RDCore.Runtime.Composer.csproj" />
   <Project Path="RDCore.Runtime.Hosting/RDCore.Runtime.Hosting.csproj" />
   <Project Path="RDCore.Runtime.LanguageCore/RDCore.Runtime.LanguageCore.csproj" />
   <Project Path="RDCore.Runtime.Support/RDCore.Runtime.Support.csproj" />

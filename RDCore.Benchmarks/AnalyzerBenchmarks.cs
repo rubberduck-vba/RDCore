@@ -3,7 +3,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.Host.Handlers;
-using RDCore.Runtime.Hosting;
+using RDCore.Runtime.Composer;
 using RDCore.Parsing;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;

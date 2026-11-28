@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
     <AssemblyTitle>RDCore Runtime Hosting</AssemblyTitle>
-    <Description>What a host composes an RD-VBA program with, from its files, and makes the machines that run it: the implementation of the SDK's runtime hosting contract.</Description>
+    <Description>What a host runs an RD-VBA program with: the composition rdc compose wrote, loaded with no parser, and the machines that run it. The implementation of the SDK's runtime hosting contract.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,19 +14,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="rdc" />
     <InternalsVisibleTo Include="RDCore.Tests" />
-    <InternalsVisibleTo Include="RDCore.Benchmarks" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
-  <!-- a program composed from its files is parsed: this assembly references RDCore.Parsing, which RDCore.Runtime.Support, a built program's closure, does
-       not. -->
+  <!-- what a deployed host references: RDCore.Runtime.Support and its references, never RDCore.Parsing or ANTLR, whose third-party GPL parts NOTICE's grant
+       does not cover. A test fails when one appears. -->
   <ItemGroup>
     <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
     <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
-    <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
-    <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
   </ItemGroup>
 
 </Project>

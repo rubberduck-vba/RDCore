@@ -515,6 +515,12 @@
   <data name="Build_Summary" xml:space="preserve">
     <value>Builds a workspace into a program: its assembly, its executable, and the runtime it runs on.</value>
   </data>
+  <data name="Compose_Summary" xml:space="preserve">
+    <value>Writes the composition of a workspace, which a host loads to run the program with no parser, and the descriptions of the libraries it references.</value>
+  </data>
+  <data name="Compose_Written" xml:space="preserve">
+    <value>The composition of {0} is written to {1}.</value>
+  </data>
   <data name="Build_NameTaken" xml:space="preserve">
     <value>A program cannot be named {0}: the runtime it runs on has an assembly of that name. Name it with --name.</value>
   </data>

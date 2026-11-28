@@ -2,7 +2,7 @@ using CommandLine;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
-using RDCore.Runtime.Hosting;
+using RDCore.Runtime.Composer;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.Runtime.Compiled;

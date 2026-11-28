@@ -142,6 +142,24 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Writes the composition of a workspace, which a host loads to run the program with no parser, and the descriptions of the libraries it references..
+        /// </summary>
+        public static string Compose_Summary {
+            get {
+                return ResourceManager.GetString("Compose_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The composition of {0} is written to {1}..
+        /// </summary>
+        public static string Compose_Written {
+            get {
+                return ResourceManager.GetString("Compose_Written", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Serves the tools of RDCore to an assistant, as a Model Context Protocol server over standard input and output..
         /// </summary>
         public static string Mcp_Summary {

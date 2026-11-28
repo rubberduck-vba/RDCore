@@ -4,7 +4,7 @@ using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
-using RDCore.Runtime.Hosting;
+using RDCore.Runtime.Composer;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;

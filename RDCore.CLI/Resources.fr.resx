@@ -508,6 +508,12 @@
   <data name="Build_Summary" xml:space="preserve">
     <value>Construit un programme à partir d'un espace de travail : son assembly, son exécutable et le runtime sur lequel il s'exécute.</value>
   </data>
+  <data name="Compose_Summary" xml:space="preserve">
+    <value>Écrit la composition d'un espace de travail, qu'un hôte charge pour exécuter le programme sans analyseur, et les descriptions des bibliothèques qu'il référence.</value>
+  </data>
+  <data name="Compose_Written" xml:space="preserve">
+    <value>La composition de {0} est écrite dans {1}.</value>
+  </data>
   <data name="Build_NameTaken" xml:space="preserve">
     <value>Un programme ne peut pas s'appeler {0} : le runtime sur lequel il s'exécute a un assembly de ce nom. Nommez-le avec --name.</value>
   </data>

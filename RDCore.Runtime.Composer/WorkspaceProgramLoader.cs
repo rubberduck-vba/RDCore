@@ -19,7 +19,7 @@ using RDCore.Symbols;
 using System.Diagnostics;
 using System.IO.Abstractions;
 
-namespace RDCore.Runtime.Hosting;
+namespace RDCore.Runtime.Composer;
 
 // a workspace loaded to be run: the session it was loaded in, the modules that loaded, how long each step took, what kept a module from being parsed or
 // loaded, the libraries the project references, and the documents of the project's own files that parsed, each with its parse.

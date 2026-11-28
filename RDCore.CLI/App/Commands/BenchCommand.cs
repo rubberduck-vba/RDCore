@@ -1,7 +1,7 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.ConsoleIO;
-using RDCore.Runtime.Hosting;
+using RDCore.Runtime.Composer;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Workspace;
