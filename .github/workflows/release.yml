@@ -560,7 +560,7 @@ jobs:
             exit 1
           }
           if [ "$sha" != "$GITHUB_SHA" ]; then
-            echo "::error::$TAG now points at $sha, not the built $GITHUB_SHA. Don't re-run: the moved tag's run pushes its package (RELEASING.md)."
+            echo "::error::$TAG now points at $sha, not the built $GITHUB_SHA. Do not re-run: the moved tag's run pushes its package (RELEASING.md)."
             exit 1
           fi
 

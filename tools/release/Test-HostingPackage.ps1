@@ -1,6 +1,7 @@
 #Requires -Version 7.2
 # checks the RDCore.Runtime.Hosting package before nuget.org gets it: what a host references must hold neither the parser
-# (RDCore.Parsing) nor ANTLR, whose third-party GPL parts NOTICE's grant does not cover.
+# (RDCore.Parsing) nor ANTLR, which only the parser uses: the parser's grammars are third-party GPL code, which NOTICE's grant
+# (Your projects are yours) does not cover.
 #
 # the folder dotnet pack wrote holds the package of -Version and, at most, its symbols. In the package, no file is one of
 # the parser's or ANTLR's assemblies, and the nuspec names neither as a dependency. Then a throwaway project restores the
@@ -88,7 +89,7 @@ if ($Failures.Count -eq 0) {
         $restore = dotnet restore (Join-Path $consumer 'Host.csproj') --packages (Join-Path $consumer 'packages') 2>&1
         if ($LASTEXITCODE -ne 0) {
             $restore | ForEach-Object { Write-Output "  $_" }
-            Add-Failure "A host can't restore $Id $Version from the package and nuget.org."
+            Add-Failure "A host cannot restore $Id $Version from the package and nuget.org."
         }
         else {
             $assets = Get-Content -LiteralPath (Join-Path $consumer 'obj' 'project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
