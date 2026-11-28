@@ -128,7 +128,10 @@ internal sealed class DocumentDiagnosticsService(
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         var phase = PhaseNow(AnalysisPhase.All);
         var semantics = await AnalyzeInHostAsync(SymbolUri.ModuleNameOf(documentUri), parseResult, phase, token);
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase) { DisabledCodes = [.. Disabled] });
+        // a module no project lists is the kind its text and its file say.
+        var kind = ModuleKinds.Of((DocClassType?)null, source, documentUri.IsAbsoluteUri ? documentUri.LocalPath : documentUri.OriginalString);
+        var payloadJson = PlatformJson.Serialize(
+            new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase) { DisabledCodes = [.. Disabled], ModuleKind = kind });
         var reports = await ProvidersAsync(providers, documentUri, [payloadJson], token, progress);
 
         return (IgnoreAnnotations.Apply(documentUri, parseResult, Aggregate(reports), phase, Disabled), providers.Length);
@@ -241,10 +244,11 @@ internal sealed class DocumentDiagnosticsService(
         // A file of blocks is the text of several modules (RD-VBAL §5.1): each is analyzed on its own, from its own part of the parse and what the host found
         // out about it, addressed by its own URI. A syntax error is in the part of the module it is in, so each is told once.
         var file = new RDCoreDocument(documentUri, parseResult);
-        IReadOnlyList<(Uri Uri, string Name)> modules =
+        // each is the kind the workspace has it: the file's own module what the project and its text say, a block's module its block's.
+        IReadOnlyList<(Uri Uri, string Name, ModuleType Kind)> modules =
         [
-            (documentUri, parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name),
-            .. parseResult.BlockModules.Select(block => (block.Uri, block.Name)).DistinctBy(block => block.Uri),
+            (documentUri, parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, ParsingClientService.ModuleTypeOf(document)),
+            .. parseResult.BlockModules.Select(block => (block.Uri, block.Name, block.Kind)).DistinctBy(block => block.Uri),
         ];
         // a module its project refuses, one whose name another module of the project has or whose parts make it invalid, is none the host has: what it has
         // of that name, if anything, is another module. Only that module's semantics are left out.
@@ -258,7 +262,11 @@ internal sealed class DocumentDiagnosticsService(
                 : isHostModule ? await SemanticsOfAsync(module.Name, null, phase, token)
                 : null;
             return PlatformJson.Serialize(
-                new DiagnoseDocumentPayload(module.Uri, version, file.ParseOf(module.Uri)!, semantics, phase) { DisabledCodes = [.. Disabled] });
+                new DiagnoseDocumentPayload(module.Uri, version, file.ParseOf(module.Uri)!, semantics, phase)
+                {
+                    DisabledCodes = [.. Disabled],
+                    ModuleKind = module.Kind,
+                });
         }));
 
         var reports = await ProvidersAsync(providers, documentUri, payloads, token, progress);
