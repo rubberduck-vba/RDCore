@@ -923,7 +923,7 @@
     <value>L'identifiant de runtime de la plateforme pour laquelle le programme est construit (win-x64, linux-x64). Celui de rdc s'il est omis.</value>
   </data>
   <data name="Run_PathHelp" xml:space="preserve">
-    <value>Un dossier d'espace de travail (avec ou sans .rdproj), ou un fichier de module : un fichier que le .rdproj de son dossier liste exécute ce projet depuis son module. Le dossier courant s'il est omis.</value>
+    <value>Un dossier d'espace de travail (avec ou sans .rdproj), ou un fichier de module : un fichier que liste le .rdproj de son dossier exécute ce projet à partir de son module. Le dossier courant s'il est omis.</value>
   </data>
   <data name="Run_ConfigurationHelp" xml:space="preserve">
     <value>Debug ou Release.</value>
