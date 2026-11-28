@@ -56,7 +56,7 @@ public static int Main(string[] args)
 }
 ```
 
-`ProgramExternalHost.Executable` est `null` pour un hôte exécuté avec `dotnet`, dont l'exécutable ne peut pas s'exécuter comme hôte externe. Les formulaires sont créés dans RDForms sur tous les systèmes d'exploitation. Les serveurs d'automatisation et les appels natifs sont ceux de Windows.
+`ProgramExternalHost.Executable` est `null` pour un hôte exécuté avec `dotnet`, dont l'exécutable ne peut pas s'exécuter comme hôte externe : ses machines démarrent alors le `rdc` à côté des assemblys de l'hôte. Les formulaires sont créés dans RDForms sur tous les systèmes d'exploitation. Les serveurs d'automatisation et les appels natifs ne fonctionnent que sous Windows.
 
 ## Licence
 

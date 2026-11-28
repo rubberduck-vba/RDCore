@@ -33,7 +33,8 @@ public static class ProgramExternalHost
 
     /// <summary>
     /// The executable of this process, which its machines' external host is started from (<see cref="ComposedProgramOptions.ExternalHost"/>). It is
-    /// <see langword="null"/> for a process run with <c>dotnet</c>, whose executable is <c>dotnet</c>'s and cannot run as an external host.
+    /// <see langword="null"/> for a process run with <c>dotnet</c>, whose executable is <c>dotnet</c>'s and cannot run as an external host: its machines
+    /// then start the <c>rdc</c> beside the host's assemblies.
     /// </summary>
     public static string? Executable
         => Environment.ProcessPath is { } path && !string.Equals(Path.GetFileNameWithoutExtension(path), "dotnet", StringComparison.OrdinalIgnoreCase)

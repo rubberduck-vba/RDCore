@@ -56,7 +56,7 @@ public static int Main(string[] args)
 }
 ```
 
-`ProgramExternalHost.Executable` is `null` for a host run with `dotnet`, whose executable cannot run as an external host. Forms are made in RDForms on every operating system. Automation servers and native calls are Windows ones.
+`ProgramExternalHost.Executable` is `null` for a host run with `dotnet`, whose executable cannot run as an external host: its machines then start the `rdc` beside the host's own assemblies. Forms are made in RDForms on every operating system. Automation servers and native calls work on Windows only.
 
 ## Licence
 

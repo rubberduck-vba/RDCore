@@ -8,7 +8,7 @@ namespace RDCore.Tests.Hosting;
 /// <summary>
 /// A host that is the external host of its own machines (<see cref="ProgramExternalHost"/>), as a host that deploys no <c>rdc</c> is: RDCore.Tests.Host,
 /// started from the tests' folder, loads a composition and makes a form in a machine, in a process of its own executable. An RDForms form is made with its
-/// window, which a desktop with no display cannot open: the rows run on Windows and macOS.
+/// window, which a desktop with no display cannot open: the test runs on Windows and macOS.
 /// </summary>
 [TestClass]
 [TestCategory("External host")]
