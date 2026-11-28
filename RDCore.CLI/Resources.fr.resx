@@ -907,6 +907,30 @@
   <data name="BenchMsVba_ExcelRunsHelp" xml:space="preserve">
     <value>Le nombre d&apos;exécutions de chaque cas d&apos;automatisation d&apos;Excel par tour.</value>
   </data>
+  <data name="Build_PathHelp" xml:space="preserve">
+    <value>Un dossier d'espace de travail (avec ou sans .rdproj), ou un fichier de module. Le dossier courant s'il est omis.</value>
+  </data>
+  <data name="Build_OutputHelp" xml:space="preserve">
+    <value>Le dossier où le programme est écrit. bin/&lt;configuration&gt;/&lt;runtime&gt;/ dans l'espace de travail s'il est omis.</value>
+  </data>
+  <data name="Build_NameHelp" xml:space="preserve">
+    <value>Le nom du programme. Celui du projet s'il est omis.</value>
+  </data>
+  <data name="Build_ConfigurationHelp" xml:space="preserve">
+    <value>Debug ou Release.</value>
+  </data>
+  <data name="Build_RuntimeHelp" xml:space="preserve">
+    <value>L'identifiant de runtime de la plateforme pour laquelle le programme est construit (win-x64, linux-x64). Celui de rdc s'il est omis.</value>
+  </data>
+  <data name="Run_PathHelp" xml:space="preserve">
+    <value>Un dossier d'espace de travail (avec ou sans .rdproj), ou un fichier de module : un fichier que le .rdproj de son dossier liste exécute ce projet depuis son module. Le dossier courant s'il est omis.</value>
+  </data>
+  <data name="Run_ConfigurationHelp" xml:space="preserve">
+    <value>Debug ou Release.</value>
+  </data>
+  <data name="Run_UnattendedHelp" xml:space="preserve">
+    <value>Personne ne répond aux boîtes de dialogue : un MsgBox ou un InputBox fait échouer l'exécution.</value>
+  </data>
   <data name="BenchMsVba_BadCounts" xml:space="preserve">
     <value>--rounds, --runs et --excel-runs doivent valoir au moins 1, et --excel-rounds entre 0 et --rounds.</value>
   </data>

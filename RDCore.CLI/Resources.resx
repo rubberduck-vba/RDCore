@@ -917,6 +917,30 @@
   <data name="BenchMsVba_ExcelRunsHelp" xml:space="preserve">
     <value>How many times each Excel automation case runs in a round.</value>
   </data>
+  <data name="Build_PathHelp" xml:space="preserve">
+    <value>A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted.</value>
+  </data>
+  <data name="Build_OutputHelp" xml:space="preserve">
+    <value>The folder the program is written into. bin/&lt;configuration&gt;/&lt;runtime&gt;/ in the workspace when omitted.</value>
+  </data>
+  <data name="Build_NameHelp" xml:space="preserve">
+    <value>The program's name. The project's when omitted.</value>
+  </data>
+  <data name="Build_ConfigurationHelp" xml:space="preserve">
+    <value>Debug or Release.</value>
+  </data>
+  <data name="Build_RuntimeHelp" xml:space="preserve">
+    <value>The runtime identifier of the platform the program is built for (win-x64, linux-x64). rdc's when omitted.</value>
+  </data>
+  <data name="Run_PathHelp" xml:space="preserve">
+    <value>A workspace folder (with or without a .rdproj), or a module file: a file the .rdproj of its folder lists runs that project from its module. The current folder when omitted.</value>
+  </data>
+  <data name="Run_ConfigurationHelp" xml:space="preserve">
+    <value>Debug or Release.</value>
+  </data>
+  <data name="Run_UnattendedHelp" xml:space="preserve">
+    <value>Nobody answers a dialog: a MsgBox or an InputBox fails the run.</value>
+  </data>
   <data name="BenchMsVba_BadCounts" xml:space="preserve">
     <value>--rounds, --runs and --excel-runs must be at least 1, and --excel-rounds between 0 and --rounds.</value>
   </data>

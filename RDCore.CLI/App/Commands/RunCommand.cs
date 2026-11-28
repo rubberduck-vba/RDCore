@@ -16,14 +16,14 @@ namespace RDCore.CLI.App.Commands;
 
 internal sealed class RunCommandOptions
 {
-    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file: a file the .rdproj "
-        + "of its folder lists runs that project from its module. The current folder when omitted.")]
+    [Value(0, MetaName = "path", Required = false, HelpText = nameof(Resources.Run_PathHelp), ResourceType = typeof(Resources))]
     public string? Path { get; set; }
 
-    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = "Debug or Release.")]
+    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = nameof(Resources.Run_ConfigurationHelp),
+        ResourceType = typeof(Resources))]
     public VBBuildConfiguration Configuration { get; set; }
 
-    [Option("unattended", Required = false, HelpText = "Nobody answers a dialog: a MsgBox or an InputBox fails the run.")]
+    [Option("unattended", Required = false, HelpText = nameof(Resources.Run_UnattendedHelp), ResourceType = typeof(Resources))]
     public bool Unattended { get; set; }
 }
 
