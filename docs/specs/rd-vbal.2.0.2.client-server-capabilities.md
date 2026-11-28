@@ -214,7 +214,8 @@ A module of the client's own cannot be named after the project or a library it r
 matched in one tier (**MS-VBAL §5.6.10**), so the name would match twice, and a name qualified by it, such as `VBA.Len`, would be invalid. Such a run is not found,
 and the result says why.
 
-A workspace whose project file cannot be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules.
+A workspace whose project file cannot be read loads no project, and the client is told why. What the client runs is still run there,
+as in a project with no modules.
 
 A client that opens no folder works in the folder the language server was started on (`--workspace`), on every system. When the client opens a folder other
 than that one, the user is warned, and the server's settings and the processes it starts are those of the folder the client opened. A client that opens no
