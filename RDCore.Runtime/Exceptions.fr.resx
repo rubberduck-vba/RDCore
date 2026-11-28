@@ -369,6 +369,27 @@
   <data name="JsonValues_KeyGivenTwice_Verbose" xml:space="preserve">
     <value>Les clés '{0}' et '{1}' désignent le même membre de la classe '{2}'.</value>
   </data>
+  <data name="JsonValues_KeyNamesNoMember_Verbose" xml:space="preserve">
+    <value>La clé '{0}' ne désigne aucun membre de la classe '{1}' auquel elle peut donner une valeur.</value>
+  </data>
+  <data name="JsonValues_KeyNamesMethod_Verbose" xml:space="preserve">
+    <value>La clé désigne la méthode '{0}' de la classe '{1}'.</value>
+  </data>
+  <data name="JsonValues_KeyNamesReadOnly_Verbose" xml:space="preserve">
+    <value>La clé désigne le membre '{0}' de la classe '{1}', qui est en lecture seule.</value>
+  </data>
+  <data name="JsonValues_MemberNotGiven_Verbose" xml:space="preserve">
+    <value>Aucune clé ne désigne le membre '{0}' de la classe '{1}'.</value>
+  </data>
+  <data name="JsonValues_IntoNotAnInstance_Verbose" xml:space="preserve">
+    <value>L'objet à remplir est un '{0}' : un objet JSON ne remplit qu'un objet d'une classe de l'espace de travail.</value>
+  </data>
+  <data name="JsonValues_NotJsonText_Verbose" xml:space="preserve">
+    <value>Le texte n'est pas du JSON (ligne {0}, position {1}).</value>
+  </data>
+  <data name="JsonValues_NotAHandling_Verbose" xml:space="preserve">
+    <value>{0} n'est pas une valeur de JsonMemberHandling.</value>
+  </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} a arrêté le processus qui l'appelait : la fonction est probablement mal déclarée - ses paramètres, leurs types, ou la façon dont ils sont passés.</value>
   </data>

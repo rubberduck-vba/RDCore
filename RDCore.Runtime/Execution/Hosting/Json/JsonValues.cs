@@ -6,6 +6,7 @@ using RDCore.Runtime.Semantics.Conversion;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -43,7 +44,10 @@ namespace RDCore.Runtime.Execution.Hosting.Json;
 //
 // Into any other type, a JSON value is let-coerced from that value of the language, as an assignment is (MS-VBAL §5.5.1.2), with the errors it raises:
 // 13 for text that is not a number, 6 past the type's range. A value that has no conversion at all, either way, is 13.
-internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbolResolver resolver)
+//
+// The rules say what a key or a member of a class that does not match raises (JsonMemberRules), and an error the conversion refuses is raised at the site.
+internal sealed partial class JsonValues(
+    IRuntimeSession session, IRuntimeSymbolResolver resolver, JsonMemberRules rules = default, SourceLocation site = default)
 {
     private const string Moment = "yyyy'-'MM'-'dd'T'HH':'mm':'ss";
 
@@ -64,7 +68,7 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
         }
         catch (Refused refused)
         {
-            return VBRuntimeErrorInfo.For(refused.Error, default, refused.Message);
+            return VBRuntimeErrorInfo.For(refused.Error, site, refused.Message);
         }
         catch (Raised raised)
         {
@@ -84,7 +88,27 @@ internal sealed partial class JsonValues(IRuntimeSession session, IRuntimeSymbol
         }
         catch (Refused refused)
         {
-            return VBRuntimeErrorInfo.For(refused.Error, default, refused.Message);
+            return VBRuntimeErrorInfo.For(refused.Error, site, refused.Message);
+        }
+        catch (Raised raised)
+        {
+            return raised.Error;
+        }
+    }
+
+    // into, an object of a class of the workspace, filled from json, a JSON object: each key gives its value to the member it names, and a member no key
+    // names keeps its value. The error it is instead, as FromJson's is; any other object, or any other JSON value, is 13.
+    public IVBRaisableError? FromJson(JsonNode? json, VBObjectValue into, out VBTypedValue? value)
+    {
+        value = null;
+        try
+        {
+            value = Into(json, into);
+            return null;
+        }
+        catch (Refused refused)
+        {
+            return VBRuntimeErrorInfo.For(refused.Error, site, refused.Message);
         }
         catch (Raised raised)
         {
