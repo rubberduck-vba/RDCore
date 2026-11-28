@@ -51,8 +51,15 @@ public sealed class ProgramMachineTests
         ("Keeper", ModuleWorkspace.ClassModule("Keeper",
             "Attribute VB_PredeclaredId = True",
             "Public Value As Long",
-            "Public Function Current() As Long",
-            "Current = Value",
+            "Private Sub Class_Initialize()",
+            "Trail = Trail & \"K\"",
+            "End Sub",
+            "Private Sub Class_Terminate()",
+            "Trail = Trail & \"X\"",
+            "End Sub",
+            "Public Function Raise(ByVal By As Long) As Long",
+            "Value = Value + By",
+            "Raise = Value",
             "End Function")),
         ("Failing", ModuleWorkspace.ClassModule("Failing",
             "Private Sub Class_Initialize()",
@@ -121,8 +128,8 @@ public sealed class ProgramMachineTests
         "Public Function TrailOf() As String",
         "TrailOf = Trail",
         "End Function",
-        "Public Sub SetKeeper()",
-        "Keeper.Value = 5",
+        "Public Sub DropKeeper()",
+        "Set Keeper = Nothing",
         "End Sub",
         "Public Function KeeperValue() As Long",
         "KeeperValue = Keeper.Value",
@@ -242,8 +249,8 @@ public sealed class ProgramMachineTests
             Assert.IsFalse(string.IsNullOrEmpty(result.ErrorMessage), "the result says what is not there");
         });
 
-    // a member of a class runs on a new object of the class, made for the invocation: its Class_Initialize runs before the member, and its Class_Terminate
-    // once the value is taken, before the invocation ends. What the member did to the object goes with it.
+    // a member of a class that is not predeclared runs on a new object of the class, made for the invocation: its Class_Initialize runs before the member,
+    // and its Class_Terminate once the value is taken, before the invocation ends. What the member did to the object goes with it.
     [TestMethod]
     public Task AMemberOfAClass_RunsOnANewObject_InitializedBeforeItAndTerminatedAfterIt()
         => WithMachineAsync(async machine =>
@@ -267,15 +274,32 @@ public sealed class ProgramMachineTests
             AssertReturned("\"ISTIT\"", await Invoke(machine, "TrailOf"));
         });
 
-    // the default instance of a class whose VB_PredeclaredId is True is the program's: an invocation makes an object of its own all the same.
+    // MS-VBAL §5.2.4.1.2: a member of a class whose VB_PredeclaredId is True runs on the class's default instance, the program's: the first reference makes
+    // it and its Class_Initialize runs then, once. It keeps its state from one invocation to the next, and no invocation terminates it.
     [TestMethod]
-    public Task AMemberOfAPredeclaredClass_RunsOnANewObject_NotOnItsDefaultInstance()
+    public Task AMemberOfAPredeclaredClass_RunsOnItsDefaultInstance_WhichKeepsItsStateBetweenInvocations()
         => WithMachineAsync(async machine =>
         {
-            await Invoke(machine, "SetKeeper");
+            AssertReturned("2", await InvokeIn(machine, "Keeper", "Raise", """{"By":2}"""));
+            AssertReturned("5", await InvokeIn(machine, "keeper", "RAISE", """{"by":3}"""));
 
-            AssertReturned("0", await InvokeIn(machine, "Keeper", "Current"));
             AssertReturned("5", await Invoke(machine, "KeeperValue"));
+            AssertReturned("\"K\"", await Invoke(machine, "TrailOf"));
+        });
+
+    // a default instance the program sets to Nothing is let go of, and its Class_Terminate runs: the next invocation's reference makes another, initialized
+    // again. A reset lets go of it as well.
+    [TestMethod]
+    public Task ADefaultInstanceSetToNothingOrReset_IsMadeAgainByTheNextInvocation()
+        => WithMachineAsync(async machine =>
+        {
+            AssertReturned("2", await InvokeIn(machine, "Keeper", "Raise", """{"By":2}"""));
+            await Invoke(machine, "DropKeeper");
+            AssertReturned("3", await InvokeIn(machine, "Keeper", "Raise", """{"By":3}"""));
+            AssertReturned("\"KXK\"", await Invoke(machine, "TrailOf"));
+
+            Assert.IsTrue(await machine.ResetAsync(default).WaitAsync(Patience), "the machine is reset");
+            AssertReturned("4", await InvokeIn(machine, "Keeper", "Raise", """{"By":4}"""));
         });
 
     // an error the Class_Initialize leaves unhandled is the invocation's run-time error, raised before the member runs; it ends nothing of the program.
