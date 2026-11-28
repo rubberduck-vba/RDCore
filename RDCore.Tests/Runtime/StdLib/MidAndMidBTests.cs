@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.StdLib;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -20,6 +21,56 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.11.1.27 MidB$")]
 public sealed class MidAndMidBTests
 {
+    // what compiled code compares, measures or searches of a Mid$, a Left$ or a Right$: the characters the form that makes the String takes, of every Start
+    // and Length, past the end and of vbNullString too, declined where that form declines; read where the text holds them, with nothing allocated.
+    [TestMethod]
+    public void SpanForms_TakeTheCharactersTheTextFormsTake_AndAllocateNothing()
+    {
+        foreach (var text in new[] { "RD-VBA", string.Empty, null })
+        {
+            for (var start = -1; start <= 8; start++)
+            {
+                var from = $"({text}, {start})";
+                Assert.AreEqual(StdStrings.MiddleOf(text, start, out var whole), StdStrings.MiddleSpanOf(text, start, out var wholeSpan), $"Mid${from}");
+                Assert.AreEqual(whole ?? string.Empty, wholeSpan.ToString(), $"Mid${from}");
+                for (var length = -1; length <= 8; length++)
+                {
+                    var at = $"({text}, {start}, {length})";
+                    var made = StdStrings.MiddleOf(text, start, length, out var part);
+                    Assert.AreEqual(made, StdStrings.MiddleSpanOf(text, start, length, out var span), $"Mid${at}");
+                    Assert.AreEqual(part ?? string.Empty, span.ToString(), $"Mid${at}");
+                }
+            }
+
+            for (var length = -1; length <= 8; length++)
+            {
+                var of = $"({text}, {length})";
+                Assert.AreEqual(StdStrings.LeftOf(text, length, out var left), StdStrings.LeftSpanOf(text, length, out var leftSpan), $"Left${of}");
+                Assert.AreEqual(left ?? string.Empty, leftSpan.ToString(), $"Left${of}");
+                Assert.AreEqual(StdStrings.RightOf(text, length, out var right), StdStrings.RightSpanOf(text, length, out var rightSpan), $"Right${of}");
+                Assert.AreEqual(right ?? string.Empty, rightSpan.ToString(), $"Right${of}");
+            }
+        }
+
+        const string Long = "a long String, of which a part is read where it is held";
+        const int Calls = 3000;
+        long Allocated()
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var call = 0; call < Calls; call++)
+            {
+                _ = StdStrings.MiddleSpanOf(Long, 1 + call % 20, 10, out _) && StdStrings.MiddleSpanOf(Long, 3, out _)
+                    && StdStrings.LeftSpanOf(Long, 7, out _) && StdStrings.RightSpanOf(Long, 7, out _);
+            }
+
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        Allocated(); // the first calls pay for what they load, once
+        var allocated = Allocated();
+        Assert.IsLessThan(Calls, allocated, $"{Calls} calls of each allocated {allocated:N0} bytes: a String is at least 22");
+    }
+
     [TestMethod]
     public void Mid_TakesCharactersFromTheStart()
     {

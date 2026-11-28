@@ -1778,15 +1778,15 @@ public sealed partial class CompiledActivation : ILightActivation
     /// its frame would have, of the module the procedure is declared in (<c>RuntimeProcedureInvoker.DirectivesOf</c>).
     /// </summary>
     /// <param name="comparison">The comparison operator.</param>
-    /// <param name="left">The left text; <see langword="null"/> for <c>vbNullString</c>.</param>
-    /// <param name="right">The right text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="left">The characters of the left text, none for <c>vbNullString</c>: a part of a text is not made a <c>String</c> first.</param>
+    /// <param name="right">The characters of the right text, none for <c>vbNullString</c>.</param>
     /// <returns>The comparison's result.</returns>
-    public bool CompareText(ComparisonOperator comparison, string? left, string? right)
+    public bool CompareText(ComparisonOperator comparison, ReadOnlySpan<char> left, ReadOnlySpan<char> right)
     {
         var rules = _frame is null && _procedure is { } procedure
             ? SDK.Runtime.RuntimeSessionExtensions.StringComparisonIn(_session, _invoker.DirectivesOf(procedure).Compare)
             : SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session);
-        var order = rules.Compare(left.AsSpan(), right.AsSpan());
+        var order = rules.Compare(left, right);
         return comparison switch
         {
             ComparisonOperator.Equal => order == 0,
