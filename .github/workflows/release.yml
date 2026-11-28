@@ -34,7 +34,8 @@
 #   • Settings → Rules → Rulesets: a tag ruleset on refs/tags/v* restricting creation, update and deletion to the
 #     maintainers, with no bypass for GitHub Actions (or any other app).
 #   • nuget.org: a trusted publishing policy for this repository's release.yml and the `release` environment, owned by
-#     the account that owns (or is to own) RDCore.Runtime.Hosting, and the variable NUGET_USER naming that account.
+#     the account that owns (or is to own) RDCore.Runtime.Hosting, and the variable NUGET_USER naming the user who created
+#     the policy (a user even when the owner is an organization).
 #   • Optional, later: immutable releases (only after a clean rehearsal, e.g. a full v0.1.0-rc.1 run: the tag name of
 #     an immutable release can never be reused), and "Require actions to be pinned to a full-length commit SHA".
 #   See RELEASING.md for the step-by-step runbook.

@@ -65,11 +65,11 @@ Only people on the bypass list can then create, move or delete a release tag, an
 
 ### 3. NuGet trusted publishing for RDCore.Runtime.Hosting
 
-The *publish-package* job stores no API key: NuGet's trusted publishing gives it a short-lived key, for this repository's `release.yml` running in the `release` environment only. On nuget.org, signed in as the account that is to own the package (a user, or an organization you administer):
+The *publish-package* job stores no API key: NuGet's trusted publishing gives it a short-lived key, for this repository's `release.yml` running in the `release` environment only. On nuget.org, signed in as a user who can act for the account that is to own the package (that user, or an organization the user administers):
 
 1. **Your account → Trusted Publishing → Add a policy**, of type **GitHub Actions**: repository owner `rubberduck-vba`, repository `RDCore`, workflow file `release.yml`, environment `release`. Pick as the policy's owner the account that is to own `RDCore.Runtime.Hosting`.
 1. **The package id's owner.** The first push creates `RDCore.Runtime.Hosting` under the policy's owner; every later push must come from an owner of the id. If the `RDCore` prefix is reserved on nuget.org, the policy's owner must be one of the prefix's owners, or the first push is refused.
-1. **The `NUGET_USER` variable**: on GitHub, **Settings → Secrets and variables → Actions → Variables**, a variable `NUGET_USER` holding the nuget.org user name the key is issued for (the profile name, not an email address). Skip this if the organization already sets it for this repository.
+1. **The `NUGET_USER` variable**: on GitHub, **Settings → Secrets and variables → Actions → Variables**, a variable `NUGET_USER` holding the nuget.org user name of the user who created the policy (the profile name, not an email address), even when the policy's owner is an organization: *NuGet login* refuses the organization's name. Skip this if the organization already sets it for this repository.
 
 If the job's *NuGet login* step fails, check the policy's details and `NUGET_USER` against this list first.
 
@@ -118,6 +118,7 @@ A dry run does not exercise the release itself (the release, the upload of its a
 - **Checked at every build.** The `linux-x64` build job packs it once its tests pass, then `tools/release/Test-HostingPackage.ps1` checks it: the package's version, its files and the dependencies its nuspec names, then the closure a host's restore of it resolves. A package that holds or brings in the parser or ANTLR fails the build job, so nothing waits on approval. A pull request that touches the release plumbing runs the same check.
 - **Pushed on approval.** The *publish-package* job waits on the `release` environment beside *publish*, and the same approval lets it run. It checks that the tag still points at the built commit, then pushes `RDCore.Runtime.Hosting` `<version>` to nuget.org, where it is listed once nuget.org has validated and indexed it (usually within the hour). It does not wait for *publish*: the package is public once nuget.org lists it, whether the release is a draft or published.
 - **If it fails**: at *Check the tag still points at the built commit*, do not re-run it (the run the moved tag started pushes the package); at any other step, **Re-run failed jobs** (a re-run waits for approval again). A version nuget.org already has is skipped, so a re-run never pushes it twice. If *NuGet login* fails, check the [trusted publishing setup](#3-nuget-trusted-publishing-for-rdcoreruntimehosting).
+- **A tag pushed before the nuget.org setup**: *publish* still releases, and *publish-package* fails at *NuGet login*, before anything reaches nuget.org. Do the [setup](#3-nuget-trusted-publishing-for-rdcoreruntimehosting), then **Re-run failed jobs** within 30 days, while the build job's package is kept.
 - **A package with a flaw**: a version on nuget.org can be unlisted but never replaced or deleted. Unlist it on nuget.org (**Manage package → Listing**) and fix forward with a new tag.
 
 ---
