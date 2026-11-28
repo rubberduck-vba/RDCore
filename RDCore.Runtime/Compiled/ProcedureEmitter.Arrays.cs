@@ -130,17 +130,17 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the element a Let writes, when its value calls nothing: the cell is found first and the value evaluated after it, after the calls of the subscripts,
+    // the element a Let writes, when its value calls nothing: the element is found first and the value evaluated after it, after the calls of the subscripts,
     // as the interpreter evaluates them, where MS-VBAL §5.4.3.8 evaluates the value first (as ElementLetStep does for a value that calls). The same element
     // read in the value, at subscripts that are the same expressions, is then that cell. Nothing in between finds another array: the value calls nothing
     // (pure), so no variable a subscript reads changes, and the holder holds the same array. Subscripts are compared as the nodes they are; one made of a
     // list (an element in a subscript) is never the same, and its element is found again.
-    private (int Array, IReadOnlyList<PayloadNode> Subscripts, LocalBuilder Cell)? _found;
+    private (int Array, IReadOnlyList<PayloadNode> Subscripts, LocalBuilder Cell, LocalBuilder? Index)? _found;
 
-    private T EmitFoundIn<T>(int array, IReadOnlyList<PayloadNode> subscripts, LocalBuilder cell, bool pure, Func<T> emitValue)
+    private T EmitFoundIn<T>(int array, IReadOnlyList<PayloadNode> subscripts, LocalBuilder cell, LocalBuilder? index, bool pure, Func<T> emitValue)
     {
         var outer = _found;
-        _found = pure ? (array, subscripts, cell) : null;
+        _found = pure ? (array, subscripts, cell, index) : null;
         try
         {
             return emitValue();
@@ -171,21 +171,26 @@ internal sealed partial class ProcedureEmitter
             case ElementLetStep let:
             {
                 Operand value;
-                LocalBuilder cell;
+                LocalBuilder array, index;
                 if (MakesACall(let.Value))
                 {
                     value = EmitPayload(let.Value, FailureOf(let.Value, let.Offset));
-                    cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                    (array, index) = EmitElement(let.Element, FailureAt(let.Offset));
                 }
                 else
                 {
-                    cell = EmitElementCell(let.Element, FailureAt(let.Offset));
-                    value = EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, pure: true, () => EmitPayload(let.Value, FailureOf(let.Value, let.Offset)));
+                    (array, index) = EmitElement(let.Element, FailureAt(let.Offset));
+                    value = EmitFoundIn(let.Element.Array, let.Element.Subscripts, array, index, pure: true,
+                        () => EmitPayload(let.Value, FailureOf(let.Value, let.Offset)));
                 }
 
-                _il.Emit(OpCodes.Ldloc, cell);
+                _il.Emit(OpCodes.Ldloc, array);
+                _il.Emit(OpCodes.Ldloc, index);
+                _il.Emit(OpCodes.Ldc_I4, (int)let.Element.Kind);
                 Load(value, let.Element.Kind);
-                _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(let.Element.Kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
+                var write = ScalarKinds.IsIntegral(let.Element.Kind) ? nameof(ArrayOperations.WriteIntegral) : nameof(ArrayOperations.WriteFloating);
+                _il.Emit(OpCodes.Call, ArraySupport.GetMethod(write)!);
+                _il.Emit(OpCodes.Brfalse, Fail(FailureAt(let.Offset)));
                 break;
             }
 
@@ -206,7 +211,7 @@ internal sealed partial class ProcedureEmitter
                 else
                 {
                     cell = EmitElementCellOf(let.Element.Array, let.Element.Subscripts, nameof(ArrayOperations.VariantElement), null, failure);
-                    EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, pure: true, () =>
+                    EmitFoundIn(let.Element.Array, let.Element.Subscripts, cell, null, pure: true, () =>
                     {
                         EmitVariantInto(let.Value, value, failure);
                         return 0;
@@ -253,11 +258,14 @@ internal sealed partial class ProcedureEmitter
         {
             case ElementNode element:
             {
-                var cell = EmitElementCell(element, failure);
+                var (array, index) = EmitElement(element, failure);
                 var read = _il.DeclareLocal(ClrTypeOf(element.Kind));
-                _il.Emit(OpCodes.Ldloc, cell);
+                _il.Emit(OpCodes.Ldloc, array);
+                _il.Emit(OpCodes.Ldloc, index);
+                _il.Emit(OpCodes.Ldc_I4, (int)element.Kind);
                 _il.Emit(OpCodes.Ldloca, read);
-                _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(element.Kind) ? nameof(CompiledActivation.ReadIntegral) : nameof(CompiledActivation.ReadFloating))!);
+                var reader = ScalarKinds.IsIntegral(element.Kind) ? nameof(ArrayOperations.ReadIntegral) : nameof(ArrayOperations.ReadFloating);
+                _il.Emit(OpCodes.Call, ArraySupport.GetMethod(reader)!);
                 _il.Emit(OpCodes.Brfalse, Fail(failure));
                 return new Operand(read, 0, 0);
             }
@@ -401,16 +409,27 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the cell of an element of an array of a scalar kind, in a local: its subscripts evaluated first, none outside a dimension.
-    private LocalBuilder EmitElementCell(ElementNode element, Label failure)
-        => EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.ScalarElement), element.Kind, failure);
+    // an element of an array of a scalar kind, in locals: the array, which holds it as bytes, and its flat index; its subscripts evaluated first, none
+    // outside a dimension.
+    private (LocalBuilder Array, LocalBuilder Index) EmitElement(ElementNode element, Label failure)
+    {
+        var array = EmitElementOf(element.Array, element.Subscripts, nameof(ArrayOperations.ScalarElement), element.Kind, failure, orNone: false,
+            out var index);
+        return (array, index!);
+    }
 
     // the cell ArrayOperations' find gives of the element at the subscripts, each evaluated first; none goes to failure, unless orNone keeps it. After a call
     // inside the instruction, the interpreter is given what was evaluated (Fail), and the call is not made again.
     private LocalBuilder EmitElementCellOf(int array, IReadOnlyList<PayloadNode> elementSubscripts, string find, ScalarKind? kind, Label failure, bool orNone = false)
+        => EmitElementOf(array, elementSubscripts, find, kind, failure, orNone, out _);
+
+    // what the find gives, as EmitElementCellOf says: of an element of a scalar kind, the array, with the element's flat index in index.
+    private LocalBuilder EmitElementOf(int array, IReadOnlyList<PayloadNode> elementSubscripts, string find, ScalarKind? kind, Label failure, bool orNone,
+        out LocalBuilder? index)
     {
         if (_found is { } found && found.Array == array && found.Subscripts.SequenceEqual(elementSubscripts))
         {
+            index = found.Index;
             return found.Cell;
         }
 
@@ -438,6 +457,12 @@ internal sealed partial class ProcedureEmitter
             {
                 _il.Emit(OpCodes.Ldc_I8, 0L);
             }
+        }
+
+        index = kind is null ? null : _il.DeclareLocal(typeof(int));
+        if (index is not null)
+        {
+            _il.Emit(OpCodes.Ldloca, index);
         }
 
         _il.Emit(OpCodes.Call, ArraySupport.GetMethod(operation)!);

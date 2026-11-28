@@ -2436,6 +2436,30 @@ End Sub
     }
 
     [TestMethod]
+    // where Debug and its member are written, which a hover on either binds: each name at a range of its own, without the dot or a line continuation.
+    [DataRow("Debug.Print x", "Print", DisplayName = "Debug.Print")]
+    [DataRow("Debug.Print", "Print", DisplayName = "a bare Debug.Print")]
+    [DataRow("Debug _\r\n.Print x", "Print", DisplayName = "Debug.Print after a line continuation before the dot")]
+    [DataRow("Debug. _\r\nPrint x", "Print", DisplayName = "Debug.Print after a line continuation after the dot")]
+    [DataRow("Debug.Assert x > 1", "Assert", DisplayName = "Debug.Assert")]
+    [DataRow("Debug.Assert (x > 1)", "Assert", DisplayName = "Debug.Assert in parentheses")]
+    public void ADebugStatement_KeepsWhereDebugAndItsMemberAreWritten(string statement, string name)
+    {
+        var code = $"Public Sub DoWork()\r\n{statement}\r\nEnd Sub\r\n";
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), code);
+        var debug = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<DebugStatementNode>().Single();
+
+        Assert.IsTrue(result.IsSuccess, statement);
+        Assert.AreEqual(("Debug", name), (WrittenAt(code, debug.ObjectRange), WrittenAt(code, debug.MemberRange)));
+    }
+
+    // the text a range of one line holds; none when there is no range.
+    private static string? WrittenAt(string code, RDCore.SDK.Model.Source.SourceRange? range)
+        => range is { } at && at.Start.Line == at.End.Line
+            ? code.Split("\r\n")[at.Start.Line][at.Start.Character..at.End.Character]
+            : null;
+
+    [TestMethod]
     public void AnObjectPrintOnAnythingElse_StaysACallStatement()
     {
         // MS-VBAL §5.6's object-print expression is not Debug-specific; only the Debug object gets a

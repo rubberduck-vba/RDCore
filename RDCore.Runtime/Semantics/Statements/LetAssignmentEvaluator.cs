@@ -456,6 +456,12 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // a record let to an element of its type that holds one is the element's record let the record itself, which takes a copy of it.
+        if (isElement && expressions.LetsRecordUncoerced(value, elementType, out var record) && TryLetElementRecord(session, array, indices, record))
+        {
+            return RuntimeExecutionOutcome.Next;
+        }
+
         var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(elementType), ConversionSite.Assignment);
         var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
         if (!coerced.IsApplicable)
@@ -483,6 +489,25 @@ public sealed class LetAssignmentEvaluator(
         return RuntimeExecutionOutcome.Next;
     }
 
+    // the record of an element let a record in place, what it holds counted as StoreElement counts it: false when the element holds no record to let.
+    private static bool TryLetElementRecord(IRuntimeSession session, VBArrayValue array, int[] indices, VBUserDefinedTypeValue record)
+    {
+        var cell = array.GetElementHandle(indices)!;
+        if (!cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        var before = ObjectReferences.HeldIn(session, cell);
+        if (!SymbolAddressTable.TryLetRecordInPlace(cell, record))
+        {
+            return false;
+        }
+
+        ObjectReferences.Rebind(session, cell, before);
+        return true;
+    }
+
     // An element is written where it is: its cell is the storage, and the one the objects it holds are held by, which is what
     // lets them be released when the element is assigned again (ObjectReferences) - whether it is Set to an object, or Let a
     // Variant, an array or a record that holds some. Only a cell that cannot be written - the inert one an element of a class,
@@ -490,7 +515,6 @@ public sealed class LetAssignmentEvaluator(
     // variable stores one.
     private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, VBTypedValue source)
     {
-        var value = source is VBArrayValue or VBUserDefinedTypeValue ? SymbolAddressTable.BoxedValue(source) : source.RuntimeValue;
         var cell = array.GetElementHandle(indices)!;
         var before = ObjectReferences.HeldIn(session, cell);
         if (cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
@@ -498,14 +522,14 @@ public sealed class LetAssignmentEvaluator(
             // a record let to an element that holds one is written where the element's record is: a field given by reference is the field.
             if (!SymbolAddressTable.TryLetRecordInPlace(cell, source))
             {
-                cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+                cell.Store(session.Symbols.Resolver, ObjectReferences.Boxed(source), !source.IsIndeterminate);
             }
 
             ObjectReferences.Rebind(session, cell, before);
             return cell;
         }
 
-        array.TrySetElement(BindingKnowledge.NewCell(value, !source.IsIndeterminate), indices);
+        array.TrySetElement(BindingKnowledge.NewCell(ObjectReferences.Boxed(source), !source.IsIndeterminate), indices);
         var stored = array.GetElementHandle(indices)!;
         ObjectReferences.Rebind(session, stored, before);
         return stored;
@@ -884,6 +908,16 @@ public sealed class LetAssignmentEvaluator(
             && expressions.DenotesAVariable(session, context, reachedThrough)
             && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBVariantType;
 
+        // a property or a function that takes no argument, declared to return neither an object nor a `Variant`, given some, is error 451: there is nothing to
+        // give them to (`c.Count(1) = 5` of a Collection, whose Count is a function; recorded in Excel).
+        if (read is VBReturningMemberSymbol { ResolvedType: not (VBClassType or VBObjectType or VBVariantType) }
+                and (VBPropertyGetMemberSymbol or VBFunctionMemberSymbol)
+            && parameters.Length == 0 && !indexArguments.IsEmpty && !isSet && !throughAVariant)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                memberAccess.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, name)));
+        }
+
         if (read is null || indexArguments.Length < required || !isProperty && (isSet || indexArguments.IsEmpty || throughAVariant)
             || isSet && indexArguments.IsEmpty && returnsAnObject || throughAVariant && tooMany)
         {
@@ -949,7 +983,8 @@ public sealed class LetAssignmentEvaluator(
     // MS-VBAL §5.6.13: arguments given to a member that declares no parameter apply to what it returns, called with none. An object it returns has its default
     // member assigned with them, as `o.Inner.Item("k") = 5` would. An array has the element they select let, as `a(0) = 5` would be (recorded in Excel), and
     // Set through the object it holds. Called late, on an Object or a Variant, a Set is error 450: IDispatch is asked to Set the default member given the
-    // arguments, which is not a property that can be Set (recorded in Excel); a Let is assigned. What returns neither an object nor an array is error 424.
+    // arguments, which is not a property that can be Set (recorded in Excel); a Let is assigned through an object it returns, and is error 451 of anything
+    // else, as a read is. What returns neither an object nor an array is error 424.
     private RuntimeExecutionOutcome AssignThroughWhatItReturns(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess, VBTypeMemberSymbol reader,
         System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source, VBTypedValue value, bool isSet)
@@ -965,6 +1000,13 @@ public sealed class LetAssignmentEvaluator(
         if (!returned.IsSuccess)
         {
             return returned.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(returned.ErrorInfo!);
+        }
+
+        if (Held(returned.Result) is not VBObjectValue && reachedThrough is not null
+            && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                memberAccess.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, memberAccess.Member.IdentifierName)));
         }
 
         switch (Held(returned.Result))
@@ -1091,8 +1133,14 @@ public sealed class LetAssignmentEvaluator(
         }
 
         // "the source is Let-coerced to the target's declared type" - a field's declared type is its own, and
-        // the coercion is the same one an assignment to a variable of that type would apply.
-        if (!TryLetCoerce(session, statement, source, value, fieldType, out var coerced, out var coercionFailure))
+        // the coercion is the same one an assignment to a variable of that type would apply. A record let to a field of its type is the field's
+        // record let the record itself, which takes a copy of it.
+        VBTypedValue? coerced;
+        if (expressions.LetsRecordUncoerced(value, fieldType, out var record))
+        {
+            coerced = record;
+        }
+        else if (!TryLetCoerce(session, statement, source, value, fieldType, out coerced, out var coercionFailure))
         {
             return coercionFailure;
         }

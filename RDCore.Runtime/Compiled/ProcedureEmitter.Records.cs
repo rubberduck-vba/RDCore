@@ -74,11 +74,20 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, field.Indexes[^1]);
     }
 
+    // the record its holder holds, onto the stack, then the place of the field the path names in it, folded as the procedure is compiled: a field of a
+    // scalar type, of a record in a record too, is read and written in the holder's record, with no view made of the records between.
+    private void LoadPlaceOf(FieldPath field)
+    {
+        _il.Emit(OpCodes.Ldloc, _records[field.Holder]);
+        _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.RecordIn))!);
+        _il.Emit(OpCodes.Ldc_I4, field.Place);
+    }
+
     // a field of a scalar type, read into a local of its kind; one that holds no payload of it goes to failure.
     private Operand EmitField(FieldNode field, Label failure)
     {
         var read = _il.DeclareLocal(ClrTypeOf(field.Kind));
-        LoadRecordOf(field.Field);
+        LoadPlaceOf(field.Field);
         _il.Emit(OpCodes.Ldc_I4, (int)field.Kind);
         _il.Emit(OpCodes.Ldloca, read);
         _il.Emit(OpCodes.Call, Records.GetMethod(ScalarKinds.IsIntegral(field.Kind) ? nameof(RecordOperations.ReadIntegral) : nameof(RecordOperations.ReadFloating))!);
@@ -92,7 +101,7 @@ internal sealed partial class ProcedureEmitter
     {
         var failure = FailureAt(let.Offset);
         var value = EmitPayload(let.Value, failure);
-        LoadRecordOf(let.Field);
+        LoadPlaceOf(let.Field);
         _il.Emit(OpCodes.Ldc_I4, (int)let.Value.Kind);
         Load(value, let.Value.Kind);
         _il.Emit(OpCodes.Call, Records.GetMethod(ScalarKinds.IsIntegral(let.Value.Kind) ? nameof(RecordOperations.WriteIntegral) : nameof(RecordOperations.WriteFloating))!);

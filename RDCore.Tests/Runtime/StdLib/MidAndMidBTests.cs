@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.StdLib;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -20,6 +21,40 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.11.1.27 MidB$")]
 public sealed class MidAndMidBTests
 {
+    // a loop that walks a String a character at a time makes no String for each character up to 255: the forms compiled code calls give the String of it
+    // made once, as Mid does, and a character above 255 is that character all the same.
+    [TestMethod]
+    public void PartsOfOneCharacter_UpTo255_MakeNoString_AndOneAbove255_IsThatCharacter()
+    {
+        const string Text = "aÿĀb";
+        const int Calls = 3000;
+        Assert.IsTrue(StdStrings.MiddleOf(Text, 2, 1, out var first));
+        Assert.IsTrue(StdStrings.LeftOf("ÿz", 1, out var left));
+        Assert.IsTrue(StdStrings.RightOf("zÿ", 1, out var right));
+        Assert.AreEqual("ÿ", first);
+        Assert.AreSame(first, left);
+        Assert.AreSame(first, right);
+        Assert.AreSame(first, TextOf(Module().Mid(V("xÿ"), L(2), V(1))), "Mid gives the String the form compiled code gives");
+        Assert.IsTrue(StdStrings.MiddleOf(Text, 3, 1, out var above));
+        Assert.AreEqual("Ā", above);
+
+        long Allocated()
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var call = 0; call < Calls; call++)
+            {
+                _ = StdStrings.MiddleOf(Text, 1 + call % 2, 1, out _) && StdStrings.LeftOf(Text, 1, out _) && StdStrings.RightOf(Text, 1, out _)
+                    && StdStrings.WideCharacterOf(call % 256, out _);
+            }
+
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        Allocated(); // the first calls pay for what they load, once
+        var allocated = Allocated();
+        Assert.IsLessThan(Calls, allocated, $"{Calls} calls of each allocated {allocated:N0} bytes: a String of one character is at least 22");
+    }
+
     [TestMethod]
     public void Mid_TakesCharactersFromTheStart()
     {
@@ -94,6 +129,30 @@ public sealed class MidAndMidBTests
         CollectionAssert.AreEqual(new byte[] { 0x42 }, BytesOf(Module().MidB(V(Bytes(0x41, 0x42, 0x43)), L(2), V(1))));
     }
 
+    // a MidB, a LeftB and a RightB of a long String read the bytes they take where the String holds them: none copies the rest of its 20,000 bytes.
+    [TestMethod]
+    public void MidBLeftBAndRightB_OfALongString_CopyNoneOfTheRest()
+    {
+        var module = Module();
+        var text = V(new string('x', 10_000));
+        CollectionAssert.AreEqual(new byte[] { 0x00, 0x78, 0x00 }, BytesOf(module.MidB(text, L(5002), V(3))));
+        CollectionAssert.AreEqual(new byte[] { 0x78, 0x00, 0x78 }, BytesOf(module.LeftB(text, L(3))));
+        CollectionAssert.AreEqual(new byte[] { 0x00, 0x78, 0x00 }, BytesOf(module.RightB(text, L(3))));
+
+        foreach (var (name, take) in new (string, Action)[]
+        {
+            ("MidB", () => module.MidB(text, L(5002), V(3))),
+            ("LeftB", () => module.LeftB(text, L(3))),
+            ("RightB", () => module.RightB(text, L(3))),
+        })
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            take();
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.IsLessThan(4_096L, allocated, $"{name} of 3 bytes of a 20,000-byte String allocated {allocated:N0} bytes");
+        }
+    }
+
     [TestMethod]
     public void MidB_Errors()
     {
@@ -148,4 +207,54 @@ public sealed class MidAndMidBTests
     [TestMethod]
     public void Mid_FromSource_OfAFixedLengthString_SeesItsPadding()
         => Assert.AreEqual("[b   ]", Run("Dim f As String * 5", "f = \"ab\"", "Debug.Print \"[\" & Mid(f, 2) & \"]\"").Single());
+
+    // what compiled code compares, measures or searches of a Mid$, a Left$ or a Right$: the characters the form that makes the String takes, of every Start
+    // and Length, past the end and of vbNullString too, declined where that form declines; read where the text holds them, with nothing allocated.
+    [TestMethod]
+    public void SpanForms_TakeTheCharactersTheTextFormsTake_AndAllocateNothing()
+    {
+        foreach (var text in new[] { "RD-VBA", string.Empty, null })
+        {
+            for (var start = -1; start <= 8; start++)
+            {
+                var from = $"({text}, {start})";
+                Assert.AreEqual(StdStrings.MiddleOf(text, start, out var whole), StdStrings.MiddleSpanOf(text, start, out var wholeSpan), $"Mid${from}");
+                Assert.AreEqual(whole ?? string.Empty, wholeSpan.ToString(), $"Mid${from}");
+                for (var length = -1; length <= 8; length++)
+                {
+                    var at = $"({text}, {start}, {length})";
+                    var made = StdStrings.MiddleOf(text, start, length, out var part);
+                    Assert.AreEqual(made, StdStrings.MiddleSpanOf(text, start, length, out var span), $"Mid${at}");
+                    Assert.AreEqual(part ?? string.Empty, span.ToString(), $"Mid${at}");
+                }
+            }
+
+            for (var length = -1; length <= 8; length++)
+            {
+                var of = $"({text}, {length})";
+                Assert.AreEqual(StdStrings.LeftOf(text, length, out var left), StdStrings.LeftSpanOf(text, length, out var leftSpan), $"Left${of}");
+                Assert.AreEqual(left ?? string.Empty, leftSpan.ToString(), $"Left${of}");
+                Assert.AreEqual(StdStrings.RightOf(text, length, out var right), StdStrings.RightSpanOf(text, length, out var rightSpan), $"Right${of}");
+                Assert.AreEqual(right ?? string.Empty, rightSpan.ToString(), $"Right${of}");
+            }
+        }
+
+        const string Long = "a long String, of which a part is read where it is held";
+        const int Calls = 3000;
+        long Allocated()
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var call = 0; call < Calls; call++)
+            {
+                _ = StdStrings.MiddleSpanOf(Long, 1 + call % 20, 10, out _) && StdStrings.MiddleSpanOf(Long, 3, out _)
+                    && StdStrings.LeftSpanOf(Long, 7, out _) && StdStrings.RightSpanOf(Long, 7, out _);
+            }
+
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        Allocated(); // the first calls pay for what they load, once
+        var allocated = Allocated();
+        Assert.IsLessThan(Calls, allocated, $"{Calls} calls of each allocated {allocated:N0} bytes: a String is at least 22");
+    }
 }

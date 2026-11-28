@@ -24,9 +24,8 @@ public struct KeptArray
     private int _lower1, _upper1, _length1;
     private int _lower2, _upper2, _length2;
 
-    // the type of the cell an element was last found in, and its kind: the cells of an array of a scalar kind are of one type.
-    private VBType? _cellType;
-    private ScalarKind? _cellKind;
+    // the kind the elements are held as bytes of, read when the array is kept; none for elements held in cells.
+    private ScalarKind? _bytesKind;
 
     // the array the holder holds, kept with its shape the first time; false when it holds no array that is known.
     private bool Keep(object? holder)
@@ -47,22 +46,39 @@ public struct KeptArray
         (_lower0, _upper0, _length0) = _rank > 0 ? (dimensions[0].LowerBound, dimensions[0].UpperBound, dimensions[0].Length) : default;
         (_lower1, _upper1, _length1) = _rank > 1 ? (dimensions[1].LowerBound, dimensions[1].UpperBound, dimensions[1].Length) : default;
         (_lower2, _upper2, _length2) = _rank > 2 ? (dimensions[2].LowerBound, dimensions[2].UpperBound, dimensions[2].Length) : default;
+        _bytesKind = ScalarKinds.Of(array.ItemType) is { } kind && ArrayOperations.HoldsBytesOf(array, kind) ? kind : null;
         return true;
     }
 
     // the cell of the element at the subscripts, each a Long (an int holds it): none outside a dimension, of an array of another rank, or of an array with no
     // elements (a dimension of none), as VBArrayValue.IndexOf finds none.
     internal IBindingHandle? CellAt(object? holder, int rank, long first, long second, long third)
+        => IndexAt(holder, rank, first, second, third) is var index and >= 0 ? _array!.CellAt(index) : null;
+
+    // the array, when its elements are held as bytes of the kind, and the flat index of the element at the subscripts, as CellAt finds it.
+    internal object? BytesAt(object? holder, ScalarKind kind, int rank, long first, long second, long third, out int index)
+    {
+        index = IndexAt(holder, rank, first, second, third);
+        if (index < 0 || _bytesKind != kind)
+        {
+            index = -1;
+            return null;
+        }
+
+        return _array;
+    }
+
+    private int IndexAt(object? holder, int rank, long first, long second, long third)
     {
         if (!Keep(holder) || _rank != rank)
         {
-            return null;
+            return -1;
         }
 
         var index = (long)(int)first - _lower0;
         if ((ulong)index >= (ulong)_length0)
         {
-            return null;
+            return -1;
         }
 
         if (rank > 1)
@@ -70,7 +86,7 @@ public struct KeptArray
             var next = (long)(int)second - _lower1;
             if ((ulong)next >= (ulong)_length1)
             {
-                return null;
+                return -1;
             }
 
             var stride = (long)_length0;
@@ -80,26 +96,14 @@ public struct KeptArray
                 var last = (long)(int)third - _lower2;
                 if ((ulong)last >= (ulong)_length2)
                 {
-                    return null;
+                    return -1;
                 }
 
                 index += last * stride * _length1;
             }
         }
 
-        return _array!.CellAt((int)index);
-    }
-
-    // the kind of a payload a cell of type holds, as ScalarKinds gives it.
-    internal ScalarKind? KindOf(VBType type)
-    {
-        if (!ReferenceEquals(type, _cellType))
-        {
-            _cellKind = ScalarKinds.Of(type);
-            _cellType = type;
-        }
-
-        return _cellKind;
+        return (int)index;
     }
 
     // LBound or UBound of the dimension, counted from 1, as ArrayBoundRuntimeSemantics.TryBoundOf reads it: none of an array with no dimensions, or of a

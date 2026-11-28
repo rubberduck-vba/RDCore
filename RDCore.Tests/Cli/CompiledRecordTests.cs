@@ -120,6 +120,87 @@ public sealed class CompiledRecordTests
             "    Next",
             "End Sub"), "Nest", recoveries: 0);
 
+    private static readonly string[] Triple =
+    [
+        "Private Type TTriple",
+        "    Head As Long",
+        "    Pair As TPair",
+        "    Tail As Double",
+        "End Type",
+    ];
+
+    // a record field given by reference is the field (MS-VBAL §5.3.1.11): compiled code reads and writes the fields of the record it is given, and of the
+    // record that one holds, where the outer record holds them, and leaves the outer record's other fields as they were.
+    [TestMethod]
+    public async Task ARecordFieldGivenByReference_IsReadAndWrittenWhereItsRecordHoldsIt()
+        => await AssertPrintsAsync(Module([
+            .. Triple,
+            "Public Sub Main()",
+            "    Dim T As TTriple",
+            "    T.Head = 3",
+            "    T.Tail = 0.25",
+            "    Nest T.Pair, 4",
+            "    Debug.Print T.Head; T.Pair.Inner.X; T.Pair.Inner.Y; T.Pair.Count; T.Tail",
+            "End Sub",
+            "Private Sub Nest(ByRef Q As TPair, ByVal N As Long)",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Q.Inner.X = Q.Inner.X + I",
+            "        Q.Count = Q.Count + 1",
+            "        Q.Inner.Y = Q.Inner.X / Q.Count",
+            "    Next",
+            "End Sub"]), "Nest", 0, 0, "3  10  2.5  4  0.25");
+
+    // a field of a record in a record given by reference is the field (MS-VBAL §5.3.1.11) before and after compiled code writes it through the record:
+    // the parameter of the second call reads what Nest wrote, and Nest, given no reference to the field, runs compiled to its end.
+    [TestMethod]
+    public async Task AFieldOfARecordInARecordGivenByReference_ReadsWhatCompiledCodeWroteThroughTheRecordBetween()
+        => await AssertPrintsAsync(Module([
+            .. Triple,
+            "Public Sub Main()",
+            "    Dim T As TTriple",
+            "    Touch T.Pair.Inner.X",
+            "    Nest T.Pair, 4",
+            "    Touch T.Pair.Inner.X",
+            "    Debug.Print T.Pair.Inner.X; T.Pair.Count",
+            "End Sub",
+            "Private Sub Touch(ByRef N As Long)",
+            "    Debug.Print N",
+            "    N = N + 1",
+            "End Sub",
+            "Private Sub Nest(ByRef Q As TPair, ByVal N As Long)",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Q.Inner.X = Q.Inner.X + I",
+            "        Q.Count = Q.Count + 1",
+            "    Next",
+            "End Sub"]), "Nest", 0, 0, "0", "11", "12  4");
+
+    // a Let of a record in a record, or of the record holding it (MS-VBAL §5.4.3.8), copies another record over it, as the interpreter runs it alone: what
+    // compiled code reads of the inner record's fields after it is the copy, and what it writes is in the record let, not in the one copied.
+    [TestMethod]
+    [DataRow("Q.Inner = O", "1050053057  57  70")]
+    [DataRow("Q = R", "1079082086  77  70")]
+    public async Task AFieldOfARecordInARecord_IsReadAfterARecordHoldingItIsLet(string let, string printed)
+        => await AssertPrintsAsync(Module(
+            "Public Sub Main()",
+            "    Dim Q As TPair",
+            "    Dim O As TPoint",
+            "    Dim R As TPair",
+            "    O.X = 50",
+            "    R.Inner.X = 70",
+            "    R.Count = 9",
+            "    Debug.Print Walk(Q, O, R, 4); Q.Inner.X; R.Inner.X",
+            "End Sub",
+            "Private Function Walk(ByRef Q As TPair, ByRef O As TPoint, ByRef R As TPair, ByVal N As Long) As Double",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Q.Inner.X = Q.Inner.X + I",
+            $"        If I = 2 Then {let}",
+            "        Walk = Walk * 1000 + Q.Inner.X + Q.Count",
+            "    Next",
+            "End Function"), "Walk", 1, 0, printed);
+
     // a record is copied whole by a Let (MS-VBAL §5.4.3.8), which the interpreter runs: each record has fields of its own after it, which compiled code reads
     // and writes in the record its variable holds then.
     [TestMethod]

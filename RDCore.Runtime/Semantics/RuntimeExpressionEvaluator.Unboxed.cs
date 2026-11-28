@@ -56,11 +56,12 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        // an element of an array of a scalar type, written in the cell it is kept in.
+        // an element of an array of a scalar type, written in the bytes it is held in.
         if (bound is BoundIndex index)
         {
-            return ElementCellOf(session, index) is { } element
-                && TryEvaluatePayloadAs(session, BoundTreeOf(session, value, context), element.Type, out var written) && TryWritePayload(element, written);
+            return ElementOf(session, index, out var flat) is { } array
+                && TryEvaluatePayloadAs(session, BoundTreeOf(session, value, context), ScalarPayload.ElementTypeOf(array)!, out var written)
+                && written.TryWriteElement(array, flat);
         }
 
         if (bound is not BoundVariable variable)
@@ -415,9 +416,9 @@ public sealed partial class RuntimeExpressionEvaluator
             case BoundBinary { Plan: { } plan, Left: var left, Right: var right }:
                 return TryEvaluatePayload(session, left, out var lhs) && TryEvaluatePayload(session, right, out var rhs)
                     && TryOperateBinary(PlanFor(plan, lhs, rhs), lhs, rhs, out payload);
-            // an element of an array of a scalar type, read in the cell it is kept in.
+            // an element of an array of a scalar type, read in the bytes it is held in.
             case BoundIndex index:
-                return ElementCellOf(session, index) is { } element && element.TryRead(out payload);
+                return ElementOf(session, index, out var flat) is { } array && ScalarPayload.TryOfElement(array, flat, out payload);
             default:
                 return false;
         }
@@ -590,13 +591,15 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private readonly ConcurrentDictionary<BoundNode, ConstantPayload> _constantPayloads = new(ReferenceEqualityComparer.Instance);
 
-    // the cell of an element of an array of a scalar type a variable holds - a(i, j) - when each subscript is evaluated on payloads and selects an element.
-    // A subscript is let-coerced to a Long, as the boxed evaluation coerces it (EvaluateSubscripts): one that would raise an error - past the range
-    // of a Long, outside its dimension - is that evaluation's to raise, and so is an array that is not known, or one whose elements are kept as values.
-    private ScalarCell? ElementCellOf(IRuntimeSession session, BoundIndex index)
+    // the array of a scalar type a variable holds, whose elements it holds as bytes, and the flat index of an element of it - a(i, j) - when each subscript
+    // is evaluated on payloads and selects an element. A subscript is let-coerced to a Long, as the boxed evaluation coerces it (EvaluateSubscripts): one
+    // that would raise an error - past the range of a Long, outside its dimension - is that evaluation's to raise, and so is an array that is not known, or
+    // one whose elements are kept in cells.
+    private VBArrayValue? ElementOf(IRuntimeSession session, BoundIndex index, out int flat)
     {
+        flat = -1;
         if (index.Callee is not BoundVariable variable || PayloadArrayOf(BindingOf(session, variable).Handle) is not { } array
-            || index.Arguments.Length != array.Rank)
+            || index.Arguments.Length != array.Rank || ScalarPayload.ElementTypeOf(array) is null)
         {
             return null;
         }
@@ -612,8 +615,8 @@ public sealed partial class RuntimeExpressionEvaluator
             subscripts[k] = (int)integral.Integral;
         }
 
-        var flat = array.IndexOf(subscripts[..index.Arguments.Length]);
-        return flat < 0 ? null : array.CellAt(flat) as ScalarCell;
+        flat = array.IndexOf(subscripts[..index.Arguments.Length]);
+        return flat < 0 ? null : array;
     }
 
     // MS-VBAL §5.6.13 sets no limit on the rank of an array; MS-VBA's is 60. An element of more dimensions than this is read boxed.
@@ -621,7 +624,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// The array the cell of an array variable holds, known, whose elements are read and written on payloads: what an element of it is found in
-    /// (<see cref="ElementCellOf"/>), and what compiled code finds one in too.
+    /// (<see cref="ElementOf"/>), and what compiled code finds one in too.
     /// </summary>
     /// <returns><see langword="null"/> when the cell holds no array, one that is not known, or one of more dimensions than are read on payloads.</returns>
     internal static VBArrayValue? PayloadArrayOf(IBindingHandle? handle)

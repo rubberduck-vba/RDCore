@@ -31,7 +31,7 @@ public sealed partial class CompiledActivation
         // an ASCII code is the same character in every code page: one of the Strings made once.
         if (code is >= 0 and < 128)
         {
-            text = StdStrings.AsciiCharacters[code];
+            text = StdStrings.OneCharacterStrings[code];
             return true;
         }
 

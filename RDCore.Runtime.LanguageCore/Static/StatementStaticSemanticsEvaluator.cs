@@ -300,6 +300,12 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
+            if (LetThroughArgumentsOfAMemberThatTakesNone(context, assignment) is { } refusedLet)
+            {
+                walk.Errors.Add(refusedLet);
+                return;
+            }
+
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
             MarkWritten(context, assignment.Target, assignment.Kind is AssignmentKind.ExplicitLet or AssignmentKind.ImplicitLet);
@@ -1331,6 +1337,34 @@ public static class StatementStaticSemanticsEvaluator
     // Property Let for a Let, whose Get is then of a type that has no default member to assign instead: a type other than a class, Object or Variant
     // (§5.4.3.8) - and no public variable of the name. A property of the class named by its bare name, from another of its procedures, is one too; in its
     // own Property Get, the name is the result (§5.4.3.8, §5.4.3.9: "does not refer to the enclosing procedure").
+    // MS-VBAL §5.4.3.8: a Let through the argument list of an object's member that takes none and returns neither a Variant nor an object is refused as a Let
+    // of the member itself is, before its arguments are counted: `b.Counts(0) = 99` of a Property Get Counts() As Long() and no Property Let is "Can't
+    // assign to read-only property", as `b.Counts = …` is, and of a Function "Function call on left-hand side of assignment must return Variant or Object"
+    // (MS-VBA, observed in Excel, of a class of the workspace). A read of it, and a Set, give the arguments to the member, which takes none (450).
+    private static VBCompileErrorInfo? LetThroughArgumentsOfAMemberThatTakesNone(StaticEvaluationContext context, AssignmentStatementNode assignment)
+    {
+        if (assignment.Kind is not (AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet)
+            || assignment.Target is not IndexExpressionNode { Callee: MemberAccessExpressionNode { Member: var name } callee, Arguments: var arguments }
+            || arguments.IsDefaultOrEmpty || arguments is [MissingArgumentNode]
+            || ObjectValueStaticSemantics.MemberOfCallee(context, callee) is not VBReturningMemberSymbol
+                { ResolvedType: not (VBVariantType or VBObjectType or VBClassType or VBUnknownType) } member
+            || SymbolProperties.IsOfALibraryProject(member)
+            || ObjectValueStaticSemantics.ParametersOfCallee(context, callee) is not { } parameters
+            || parameters.Any(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef)))
+        {
+            return null;
+        }
+
+        return member switch
+        {
+            VBPropertyGetMemberSymbol when HasOnlyAPropertyGet(context, callee, isSet: false)
+                => VBCompileErrorInfo.For(VBCompileErrorId.CantAssignToReadOnlyProperty, assignment.Target.Location, name.IdentifierName),
+            VBFunctionMemberSymbol => VBCompileErrorInfo.For(
+                VBCompileErrorId.FunctionCallOnLeftHandSideMustReturnVariantOrObject, assignment.Target.Location, name.IdentifierName),
+            _ => null,
+        };
+    }
+
     private static bool HasOnlyAPropertyGet(StaticEvaluationContext context, ExpressionNode target, bool isSet)
         => AccessorsOf(context, target) is { } members
             && members.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() is { } get

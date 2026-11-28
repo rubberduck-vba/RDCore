@@ -1,6 +1,7 @@
 using RDCore.Runtime.Compiled;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -189,6 +190,37 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
 
     /// <summary>Whether the value is not zero: what it is let-coerced to a <c>Boolean</c> as (MS-VBAL §5.5.1.2.2, §5.5.1.2.3).</summary>
     public bool IsTrue => IsIntegral ? Integral != 0 : Floating != 0;
+
+    /// <summary>
+    /// The type of the payload of an element of <paramref name="array"/> held as bytes (<see cref="VBArrayValue.ElementEncoding"/>): the element type, an
+    /// enumeration's being <c>Long</c> (MS-VBAL §5.2.3.4); <see langword="null"/> when the elements are held in cells.
+    /// </summary>
+    public static VBType? ElementTypeOf(VBArrayValue array)
+        => array.ElementEncoding == RecordFieldEncoding.None ? null : VBEnumType.AsDeclaredType(array.ItemType);
+
+    /// <summary>
+    /// The payload of the element at <paramref name="flatIndex"/> of <paramref name="array"/>, held as bytes, read where the array holds it: no cell is
+    /// made of the element.
+    /// </summary>
+    /// <returns><see langword="false"/> when the elements are held in cells, or there is no element at the index.</returns>
+    public static bool TryOfElement(VBArrayValue array, int flatIndex, out ScalarPayload payload)
+    {
+        if (ElementTypeOf(array) is { } type && array.TryReadElementAt(flatIndex, array.ElementEncoding, out var integral, out var floating))
+        {
+            payload = new ScalarPayload(type, integral, floating);
+            return true;
+        }
+
+        payload = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Let-assigns the payload, of the element type (<see cref="ElementTypeOf"/>), to the element at <paramref name="flatIndex"/> of
+    /// <paramref name="array"/>, held as bytes, where the array holds it: a cell made of the element reads it.
+    /// </summary>
+    /// <returns><see langword="false"/> when the elements are held in cells, or there is no element at the index.</returns>
+    public bool TryWriteElement(VBArrayValue array, int flatIndex) => array.TryWriteElementAt(flatIndex, array.ElementEncoding, Integral, Floating);
 
     /// <summary>
     /// The payload of <paramref name="value"/>, a runtime value of <paramref name="type"/>.

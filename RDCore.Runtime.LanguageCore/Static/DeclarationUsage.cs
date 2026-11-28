@@ -25,11 +25,12 @@ public static class DeclarationUsage
 {
     // namesInUnanalyzedCode: the names written in the procedures of the module that were not fully analyzed (NamesIn), or null when they are not known.
     // byRefArguments: what the calls of the module's code do with the arguments they take by reference (ArgumentsOf), or null when that is not known.
+    // classModuleOf: the class module of the workspace a class type names, as the session has it, for the classes a declared type names (DeclaredClasses).
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationBinding>? bindings = null,
         Func<Symbol, HiddenDeclaration?>? hides = null, ByRefArguments? byRefArguments = null, ModuleDeclarationFacts? declarations = null,
         IReadOnlySet<string>? excludedBranchNames = null, Func<Symbol, ImmutableArray<CompiledPlatforms>?>? statementsCompiledOn = null,
-        IEnumerable<string>? namesInUnanalyzedCode = null)
+        IEnumerable<string>? namesInUnanalyzedCode = null, Func<VBClassType, VBClassModuleSymbol?>? classModuleOf = null)
     {
         var models = procedures.ToList();
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
@@ -82,11 +83,27 @@ public static class DeclarationUsage
                 StatementsCompiledOn = statements ?? default,
                 TypeKind = TypeKindOf(symbol),
                 IsArray = symbol is ITypedSymbol { ResolvedType: VBArrayType },
+                DeclaredClasses = classModuleOf is not null && ReadOrGivenAs(symbol, candidates) is { } declaredType
+                    ? DeclaredClassFact.Of(declaredType, classModuleOf)
+                    : default,
             });
         }
 
         return facts.ToImmutable();
     }
+
+    // the declared type of a parameter, of what a function returns, and of what a property is read as: its Property Get's, whichever of its accessors stands
+    // for the property. Null for any other declaration.
+    private static VBType? ReadOrGivenAs(Symbol symbol, IEnumerable<(Symbol Symbol, DeclarationKind? Kind)> candidates) => symbol switch
+    {
+        VBParameterSymbol parameter => parameter.ResolvedType,
+        VBFunctionMemberSymbol function => function.ResolvedType,
+        IVBPropertyMemberSymbol => candidates.Select(candidate => candidate.Symbol).OfType<VBPropertyGetMemberSymbol>()
+            .FirstOrDefault(get => get.ParentUri.AbsoluteUri == symbol.ParentUri.AbsoluteUri
+                && string.Equals(get.Name, symbol.Name, StringComparison.OrdinalIgnoreCase))
+            ?.ResolvedType,
+        _ => null,
+    };
 
     // MS-VBAL §5.2.3.1.4, §5.2.3.1.5: the type a declaration is declared as, of its elements for an array; what a function or a property returns. A Sub and an
     // Event have none (Void), and a type that did not resolve is not known.

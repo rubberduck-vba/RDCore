@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
 
@@ -25,6 +26,12 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
             && SymbolUri.ModuleNameOf(symbol.Uri) is var first && !string.Equals(first, library, StringComparison.OrdinalIgnoreCase))
         {
             container = $"{library}.{container}";
+        }
+
+        // a member of the Debug object is said of the object, as code writes it (Debug.Print): its class is declared in the library's module no code names.
+        if (string.Equals(container, $"{StandardLibrary.GlobalModuleName}.{StandardLibrary.DebugObjectName}", StringComparison.OrdinalIgnoreCase))
+        {
+            container = StandardLibrary.DebugObjectName;
         }
 
         // the class of a control array has a name no code writes, and is not said: its members are reached through the array, which says what it is.

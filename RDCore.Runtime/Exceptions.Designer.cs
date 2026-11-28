@@ -405,6 +405,15 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The {0} member takes no arguments, and what it returns is not an object whose default member could take them..
+        /// </summary>
+        internal static string VBMemberAccess_TakesNoArguments_Verbose {
+            get {
+                return ResourceManager.GetString("VBMemberAccess_TakesNoArguments_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The object has no member named {0}..
         /// </summary>
         internal static string VBMemberAccess_NoSuchMember_Verbose {
@@ -809,7 +818,79 @@ namespace RDCore.Runtime {
             get {
                 return ResourceManager.GetString("JsonValues_KeyGivenTwice_Verbose", resourceCulture);
             }
+        }        
+        /// <summary>
+        ///   Looks up a localized string similar to The key &apos;{0}&apos; names no member of the class &apos;{1}&apos; that it can give a value to..
+        /// </summary>
+        internal static string JsonValues_KeyNamesNoMember_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyNamesNoMember_Verbose", resourceCulture);
+            }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The key names the method &apos;{0}&apos; of the class &apos;{1}&apos;..
+        /// </summary>
+        internal static string JsonValues_KeyNamesMethod_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyNamesMethod_Verbose", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   Looks up a localized string similar to The key names the property &apos;{0}&apos; of the class &apos;{1}&apos;, which takes arguments besides its value..
+        /// </summary>
+        internal static string JsonValues_KeyNamesIndexedProperty_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyNamesIndexedProperty_Verbose", resourceCulture);
+            }
+        }
+
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The key names the member &apos;{0}&apos; of the class &apos;{1}&apos;, which is read-only..
+        /// </summary>
+        internal static string JsonValues_KeyNamesReadOnly_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyNamesReadOnly_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No key names the member &apos;{0}&apos; of the class &apos;{1}&apos;..
+        /// </summary>
+        internal static string JsonValues_MemberNotGiven_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_MemberNotGiven_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The object to fill is a &apos;{0}&apos;: a JSON object fills only an object of a class of the workspace..
+        /// </summary>
+        internal static string JsonValues_IntoNotAnInstance_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_IntoNotAnInstance_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The text is not JSON (line {0}, position {1})..
+        /// </summary>
+        internal static string JsonValues_NotJsonText_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NotJsonText_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is not a JsonMemberHandling value..
+        /// </summary>
+        internal static string JsonValues_NotAHandling_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_NotAHandling_Verbose", resourceCulture);
+            }
+        }
+
         
         /// <summary>
         ///   Looks up a localized string similar to {0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed..

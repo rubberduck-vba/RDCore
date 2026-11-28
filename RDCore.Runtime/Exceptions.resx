@@ -231,6 +231,9 @@
   <data name="VBMemberAssignment_ReadOnlyProperty_Verbose" xml:space="preserve">
     <value>The object's {0} property has a Property Get and no Property Let, and what it returns is no object whose default member could be assigned instead.</value>
   </data>
+  <data name="VBMemberAccess_TakesNoArguments_Verbose" xml:space="preserve">
+    <value>The {0} member takes no arguments, and what it returns is not an object whose default member could take them.</value>
+  </data>
   <data name="VBMemberAccess_NoSuchMember_Verbose" xml:space="preserve">
     <value>The object has no member named {0}.</value>
   </data>
@@ -365,6 +368,30 @@
   </data>
   <data name="JsonValues_KeyGivenTwice_Verbose" xml:space="preserve">
     <value>The keys '{0}' and '{1}' name the same member of the class '{2}'.</value>
+  </data>
+  <data name="JsonValues_KeyNamesNoMember_Verbose" xml:space="preserve">
+    <value>The key '{0}' names no member of the class '{1}' that it can give a value to.</value>
+  </data>
+  <data name="JsonValues_KeyNamesMethod_Verbose" xml:space="preserve">
+    <value>The key names the method '{0}' of the class '{1}'.</value>
+  </data>
+  <data name="JsonValues_KeyNamesIndexedProperty_Verbose" xml:space="preserve">
+    <value>The key names the property '{0}' of the class '{1}', which takes arguments besides its value.</value>
+  </data>
+  <data name="JsonValues_KeyNamesReadOnly_Verbose" xml:space="preserve">
+    <value>The key names the member '{0}' of the class '{1}', which is read-only.</value>
+  </data>
+  <data name="JsonValues_MemberNotGiven_Verbose" xml:space="preserve">
+    <value>No key names the member '{0}' of the class '{1}'.</value>
+  </data>
+  <data name="JsonValues_IntoNotAnInstance_Verbose" xml:space="preserve">
+    <value>The object to fill is a '{0}': a JSON object fills only an object of a class of the workspace.</value>
+  </data>
+  <data name="JsonValues_NotJsonText_Verbose" xml:space="preserve">
+    <value>The text is not JSON (line {0}, position {1}).</value>
+  </data>
+  <data name="JsonValues_NotAHandling_Verbose" xml:space="preserve">
+    <value>{0} is not a JsonMemberHandling value.</value>
   </data>
   <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
     <value>{0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed.</value>

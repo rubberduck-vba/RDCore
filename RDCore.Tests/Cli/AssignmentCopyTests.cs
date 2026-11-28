@@ -13,7 +13,10 @@ namespace RDCore.Tests.Cli;
 public sealed class AssignmentCopyTests
 {
     private static Task<string[]> Run(string declarations, params string[] lines)
-        => RunAsync([], $"Attribute VB_Name = \"Program\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n");
+        => Run([], declarations, lines);
+
+    private static Task<string[]> Run(IReadOnlyList<(string Name, string Source)> classes, string declarations, params string[] lines)
+        => RunAsync(classes, $"Attribute VB_Name = \"Program\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n");
 
     [TestMethod]
     public async Task AnArray_AssignedToAnArray_IsACopy()
@@ -74,4 +77,33 @@ public sealed class AssignmentCopyTests
     public async Task ARecordWithANestedRecord_AssignedToARecord_IsACopyTheWholeWayDown()
         => CollectionAssert.AreEqual(new[] { "1 2" }, await Run("Private Type TInner\r\n    X As Long\r\nEnd Type\r\nPrivate Type TOuter\r\n    Inner As TInner\r\nEnd Type",
             "Dim p As TOuter, q As TOuter", "p.Inner.X = 1", "q = p", "q.Inner.X = 2", "Debug.Print p.Inner.X & \" \" & q.Inner.X"));
+
+    // a String field, and an element of a fixed-size array field of Strings, assigned with the record: the copy's characters are another String's, of the
+    // same value, and the source's are where they were.
+    [TestMethod]
+    public async Task ARecordWithStringFields_AssignedToARecord_HasCharactersOfItsOwn()
+        => CollectionAssert.AreEqual(new[] { "True True True abc abc", "True True q q" }, await Run(
+            "Private Type T\r\n    S As String\r\n    N(1) As String\r\nEnd Type",
+            "Dim p As T, q As T, s0 As LongPtr, n0 As LongPtr", "p.S = \"abc\"", "p.N(1) = \"q\"", "s0 = StrPtr(p.S)", "n0 = StrPtr(p.N(1))", "q = p",
+            "Debug.Print (s0 <> 0) & \" \" & (StrPtr(q.S) <> s0) & \" \" & (StrPtr(p.S) = s0) & \" \" & p.S & \" \" & q.S",
+            "Debug.Print (StrPtr(q.N(1)) <> n0) & \" \" & (StrPtr(p.N(1)) = n0) & \" \" & p.N(1) & \" \" & q.N(1)"));
+
+    // an object field assigned with the record: the copy's field holds the object of its own, which lives on when the source's field lets go of it, and the
+    // copy lets go of it when the copy is assigned a record that holds Nothing there.
+    [TestMethod]
+    public async Task AnObjectField_AssignedWithItsRecord_IsHeldByTheCopy_UntilTheCopyIsAssignedAnother()
+        => CollectionAssert.AreEqual(new[] { "p let go", "True", "gone", "q assigned" }, await Run(
+            [("Noisy", ClassModule("Noisy", "Option Explicit", "Private Sub Class_Terminate()", "    Debug.Print \"gone\"", "End Sub"))],
+            "Private Type T\r\n    O As Noisy\r\n    N As Long\r\nEnd Type",
+            "Dim p As T, q As T, e As T", "Set p.O = New Noisy", "q = p", "Set p.O = Nothing", "Debug.Print \"p let go\"",
+            "Debug.Print TypeName(q.O) = \"Noisy\"", "q = e", "Debug.Print \"q assigned\""));
+
+    // a record whose Variant field holds an array, let to a variable, to an element of an array of records and to a field of another record: each holds an
+    // array of its own, so an element of the source's assigned afterwards is the source's alone, and a record let itself holds what it held.
+    [TestMethod]
+    public async Task ARecordWithAnArrayInAVariant_LetToAVariableAnElementAndAField_HoldsAnArrayOfItsOwn()
+        => CollectionAssert.AreEqual(new[] { "9 1 1 1", "1 3" }, await Run(
+            "Private Type T\r\n    V As Variant\r\n    N As Long\r\nEnd Type\r\nPrivate Type TOuter\r\n    In As T\r\nEnd Type",
+            "Dim p As T, q As T, a(1 To 2) As T, o As TOuter", "p.V = Array(1, 2)", "p.N = 3", "q = p", "a(1) = p", "o.In = p", "p.V(0) = 9",
+            "Debug.Print p.V(0) & \" \" & q.V(0) & \" \" & a(1).V(0) & \" \" & o.In.V(0)", "q = q", "Debug.Print q.V(0) & \" \" & q.N"));
 }
