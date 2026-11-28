@@ -37,13 +37,16 @@ public sealed class ProcedureNotUsedAnalyzerTests
             [("Helpers", ModuleWorkspace.StandardModule("Helpers", helpers))]);
     }
 
-    private static Task<(AnalyzerFinding[] Findings, string Source)> FindingsAsync(Project project, string module, ProjectBuild? build = null)
-        => FindingsAsync(new ProcedureNotUsedAnalyzer(), RDCoreDiagnosticId.ProcedureNotUsed, project, module, build);
+    private static Task<(AnalyzerFinding[] Findings, string Source)> FindingsAsync(
+        Project project, string module, ProjectBuild? build = null, RDCore.CLI.Host.IHostExtensionAnnotations? extensionAnnotations = null)
+        => FindingsAsync(new ProcedureNotUsedAnalyzer(), RDCoreDiagnosticId.ProcedureNotUsed, project, module, build, extensionAnnotations);
 
     private static async Task<(AnalyzerFinding[] Findings, string Source)> FindingsAsync(
-        IModuleAnalyzer analyzer, RDCoreDiagnosticId id, Project project, string module, ProjectBuild? build = null)
+        IModuleAnalyzer analyzer, RDCoreDiagnosticId id, Project project, string module, ProjectBuild? build = null,
+        RDCore.CLI.Host.IHostExtensionAnnotations? extensionAnnotations = null)
     {
-        var payload = await ModuleWorkspace.SemanticsAsync(project.Classes, project.Program, modules: project.Modules, build: build);
+        var payload = await ModuleWorkspace.SemanticsAsync(project.Classes, project.Program, modules: project.Modules, build: build,
+            extensionAnnotations: extensionAnnotations);
         var model = payload.Modules.Single(semantics => semantics.Module.Fragment.TrimStart('#') == module);
         var isClass = module == "Worker";
         var source = module == "Program" ? project.Program : (isClass ? project.Classes : project.Modules).Single(entry => entry.Name == module).Source;
@@ -89,6 +92,19 @@ public sealed class ProcedureNotUsedAnalyzerTests
 
         CollectionAssert.AreEqual(new[] { name }, NamesAt(findings, source));
         Assert.AreEqual(DiagnosticSeverity.Information, findings[0].Severity);
+    }
+
+    // a test that the unit-testing extension runs is called from outside the project; an annotation not declared as an entry point says nothing of who calls
+    // the member.
+    [TestMethod]
+    [DataRow("Helpers", DisplayName = "a Public Sub of a standard module")]
+    [DataRow("Worker", DisplayName = "a Public Sub of a class")]
+    public async Task AProcedureAnExtensionCallsByItsAnnotation_IsNotReported(string module)
+    {
+        var lines = "'@TestMethod|Public Sub AddsTwoNumbers()|End Sub|'@Description \"Not a test\"|Public Sub Described()|End Sub";
+        var (findings, source) = await FindingsAsync(ProjectOf(module, lines), module, extensionAnnotations: Cli.ExtensionEntryPointRoleTests.UnitTesting());
+
+        CollectionAssert.AreEqual(new[] { "Described" }, NamesAt(findings, source));
     }
 
     [TestMethod]

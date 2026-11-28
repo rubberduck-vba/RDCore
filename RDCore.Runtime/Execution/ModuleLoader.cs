@@ -4,6 +4,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
@@ -229,8 +230,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, syntaxTree.SourceLocation.Uri, sweepable, errorDetails, syntaxTree, module.Uri);
+        // and the annotations above each member, which an extension may call it from outside the project by (SemanticModelStore.AcrossProject).
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate, declarationFacts, excludedBranchNames, platforms,
-            LateBoundNames.Of(syntaxTree, moduleModel.Procedures), unanalyzedNames, byRefArguments);
+            LateBoundNames.Of(syntaxTree, moduleModel.Procedures), unanalyzedNames, byRefArguments, MemberAnnotationsOf(parseResult, written, members));
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
@@ -401,6 +403,19 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
     private static bool IsDead(SDK.Model.Source.SourceLocation location, ImmutableArray<SDK.Model.Source.SourceLocation> deadRanges)
         => deadRanges.Any(dead => dead.Uri == location.Uri
             && location.Range.Start.CompareTo(dead.Range.Start) >= 0 && location.Range.Start.CompareTo(dead.Range.End) <= 0);
+
+    // the names of the annotations of each member, as written: a member declared in two branches of a #If has the annotations of both. The annotations are
+    // bound to the declarations of the tree the parser made, whose lines they are above.
+    private static IReadOnlyDictionary<SemanticId, ImmutableArray<string>>? MemberAnnotationsOf(
+        ModuleParseResult parse, SyntaxNode written, IReadOnlyList<VBTypeMemberSymbol> members)
+    {
+        var annotated = written.Children.OfType<MemberDeclarationNode>()
+            .Select(declaration => (Member: FindMember(members, declaration), Annotations: parse.GetAnnotations(declaration)))
+            .Where(found => found is { Member: not null, Annotations.Length: > 0 })
+            .GroupBy(found => found.Member!.SemanticId)
+            .ToDictionary(group => group.Key, group => group.SelectMany(found => found.Annotations.Select(annotation => annotation.Name)).ToImmutableArray());
+        return annotated.Count == 0 ? null : annotated;
+    }
 
     // a name is not enough: the accessors of a property share one, and the declaration says which it is.
 
