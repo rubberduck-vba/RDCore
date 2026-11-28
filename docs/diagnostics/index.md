@@ -347,6 +347,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC01023](rdc01023.md)|Parameter can be passed by value|A parameter passed by reference that its procedure never changes|
 |[RDC01024](rdc01024.md)|Default project name|A project named `VBAProject`, the name MS-VBA gives a new project|
 |[RDC01025](rdc01025.md)|Procedure not used|A procedure or a property that no code calls|
+|[RDC01026](rdc01026.md)|Code left out by conditional compilation|A branch of a `#If` block that the constants leave out|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
 |[RDC11010](rdc11010.md)|Unresolved late-bound member access|A member of an `Object` that no class it can be of has: error 438 when it runs|
