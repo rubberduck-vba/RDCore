@@ -57,6 +57,11 @@ public sealed class ProgramMachineTests
         "Do",
         "Loop",
         "End Sub",
+        "Public Sub WriteForever(ByVal Path As String)",
+        "Open Path For Output As #1",
+        "Do",
+        "Loop",
+        "End Sub",
         "Public Function Record() As Object",
         "Set Record = CreateObject(\"Scripting.Dictionary\")",
         "Record.Add \"name\", \"x\"",
@@ -254,5 +259,43 @@ public sealed class ProgramMachineTests
 
             await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => Invoke(machine, "Current"));
             await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => machine.ResetAsync(default));
+        });
+
+    // a machine disposed while an invocation runs lets go of its session only once the invocation ends: the file the procedure opened is still open, and the
+    // invocation ends as its token says. A dispose after that end, the machine's owner's, changes nothing.
+    [TestMethod]
+    public Task AMachineDisposedWhileItRuns_LetsGoOfItsSessionOnceTheInvocationEnds()
+        => ModuleWorkspace.InspectAsync(Classes, Program, async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            var machine = new ProgramMachine(provider, NSubstitute.Substitute.For<IErrorDetailsRecorder>(), ownsSession: true);
+            var path = Path.Combine(Path.GetTempPath(), $"rdcore-machine-{Guid.NewGuid():N}.txt");
+            using var stop = new CancellationTokenSource();
+            var running = machine.InvokeAsync(
+                new ProgramInvocation("Program", "WriteForever", new Dictionary<string, JsonNode?> { ["Path"] = JsonValue.Create(path) }), stop.Token);
+            try
+            {
+                // what is waited on is the file being open, not a time.
+                while (!provider.Session.Files.Open.Any() && !running.IsCompleted)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(10));
+                }
+
+                Assert.IsFalse(running.IsCompleted, "the invocation runs until its token stops it");
+                await machine.DisposeAsync();
+
+                Assert.IsTrue(provider.Session.Files.Open.Any(), "the session of a machine disposed while it runs is let go of only once the invocation ends");
+            }
+            finally
+            {
+                await stop.CancelAsync();
+            }
+
+            var interrupted = await running.WaitAsync(Patience);
+            Assert.AreEqual(ExecutionOutcome.Interrupted, interrupted.Outcome, interrupted.ErrorMessage);
+            Assert.IsFalse(provider.Session.Files.Open.Any(), "the session is let go of once the invocation ends, and its files close with it");
+            await machine.DisposeAsync();
+            await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => Invoke(machine, "Current"));
+            File.Delete(path);
         });
 }

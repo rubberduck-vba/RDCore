@@ -21,7 +21,8 @@ namespace RDCore.Runtime.Support.Host;
 
 // a machine of a program: the session of one provider, which runs one invocation at a time, by name, with arguments and a result as JSON (JsonValues).
 // Composing a pipeline makes the session's lifecycle its own (ClassLifecycle), so one is composed only while nothing runs: an invocation or a reset that
-// finds another running is answered without one. ownsSession: whether disposing the machine disposes the provider.
+// finds another running is answered without one. ownsSession: whether disposing the machine disposes the provider. A machine disposed while it runs an
+// invocation or a reset lets go of its session once that ends, not under it.
 internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IErrorDetailsRecorder errorDetails, bool ownsSession) : IProgramMachine
 {
     private int _busy;
@@ -62,6 +63,7 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         finally
         {
             Volatile.Write(ref _busy, 0);
+            ReleaseIfDisposed();
         }
     }
 
@@ -84,17 +86,25 @@ internal sealed class ProgramMachine(EnvironmentSessionProvider provider, IError
         finally
         {
             Volatile.Write(ref _busy, 0);
+            ReleaseIfDisposed();
         }
     }
 
     public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 0 && ownsSession)
+        Volatile.Write(ref _disposed, 1);
+        ReleaseIfDisposed();
+        return ValueTask.CompletedTask;
+    }
+
+    // once the machine is disposed, whichever comes last, the dispose or the end of what runs, lets go of the session, only once: it holds the machine as
+    // busy for good, so that nothing runs in the session after.
+    private void ReleaseIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed) != 0 && Interlocked.CompareExchange(ref _busy, 1, 0) == 0 && ownsSession)
         {
             provider.Dispose();
         }
-
-        return ValueTask.CompletedTask;
     }
 
     // a Public (or implicitly public) Sub, Function or Property Get of a standard module: a member of a class needs an object, and a Declare is not code
