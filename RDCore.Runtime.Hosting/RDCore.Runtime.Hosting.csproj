@@ -9,6 +9,7 @@
     <Description>What a host runs an RD-VBA program with: the composition rdc compose wrote, loaded with no parser, and the machines that run it. The implementation of the SDK's runtime hosting contract.</Description>
     <!-- the platform's own assemblies a host needs are in this package, none of them being published on its own: see BundleProjectReferences -->
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);BundleProjectReferences</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificDebugSymbolsInPackage>$(TargetsForTfmSpecificDebugSymbolsInPackage);BundleProjectReferenceSymbols</TargetsForTfmSpecificDebugSymbolsInPackage>
   </PropertyGroup>
 
   <!-- what nuget.org shows of the package: README.md beside this file, packed at the package's root, and the ducky of logo.ico as a PNG, which nuget.org
@@ -51,6 +52,16 @@
       <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths)"
                             Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' And '%(Extension)' == '.dll'"
                             TargetPath="%(ReferenceCopyLocalPaths.DestinationSubDirectory)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- and their symbols go into the .snupkg, beside the package's own: a host that steps into the runtime needs them -->
+  <Target Name="BundleProjectReferenceSymbols" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <TfmSpecificDebugSymbolsFile Include="@(ReferenceCopyLocalPaths)"
+                                   Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' And '%(Extension)' == '.pdb'"
+                                   TargetFramework="$(TargetFramework)"
+                                   TargetPath="%(ReferenceCopyLocalPaths.DestinationSubDirectory)%(Filename)%(Extension)" />
     </ItemGroup>
   </Target>
 
