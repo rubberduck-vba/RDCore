@@ -223,6 +223,40 @@ public sealed class FormHostingTests
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
     }
 
+    // a program that loads a UserForm, lets its state change, closes it, then asks its default instance for that state, as a smart-UI program does (MS-VBA):
+    // Hide keeps the form, its controls' state and its variables; Unload lets the default instance go, unlike a Visual Basic 6.0 form's, so the next reference
+    // makes another, with a second Initialize, its designer's controls and fresh variables, while a variable that held the first holds it still.
+    [TestMethod]
+    public async Task AUserFormsDefaultInstance_KeepsItsStateWhileHidden_AndIsANewOneAfterUnload()
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        string[] code = ["Public Answer As String",
+            "Private Sub UserForm_Initialize()", "    Debug.Print \"Initialize\"", "End Sub",
+            "Private Sub UserForm_Terminate()", "    Debug.Print \"Terminate\"", "End Sub"];
+
+        var printed = await RunWithCodeAsync(world, code,
+            "Load ExampleView",
+            "ExampleView.AmountBox.Text = \"typed\"",
+            "ExampleView.Answer = \"ok\"",
+            "ExampleView.Hide",
+            "Debug.Print ExampleView.AmountBox.Text & \"/\" & ExampleView.Answer",
+            "Dim f As ExampleView",
+            "Set f = ExampleView",
+            "Debug.Print f Is ExampleView",
+            "Unload ExampleView",
+            "Debug.Print \"[\" & ExampleView.Answer & \"]\"",
+            "Debug.Print \"[\" & ExampleView.AmountBox.Text & \"]\"",
+            "Debug.Print f Is ExampleView",
+            "Debug.Print f.Answer",
+            "Unload ExampleView",
+            "Debug.Print \"end\"");
+
+        CollectionAssert.AreEqual(new[] { "Initialize", "typed/ok", "True", "Terminate", "Initialize", "[]", "[]", "False", "ok", "Terminate", "end" },
+            printed, string.Join(" | ", printed));
+    }
+
     // a control raises its event inside the call that made it - Change while its Text is assigned - and the handler the form's code has for it runs then, inside it.
     [TestMethod]
     public async Task AControlsEvent_RunsTheHandlerNamedAfterIt()
