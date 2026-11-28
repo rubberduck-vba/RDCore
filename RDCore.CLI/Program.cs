@@ -527,6 +527,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, BenchMsVbaCommand>()
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<ICliCommand, BuildCommand>()
+            .AddSingleton<ICliCommand, ComposeCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
             .AddSingleton<ICliCommand, McpCommand>()
             .AddSingleton<ICliCommand, InstallCommand>()

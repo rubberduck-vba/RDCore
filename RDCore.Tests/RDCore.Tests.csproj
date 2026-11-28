@@ -28,6 +28,8 @@
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
     <ProjectReference Include="..\RDCore.Runtime\RDCore.Runtime.csproj" />
     <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
+    <ProjectReference Include="..\RDCore.Runtime.Composer\RDCore.Runtime.Composer.csproj" />
+    <ProjectReference Include="..\RDCore.Runtime.Hosting\RDCore.Runtime.Hosting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

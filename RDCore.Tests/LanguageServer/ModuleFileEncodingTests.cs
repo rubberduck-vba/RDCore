@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.CLI.App.Bench;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
+using RDCore.Runtime.Composer;
 using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Server.Configuration;
@@ -128,7 +128,7 @@ public sealed class ModuleFileEncodingTests
         var path = Path.Combine(Root, "Module1.bas");
         _files.AddFile(path, new MockFileData(CodePage(1252).GetBytes(Source)));
 
-        var workspace = await BenchWorkspace.LoadAsync(_files, new ProjectFileLoader(_files), path);
+        var workspace = await ProgramWorkspace.LoadAsync(_files, new ProjectFileLoader(_files), path);
 
         Assert.AreEqual(Source, workspace.Modules.Single().Source);
     }

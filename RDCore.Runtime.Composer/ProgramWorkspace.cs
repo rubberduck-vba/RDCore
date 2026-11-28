@@ -5,10 +5,10 @@ using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions;
 
-namespace RDCore.CLI.App.Bench;
+namespace RDCore.Runtime.Composer;
 
 /// <summary>
-/// A module of a workspace that is benchmarked: its name and kind, as the module says them, and where it is.
+/// A module of a program's workspace: its name and kind, as the module says them, and where it is.
 /// </summary>
 /// <param name="Name">The name the module declares (<c>Attribute VB_Name</c>), or its file name when it declares none.</param>
 /// <param name="Type">A standard module or a class module, as its header says.</param>
@@ -19,7 +19,7 @@ namespace RDCore.CLI.App.Bench;
 /// cannot be read.
 /// </param>
 /// <param name="CompanionProblem">Why the companion file could not be read; null when it was, when the module names none, and when the file is not there.</param>
-internal sealed record class BenchModule(string Name, ModuleType Type, string RelativePath, string Source, ReadOnlyMemory<byte> Companion = default,
+internal sealed record class ProgramWorkspaceModule(string Name, ModuleType Type, string RelativePath, string Source, ReadOnlyMemory<byte> Companion = default,
     Exception? CompanionProblem = null)
 {
     /// <summary>
@@ -30,14 +30,14 @@ internal sealed record class BenchModule(string Name, ModuleType Type, string Re
 }
 
 /// <summary>
-/// A project of the workspace that the benchmarked project references (<strong>RD-VBAL §2.2.3.2</strong>).
+/// A project of the workspace that the program's project references (<strong>RD-VBAL §2.2.3.2</strong>).
 /// </summary>
 /// <param name="Name">The name of the project, as the reference gives it.</param>
 /// <param name="Workspace">The project's folder, read as a workspace of its own: its modules and its project file.</param>
-internal sealed record class BenchReferencedProject(string Name, BenchWorkspace Workspace);
+internal sealed record class ReferencedProgramWorkspace(string Name, ProgramWorkspace Workspace);
 
 /// <summary>
-/// The code <c>rdc bench</c> runs: the modules of a workspace, and the project they make.
+/// The code of a program, as <c>rdc bench</c>, <c>rdc run</c> and a composer read it: the modules of a workspace, and the project they make.
 /// </summary>
 /// <remarks>
 /// A folder with a <c>.rdproj</c> is the project it describes: its modules, its references and its precompiler constants. A folder with none is the project
@@ -47,19 +47,19 @@ internal sealed record class BenchReferencedProject(string Name, BenchWorkspace 
 /// <param name="Root">The absolute path of the root of the workspace.</param>
 /// <param name="Project">The project: what the session is composed from.</param>
 /// <param name="Modules">The modules, in the order the project lists them.</param>
-internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, IReadOnlyList<BenchModule> Modules)
+internal sealed record class ProgramWorkspace(string Root, RDCoreProject Project, IReadOnlyList<ProgramWorkspaceModule> Modules)
 {
     /// <summary>
     /// The projects of the workspace the project references, in the order of its references: each one's name as the reference gives it, and its folder
     /// read as a workspace of its own. Its own references are not read.
     /// </summary>
-    public IReadOnlyList<BenchReferencedProject> ReferencedProjects { get; init; } = [];
+    public IReadOnlyList<ReferencedProgramWorkspace> ReferencedProjects { get; init; } = [];
 
     /// <summary>
     /// The module of the file the workspace was loaded from, when that file is a module of the project of its folder (<see cref="LoadAsync"/>);
     /// <see langword="null"/> when the workspace was loaded from a folder, or from a file that is a project of its own.
     /// </summary>
-    public BenchModule? Given { get; init; }
+    public ProgramWorkspaceModule? Given { get; init; }
 
     /// <summary>
     /// The root of the workspace as its <c>file</c> URI (<see cref="SymbolUri.Root"/>): what its modules are addressed under.
@@ -74,7 +74,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// <c>/</c> is read back as a relative URI.
     /// </remarks>
     /// <param name="module">A module of the workspace.</param>
-    public Uri DocumentOf(BenchModule module) => new(new Uri(Path.Combine(Root, module.RelativePath)).AbsoluteUri);
+    public Uri DocumentOf(ProgramWorkspaceModule module) => new(new Uri(Path.Combine(Root, module.RelativePath)).AbsoluteUri);
 
     /// <summary>
     /// The workspace at <paramref name="path"/>: a module file, or a folder.
@@ -98,7 +98,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     /// </param>
     /// <exception cref="FileNotFoundException">There is no such file or folder.</exception>
     /// <exception cref="InvalidOperationException">A reference of the project to a project names no project of the workspace, or more than one.</exception>
-    public static async Task<BenchWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default,
+    public static async Task<ProgramWorkspace> LoadAsync(IFileSystem fileSystem, IProjectFileLoader projects, string path, CancellationToken token = default,
         SupportedLanguage? language = null, int ansiCodePage = ModuleFileText.DefaultAnsiCodePage, bool inItsProject = false,
         SdkWorkspaceOptions? workspace = null)
     {
@@ -139,7 +139,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
     // RD-VBAL §2.2.3.2: a reference to a project names the one project of the workspace with that name (ProjectReferences), among the folders the
     // .rdworkspace lists (WorkspaceFolderList.Read); with no .rdworkspace, the project is the workspace's only one. A reference that names no project, or
     // more than one, refuses the load, naming it. A reference to the project itself closes a circle of references, and gives no names.
-    private static async Task<IReadOnlyList<BenchReferencedProject>> ReferencedAsync(
+    private static async Task<IReadOnlyList<ReferencedProgramWorkspace>> ReferencedAsync(
         IFileSystem fileSystem, IProjectFileLoader projects, string root, RDCoreProject project, int ansiCodePage, SdkWorkspaceOptions options,
         CancellationToken token)
     {
@@ -173,7 +173,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             throw new InvalidOperationException(string.Join(Environment.NewLine, refused));
         }
 
-        var referenced = new List<BenchReferencedProject>();
+        var referenced = new List<ReferencedProgramWorkspace>();
         foreach (var resolution in resolutions)
         {
             var (folder, info) = workspace[resolution.Index];
@@ -183,7 +183,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
                 continue;
             }
 
-            referenced.Add(new BenchReferencedProject(resolution.Reference.Name, Compose(fileSystem, folder, info, info.Modules, ansiCodePage, options)));
+            referenced.Add(new ReferencedProgramWorkspace(resolution.Reference.Name, Compose(fileSystem, folder, info, info.Modules, ansiCodePage, options)));
         }
 
         return referenced;
@@ -191,7 +191,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
 
     // the project lists the modules by where they are, and says which are document modules; the session reads the same files, in their own encoding, a form's
     // companion file with its module as the language server reads it, and the standard library is referenced first, as it always is.
-    private static BenchWorkspace Compose(
+    private static ProgramWorkspace Compose(
         IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed, int ansiCodePage, SdkWorkspaceOptions workspace)
     {
         var modules = listed.Select(module =>
@@ -200,11 +200,11 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             var source = ModuleFileText.Decode(fileSystem.File.ReadAllBytes(path), ansiCodePage).Text;
             var companion = FormDesigner.ReadCompanion(fileSystem, path, source, out var problem);
             var declared = ModuleKinds.ModulesOf(module, source, workspace);
-            return new BenchModule(declared[0].Name, declared[0].Kind, module.RelativeUri, source, companion, problem) { Declared = declared };
+            return new ProgramWorkspaceModule(declared[0].Name, declared[0].Kind, module.RelativeUri, source, companion, problem) { Declared = declared };
         }).ToArray();
 
         // the standard library is every project's own, and no reference of it.
-        return new BenchWorkspace(root, project with
+        return new ProgramWorkspace(root, project with
         {
             Name = project.Name is { Length: > 0 } ? project.Name : "Bench",
             Modules = [.. listed.Select(module => new RDCoreModule { RelativeUri = module.RelativeUri, Super = module.Super })],

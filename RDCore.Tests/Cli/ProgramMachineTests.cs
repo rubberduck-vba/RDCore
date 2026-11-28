@@ -3,13 +3,15 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Hosting;
+using RDCore.SDK.Workspace;
 using System.Text.Json.Nodes;
 
 namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A machine of a program (<see cref="IProgramMachine"/>): a procedure invoked by name, with its arguments by their parameters' names and its value as JSON;
-/// what ends an invocation otherwise; one invocation at a time; and a reset that a token cuts short, in a <c>Class_Terminate</c> too.
+/// a member of a class invoked on a new object of the class; what ends an invocation otherwise; one invocation at a time; and a reset that a token cuts short,
+/// in a <c>Class_Terminate</c> too.
 /// </summary>
 [TestClass]
 public sealed class ProgramMachineTests
@@ -24,9 +26,46 @@ public sealed class ProgramMachineTests
             "Do",
             "Loop",
             "End Sub")),
+        ("Counter", ModuleWorkspace.ClassModule("Counter",
+            "Private Calls As Long",
+            "Private Sub Class_Initialize()",
+            "Trail = Trail & \"I\"",
+            "End Sub",
+            "Private Sub Class_Terminate()",
+            "Trail = Trail & \"T\"",
+            "End Sub",
+            "Public Function Advance(ByVal By As Long) As Long",
+            "Trail = Trail & \"A\"",
+            "Calls = Calls + By",
+            "Advance = Calls",
+            "End Function",
+            "Public Sub Touch()",
+            "Trail = Trail & \"S\"",
+            "End Sub",
+            "Public Property Get Tally() As Long",
+            "Tally = Calls",
+            "End Property",
+            "Public Property Let Limit(ByVal Value As Long)",
+            "Trail = Trail & \"L\"",
+            "End Property")),
+        ("Keeper", ModuleWorkspace.ClassModule("Keeper",
+            "Attribute VB_PredeclaredId = True",
+            "Public Value As Long",
+            "Public Function Current() As Long",
+            "Current = Value",
+            "End Function")),
+        ("Failing", ModuleWorkspace.ClassModule("Failing",
+            "Private Sub Class_Initialize()",
+            "Trail = Trail & \"I\"",
+            "Err.Raise 5",
+            "End Sub",
+            "Public Sub Touch()",
+            "Trail = Trail & \"S\"",
+            "End Sub")),
     ];
 
     private static readonly string Program = string.Join("\r\n",
+        "Public Trail As String",
         "Public Count As Long",
         "Public Held As Object",
         "Public Enum Shade",
@@ -57,6 +96,11 @@ public sealed class ProgramMachineTests
         "Do",
         "Loop",
         "End Sub",
+        "Public Sub WriteForever(ByVal Path As String)",
+        "Open Path For Output As #1",
+        "Do",
+        "Loop",
+        "End Sub",
         "Public Function Record() As Object",
         "Set Record = CreateObject(\"Scripting.Dictionary\")",
         "Record.Add \"name\", \"x\"",
@@ -74,6 +118,15 @@ public sealed class ProgramMachineTests
         "Public Sub Hold()",
         "Set Held = New Looping",
         "End Sub",
+        "Public Function TrailOf() As String",
+        "TrailOf = Trail",
+        "End Function",
+        "Public Sub SetKeeper()",
+        "Keeper.Value = 5",
+        "End Sub",
+        "Public Function KeeperValue() As Long",
+        "KeeperValue = Keeper.Value",
+        "End Function",
         "");
 
     private static Task WithMachineAsync(Func<IProgramMachine, Task> act)
@@ -85,7 +138,11 @@ public sealed class ProgramMachineTests
         });
 
     private static Task<ProgramInvocationResult> Invoke(IProgramMachine machine, string procedure, string arguments = "{}", CancellationToken token = default)
-        => machine.InvokeAsync(new ProgramInvocation("Program", procedure, Arguments(arguments)), token).WaitAsync(Patience);
+        => InvokeIn(machine, "Program", procedure, arguments, token);
+
+    private static Task<ProgramInvocationResult> InvokeIn(
+        IProgramMachine machine, string module, string procedure, string arguments = "{}", CancellationToken token = default)
+        => machine.InvokeAsync(new ProgramInvocation(module, procedure, Arguments(arguments)), token).WaitAsync(Patience);
 
     private static Dictionary<string, JsonNode?> Arguments(string json)
         => JsonNode.Parse(json)!.AsObject().ToDictionary(pair => pair.Key, pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
@@ -172,7 +229,10 @@ public sealed class ProgramMachineTests
     [DataRow("Program", "Hidden", DisplayName = "a Private procedure")]
     [DataRow("Program", "Count", DisplayName = "a variable")]
     [DataRow("Elsewhere", "Add", DisplayName = "no such module")]
-    [DataRow("Looping", "Class_Terminate", DisplayName = "a class module")]
+    [DataRow("Looping", "Class_Terminate", DisplayName = "a Private procedure of a class")]
+    [DataRow("Counter", "Calls", DisplayName = "a variable of a class")]
+    [DataRow("Counter", "Limit", DisplayName = "a Property Let of a class")]
+    [DataRow("Collection", "Count", DisplayName = "a class of a library")]
     public Task AProcedureThatIsNotThere_IsNotFound(string module, string procedure)
         => WithMachineAsync(async machine =>
         {
@@ -181,6 +241,87 @@ public sealed class ProgramMachineTests
             Assert.AreEqual(ExecutionOutcome.NotFound, result.Outcome, result.ErrorMessage);
             Assert.IsFalse(string.IsNullOrEmpty(result.ErrorMessage), "the result says what is not there");
         });
+
+    // a member of a class runs on a new object of the class, made for the invocation: its Class_Initialize runs before the member, and its Class_Terminate
+    // once the value is taken, before the invocation ends. What the member did to the object goes with it.
+    [TestMethod]
+    public Task AMemberOfAClass_RunsOnANewObject_InitializedBeforeItAndTerminatedAfterIt()
+        => WithMachineAsync(async machine =>
+        {
+            AssertReturned("2", await InvokeIn(machine, "Counter", "Advance", """{"By":2}"""));
+            AssertReturned("3", await InvokeIn(machine, "counter", "ADVANCE", """{"by":3}"""));
+
+            AssertReturned("\"IATIAT\"", await Invoke(machine, "TrailOf"));
+        });
+
+    // a Sub and a Property Get of a class are invoked as a Function is.
+    [TestMethod]
+    public Task ASubAndAPropertyGetOfAClass_AreInvokedOnANewObject()
+        => WithMachineAsync(async machine =>
+        {
+            var touched = await InvokeIn(machine, "Counter", "Touch");
+
+            Assert.AreEqual(ExecutionOutcome.Completed, touched.Outcome, touched.ErrorMessage);
+            Assert.IsFalse(touched.HasValue, "a Sub returns no value");
+            AssertReturned("0", await InvokeIn(machine, "Counter", "Tally"));
+            AssertReturned("\"ISTIT\"", await Invoke(machine, "TrailOf"));
+        });
+
+    // the default instance of a class whose VB_PredeclaredId is True is the program's: an invocation makes an object of its own all the same.
+    [TestMethod]
+    public Task AMemberOfAPredeclaredClass_RunsOnANewObject_NotOnItsDefaultInstance()
+        => WithMachineAsync(async machine =>
+        {
+            await Invoke(machine, "SetKeeper");
+
+            AssertReturned("0", await InvokeIn(machine, "Keeper", "Current"));
+            AssertReturned("5", await Invoke(machine, "KeeperValue"));
+        });
+
+    // an error the Class_Initialize leaves unhandled is the invocation's run-time error, raised before the member runs; it ends nothing of the program.
+    [TestMethod]
+    public Task AnErrorTheClassInitializeLeavesUnhandled_IsARunTimeError_AndTheMemberDoesNotRun()
+        => WithMachineAsync(async machine =>
+        {
+            AssertError(VBRuntimeErrorId.InvalidProcedureCallOrArgument, await InvokeIn(machine, "Failing", "Touch"));
+
+            var trail = await Invoke(machine, "TrailOf");
+            Assert.AreEqual(ExecutionOutcome.Completed, trail.Outcome, trail.ErrorMessage);
+            var said = trail.Value!.GetValue<string>();
+            StringAssert.StartsWith(said, "I", "the Class_Initialize ran");
+            Assert.DoesNotContain("S", said, "the member did not run");
+        });
+
+    // the arguments of a member of a class bind as a standard module's do, and its Me is no parameter an argument names. A name no parameter has is refused
+    // before the object is made; a value that does not convert, or none for a parameter that is not Optional, once it is made, and it is let go of. The
+    // member runs in none of them.
+    [TestMethod]
+    [DataRow("""{"Me":null,"By":1}""", VBRuntimeErrorId.NamedArgumentNotFound, "", DisplayName = "an argument named Me")]
+    [DataRow("""{"By":1,"Step":2}""", VBRuntimeErrorId.NamedArgumentNotFound, "", DisplayName = "an argument no parameter has")]
+    [DataRow("""{"By":"x"}""", VBRuntimeErrorId.TypeMismatch, "IT", DisplayName = "a value of no parameter's type")]
+    [DataRow("{}", VBRuntimeErrorId.ArgumentNotOptional, "IT", DisplayName = "a parameter that is not Optional, given nothing")]
+    public Task AnArgumentOfAMemberOfAClassThatDoesNotBind_IsARunTimeError_AndTheMemberDoesNotRun(
+        string arguments, VBRuntimeErrorId expected, string trail)
+        => WithMachineAsync(async machine =>
+        {
+            AssertError(expected, await InvokeIn(machine, "Counter", "Advance", arguments));
+
+            AssertReturned($"\"{trail}\"", await Invoke(machine, "TrailOf"));
+        });
+
+    // a document module's object is its host's document: a machine invokes no member of one.
+    [TestMethod]
+    public Task AMemberOfADocumentModule_IsNotFound()
+        => ModuleWorkspace.InspectAsync([], "Public Sub Main()\r\nEnd Sub\r\n", async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            await using var machine = new ProgramMachine(provider, NSubstitute.Substitute.For<IErrorDetailsRecorder>(), ownsSession: false);
+
+            var result = await InvokeIn(machine, "GameSheet", "Answer");
+
+            Assert.AreEqual(ExecutionOutcome.NotFound, result.Outcome, result.ErrorMessage);
+        }, libraries: DocumentModuleTests.Excel,
+            documents: [("GameSheet", "Option Explicit\r\nPublic Function Answer() As Long\r\nAnswer = 1\r\nEnd Function\r\n", DocClassType.ExcelWorksheet)]);
 
     // an error nothing handled is the program's run-time error, with its code; an End ends the program.
     [TestMethod]
@@ -254,5 +395,43 @@ public sealed class ProgramMachineTests
 
             await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => Invoke(machine, "Current"));
             await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => machine.ResetAsync(default));
+        });
+
+    // a machine disposed while an invocation runs lets go of its session only once the invocation ends: the file the procedure opened is still open, and the
+    // invocation ends as its token says. A dispose after that end, the machine's owner's, changes nothing.
+    [TestMethod]
+    public Task AMachineDisposedWhileItRuns_LetsGoOfItsSessionOnceTheInvocationEnds()
+        => ModuleWorkspace.InspectAsync(Classes, Program, async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            var machine = new ProgramMachine(provider, NSubstitute.Substitute.For<IErrorDetailsRecorder>(), ownsSession: true);
+            var path = Path.Combine(Path.GetTempPath(), $"rdcore-machine-{Guid.NewGuid():N}.txt");
+            using var stop = new CancellationTokenSource();
+            var running = machine.InvokeAsync(
+                new ProgramInvocation("Program", "WriteForever", new Dictionary<string, JsonNode?> { ["Path"] = JsonValue.Create(path) }), stop.Token);
+            try
+            {
+                // what is waited on is the file being open, not a time.
+                while (!provider.Session.Files.Open.Any() && !running.IsCompleted)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(10));
+                }
+
+                Assert.IsFalse(running.IsCompleted, "the invocation runs until its token stops it");
+                await machine.DisposeAsync();
+
+                Assert.IsTrue(provider.Session.Files.Open.Any(), "the session of a machine disposed while it runs is let go of only once the invocation ends");
+            }
+            finally
+            {
+                await stop.CancelAsync();
+            }
+
+            var interrupted = await running.WaitAsync(Patience);
+            Assert.AreEqual(ExecutionOutcome.Interrupted, interrupted.Outcome, interrupted.ErrorMessage);
+            Assert.IsFalse(provider.Session.Files.Open.Any(), "the session is let go of once the invocation ends, and its files close with it");
+            await machine.DisposeAsync();
+            await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => Invoke(machine, "Current"));
+            File.Delete(path);
         });
 }

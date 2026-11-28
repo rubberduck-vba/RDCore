@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+    <AssemblyTitle>RDCore Runtime Hosting</AssemblyTitle>
+    <Description>What a host runs an RD-VBA program with: the composition rdc compose wrote, loaded with no parser, and the machines that run it. The implementation of the SDK's runtime hosting contract.</Description>
+    <!-- the platform's own assemblies a host needs are in this package, none of them being published on its own: see BundleProjectReferences -->
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);BundleProjectReferences</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificDebugSymbolsInPackage>$(TargetsForTfmSpecificDebugSymbolsInPackage);BundleProjectReferenceSymbols</TargetsForTfmSpecificDebugSymbolsInPackage>
+  </PropertyGroup>
+
+  <!-- what nuget.org shows of the package: README.md beside this file, packed at the package's root, and the ducky of logo.ico as a PNG, which nuget.org
+       wants for an icon. Its symbols are in the .snupkg. -->
+  <PropertyGroup>
+    <PackageTags>VBA;VB6;MS-VBAL;RDCore;Rubberduck;runtime;hosting</PackageTags>
+    <PackageIcon>ducky.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="logo.ico" Pack="false" />
+    <None Include="ducky.png" Pack="true" PackagePath="" Visible="false" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RDCore.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <!-- what a deployed host references: RDCore.Runtime.Support and its references, never RDCore.Parsing, whose grammars are third-party GPL code that
+       NOTICE's grant does not cover, or ANTLR, which only the parser uses. A test fails when one appears. PrivateAssets="all": the package names no
+       RDCore.Runtime.Support package, which nuget.org does not have; the packages of nuget.org the bundled projects reference are referenced here, so
+       that the package names them. -->
+  <ItemGroup>
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
+    <PackageReference Include="RDCore.Forms" Version="$(RDCoreFormsVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="TestableIO.System.IO.Abstractions.TestingHelpers" Version="22.2.0" />
+    <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- every assembly the project references bring, theirs and their own project references', French satellites included, goes into lib/<tfm> -->
+  <Target Name="BundleProjectReferences" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths)"
+                            Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' And '%(Extension)' == '.dll'"
+                            TargetPath="%(ReferenceCopyLocalPaths.DestinationSubDirectory)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- and their symbols go into the .snupkg, beside the package's own: a host that steps into the runtime needs them -->
+  <Target Name="BundleProjectReferenceSymbols" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <TfmSpecificDebugSymbolsFile Include="@(ReferenceCopyLocalPaths)"
+                                   Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' And '%(Extension)' == '.pdb'"
+                                   TargetFramework="$(TargetFramework)"
+                                   TargetPath="%(ReferenceCopyLocalPaths.DestinationSubDirectory)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
