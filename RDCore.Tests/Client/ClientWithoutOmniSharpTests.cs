@@ -202,7 +202,7 @@ public sealed class ClientWithoutOmniSharpTests
 
     // a client that opens no folder has the one the server was started on (--workspace) as its workspace, and a program it runs, runs there. A server
     // started on no folder at all can't be: an IDE starts it on its workspace (RDCoreLanguageServerLaunch takes one, and refuses what is not a folder). The
-    // session's module is named as no module of the workspace is: the subject is the folder, not a session module that shares a workspace module's name.
+    // session's module is named as no module of the workspace is: the subject is the folder; the next row runs a module of the workspace.
     [TestMethod]
     public async Task AClientThatOpensNoFolder_RunsInTheFolderTheServerWasStartedOn()
     {
@@ -228,6 +228,39 @@ public sealed class ClientWithoutOmniSharpTests
         // CurDir is the workspace's real path: on macOS the temporary folder is under /var, a link to /private/var.
         var root = RDCore.SDK.Platform.PlatformRootConfinement.RealPath(new Uri(platform.Workspace).LocalPath);
         CollectionAssert.AreEqual(new[] { "2", RDCore.SDK.Workspace.WorkspacePaths.Normalized(root) },
+            executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        await platform.ShutdownAsync(4);
+    }
+
+    // the module is the workspace's own (Program.bas), as edited: its members are defined under the root, and its code is loaded into the module the
+    // environment host composed of the project, which is addressed by the folder as its file URI names it. On Windows the root of a client that opens no
+    // folder is the --workspace folder with its drive in the case the command line gives, another spelling of that folder: the module's members are not the
+    // host's module's, its code is loaded into nothing, and Main has no body.
+    [TestMethod]
+    [Ignore("Windows: NotImplemented until RDCore.SDK's WorkspaceRootChoice writes the folder the server was started on as a request writes one "
+        + "(fork branch fix/workspace-root-started-form, next SDK batch)")]
+    public async Task AClientThatOpensNoFolder_RunsAModuleOfTheWorkspace()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams("{}", opensAFolder: false));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+        Assert.IsTrue(File.Exists(Path.Combine(new Uri(platform.Workspace).LocalPath, "Program.bas")), "the workspace is to have a module named Program");
+
+        var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = "Public Sub Main()\r\n    Debug.Print 1 + 1\r\nEnd Sub\r\n",
+            ["moduleName"] = "Program",
+            ["entryPoint"] = "Main",
+        });
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "2" },
             executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
         await platform.ShutdownAsync(4);
     }
