@@ -2,6 +2,7 @@ using CommandLine;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
+using RDCore.Runtime.Hosting;
 using RDCore.CLI.App.Repl;
 using RDCore.External.Interaction;
 using RDCore.Runtime.Execution.External.ScriptHost;
@@ -59,10 +60,10 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         }
 
         var options = parsed.Value;
-        BenchWorkspace workspace;
+        ProgramWorkspace workspace;
         try
         {
-            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
+            workspace = await ProgramWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token,
                 ansiCodePage: runner.Environment.AnsiCodePage, inItsProject: true, workspace: runner.Workspace);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)

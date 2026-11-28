@@ -4,6 +4,7 @@ using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
+using RDCore.Runtime.Hosting;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
@@ -779,7 +780,7 @@ public sealed class BuildCommandTests
 
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
-        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None);
+        var workspace = await ProgramWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None);
         var built = await runner.BuildAsync(workspace, new ProgramAssemblyBuilder(new System.Reflection.AssemblyName("Hello")),
             RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = Enum.Parse<RDCore.SDK.Runtime.Abstract.Execution.VBBuildConfiguration>(configuration) }, CancellationToken.None);
         using (built.Provider)

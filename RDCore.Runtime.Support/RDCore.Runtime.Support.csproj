@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="rdc" />
+    <InternalsVisibleTo Include="RDCore.Runtime.Hosting" />
     <InternalsVisibleTo Include="RDCore.Tests" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>

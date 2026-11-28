@@ -1,6 +1,7 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.ConsoleIO;
+using RDCore.Runtime.Hosting;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Workspace;
@@ -83,10 +84,10 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         var corpus = options.Path is null ? ExtractCorpus() : null;
         try
         {
-            BenchWorkspace workspace;
+            ProgramWorkspace workspace;
             try
             {
-                workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token,
+                workspace = await ProgramWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token,
                     ansiCodePage: runner.Environment.AnsiCodePage, workspace: runner.Workspace);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
@@ -150,7 +151,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         return folder;
     }
 
-    private void WriteHeader(BenchWorkspace workspace, bool builtIn, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine engine)
+    private void WriteHeader(ProgramWorkspace workspace, bool builtIn, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine engine)
     {
         var runtime = typeof(Runtime.Execution.RuntimeExecutionPipeline).Assembly;
         var configuration = runtime.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled == true ? "Debug" : "Release";
@@ -225,7 +226,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
 
     // each module's parse, indentation and edits applied with the default settings, the slowest first; then the totals, and those with every alignment on. The
     // first time every module is formatted, before the code is compiled to its fastest, is the cold total; what is measured after it is a server's that is warm.
-    private void WriteFormatting(BenchWorkspace workspace, int runs, CancellationToken token)
+    private void WriteFormatting(ProgramWorkspace workspace, int runs, CancellationToken token)
     {
         var aligned = CodeFormattingOptions.Default with { AlignDims = true, AlignContinuations = true, AlignCommentsWithCode = true };
         var cold = FormattingBench.Run(workspace, aligned, 1, token);

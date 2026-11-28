@@ -8,6 +8,7 @@ using RDCore.External.Interaction;
 using RDCore.Parsing;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Hosting;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
@@ -142,7 +143,7 @@ internal sealed record class BenchCase(
 /// <param name="DirectCalls">How many calls compiled code made of compiled procedures through their typed entries, over every run of every case.</param>
 /// <param name="IndirectCalls">How many calls compiled code made through the invoker, over every run of every case.</param>
 internal sealed record class BenchReport(
-    BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
+    ProgramWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
     IReadOnlyList<string> Problems, TimeSpan? Indent = null, long DirectCalls = 0, long IndirectCalls = 0);
 
 /// <summary>
@@ -193,6 +194,8 @@ internal sealed class BenchRunner(
     private readonly IOptions<SdkWorkspaceOptions> _workspace
         = Microsoft.Extensions.Options.Options.Create(options?.Value.Workspace ?? new SdkWorkspaceOptions());
 
+    private readonly WorkspaceProgramLoader _loader = new(fileSystem, errorDetails, loggers, libraries, options);
+
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
 
@@ -213,7 +216,7 @@ internal sealed class BenchRunner(
     public IRuntimeEnvironmentProfile Environment => environment;
 
     /// <summary>
-    /// The workspace's settings, which its modules are parsed and listed by (<see cref="BenchWorkspace.LoadAsync"/>).
+    /// The workspace's settings, which its modules are parsed and listed by (<see cref="ProgramWorkspace.LoadAsync"/>).
     /// </summary>
     public SdkWorkspaceOptions Workspace => _workspace.Value;
 
@@ -224,11 +227,12 @@ internal sealed class BenchRunner(
     /// <param name="options">How many runs, and of which cases.</param>
     /// <param name="progress">Told the name of each case as it is about to be run.</param>
     /// <param name="token">Stops the benchmark between two runs, and the run that is going on.</param>
-    public async Task<BenchReport> RunAsync(BenchWorkspace workspace, BenchOptions options, Action<string>? progress = null, CancellationToken token = default)
+    public async Task<BenchReport> RunAsync(
+        ProgramWorkspace workspace, BenchOptions options, Action<string>? progress = null, CancellationToken token = default)
     {
         // whatever implements the environment: --engine is never ignored.
         var profile = options.Engine is { } engine ? SDK.Runtime.RuntimeEnvironmentProfile.Of(environment) with { ExecutionEngine = engine } : environment;
-        var load = await LoadAsync(workspace, profile, ExternalWorld.None, token);
+        var load = await _loader.LoadAsync(workspace, profile, ExternalWorld.None, token);
         using var provider = load.Provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): each case is refused with what keeps the modules from loading.
@@ -301,9 +305,9 @@ internal sealed class BenchRunner(
     /// <param name="token">Stops the load.</param>
     /// <returns>Each procedure, by module and in the order the module declares them; and what kept a module from being parsed or loaded.</returns>
     public async Task<(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems)> CompileAsync(
-        BenchWorkspace workspace, CancellationToken token = default)
+        ProgramWorkspace workspace, CancellationToken token = default)
     {
-        var load = await LoadAsync(workspace, environment, ExternalWorld.None, token);
+        var load = await _loader.LoadAsync(workspace, environment, ExternalWorld.None, token);
         using var provider = load.Provider;
         var session = provider.Session;
         var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, errorDetails, token, outside: provider.Outside);
@@ -335,13 +339,13 @@ internal sealed class BenchRunner(
     /// <param name="builder">The program's assembly.</param>
     /// <param name="profile">The environment the program is built for; the runner's when omitted.</param>
     /// <param name="token">Stops the load.</param>
-    public async Task<BuiltWorkspace> BuildAsync(BenchWorkspace workspace, ProgramAssemblyBuilder builder, IRuntimeEnvironmentProfile? profile = null,
+    public async Task<BuiltWorkspace> BuildAsync(ProgramWorkspace workspace, ProgramAssemblyBuilder builder, IRuntimeEnvironmentProfile? profile = null,
         CancellationToken token = default)
     {
         var definitions = new List<DefineSymbolsParams>();
         // the program is built in the language it is loaded in, and runs in it (BuiltEnvironment).
-        var built = InTheLanguageOf(workspace, profile ?? environment);
-        var load = await LoadAsync(workspace, built, ExternalWorld.None, token, definitions);
+        var built = WorkspaceProgramLoader.InTheLanguageOf(workspace, profile ?? environment);
+        var load = await _loader.LoadAsync(workspace, built, ExternalWorld.None, token, definitions);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
         try
         {
@@ -383,189 +387,12 @@ internal sealed class BenchRunner(
     /// <param name="token">Stops the load.</param>
     /// <returns>The session, which the caller disposes; the modules that loaded; and what kept a module from being parsed or loaded.</returns>
     public async Task<(EnvironmentSessionProvider Provider, IReadOnlyList<string> Modules, IReadOnlyList<string> Problems)> LoadProgramAsync(
-        BenchWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, IUserInteraction? dialogs = null, CancellationToken token = default)
+        ProgramWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, IUserInteraction? dialogs = null, CancellationToken token = default)
     {
         // a program reaches the outside world of the machine, as the built program does: its automation servers, its native libraries and its dialogs.
         var outside = dialogs is null ? null : MachineExternal.World with { Interaction = dialogs };
-        var load = await LoadAsync(workspace, profile ?? environment, outside, token);
+        var load = await _loader.LoadAsync(workspace, profile ?? environment, outside, token);
         return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Name)], load.Problems);
-    }
-
-    // the language is the one the project file says, as the language server takes it, over the setting's: a project imported from a .vbp is Visual Basic 6.0
-    // (SupportedLanguages.OfProject). No client names one here.
-    private static IRuntimeEnvironmentProfile InTheLanguageOf(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile)
-        => SupportedLanguages.OfProject(workspace.Project) is { } language && language != profile.Language
-            ? SDK.Runtime.RuntimeEnvironmentProfile.Of(profile) with { SourceLanguage = language }
-            : profile;
-
-    private sealed record class LoadedWorkspace(
-        EnvironmentSessionProvider Provider, IReadOnlyList<ParsedModule> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
-        IReadOnlyList<string> Problems, IReadOnlyList<LibraryDescription> Libraries);
-
-    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching the outside world it is given
-    // (outside), or the machine's when outside is null; what was defined in it, in order, kept in definitions when it is given. The caller disposes the
-    // provider: the session's current directory is the workspace, which the caller may delete.
-    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, ExternalWorld? outside, CancellationToken token,
-        List<DefineSymbolsParams>? definitions = null)
-    {
-        var root = workspace.RootUri;
-        profile = InTheLanguageOf(workspace, profile);
-        var provider = new EnvironmentSessionProvider(
-            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, outside, options: options);
-        try
-        {
-            provider.Compose(workspace.Project, root);
-            return await LoadAsync(provider, workspace, root, token, definitions);
-        }
-        catch
-        {
-            provider.Dispose();
-            throw;
-        }
-    }
-
-    private async Task<LoadedWorkspace> LoadAsync(EnvironmentSessionProvider provider, BenchWorkspace workspace, Uri root, CancellationToken token,
-        List<DefineSymbolsParams>? definitions)
-    {
-        var problems = new List<string>();
-        var stopwatch = Stopwatch.StartNew();
-        var own = Parsed(workspace, root, problems, string.Empty);
-        var parseTime = stopwatch.Elapsed;
-
-        // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
-        // defined in the host, then the code of each.
-        // they are bound in the environment the session was composed for: the profile's language and pointer width, which need not be the runner's.
-        stopwatch.Restart();
-        var composed = provider.Session.Environment;
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project, composed.Language);
-        var scope = composed.Language.ImplicitDeclarationScope;
-
-        // each project the project references is bound as its own analysis binds it: its modules, the libraries it references, and its own name. It gives the
-        // project its names at the precedence of the reference, after the libraries'.
-        var projects = workspace.ReferencedProjects.Select(each =>
-        {
-            var projectRoot = each.Workspace.RootUri;
-            var modules = Parsed(each.Workspace, projectRoot, problems, $"{each.Name}.");
-            var ownLibraries = LibrarySymbolProvider.Load(libraries, each.Workspace.Project, composed.Language);
-            var projectResolver = WorkspaceSymbolResolver.Compose(
-                projectRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit), each.Name,
-                scope, [.. new LibrarySymbolProvider(projectRoot, ownLibraries, composed.Is64Bit).ProvideSymbols()], HostsOf(each.Workspace),
-                ParsedModule.DirectivesOf(modules));
-            return new ReferencedProjectModules(each.Name, referenced.Priorities.GetValueOrDefault(each.Name), projectRoot, modules, projectResolver);
-        }).ToArray();
-
-        IReadOnlyList<Symbol> librarySymbols =
-        [
-            .. new LibrarySymbolProvider(root, referenced, composed.Is64Bit).ProvideSymbols(),
-            .. projects.SelectMany(project => project.NamesFor(root, scope)),
-        ];
-
-        var resolver = WorkspaceSymbolResolver.Compose(
-            root, own.Select(module => (module.Uri, module.Kind, module.Parse)), new IntrinsicSymbolResolver(composed.Is64Bit),
-            workspace.Project.Name, scope, librarySymbols, HostsOf(workspace), ParsedModule.DirectivesOf(own));
-
-        var define = new DefineSymbolsHandler(
-            provider, new ProjectAnalysisSessions(composed, fileSystem, loggers.CreateLogger<ProjectAnalysisSessions>(), libraries, options),
-            errorDetails,
-            loggers.CreateLogger<DefineSymbolsHandler>());
-        var symbolsTime = TimeSpan.Zero;
-        var loaded = new List<ParsedModule>();
-        foreach (var definition in SessionDefinitions.Of(root, own, resolver, scope, replace: true, projects))
-        {
-            if (definition.ToRequest() is not { } request)
-            {
-                continue;
-            }
-
-            if (definition.Phase is SessionDefinitionPhase.Code && symbolsTime == TimeSpan.Zero)
-            {
-                symbolsTime = stopwatch.Elapsed;
-                stopwatch.Restart();
-            }
-
-            definitions?.Add(request);
-            var defined = await define.Handle(request, token);
-            if (definition.Phase is not SessionDefinitionPhase.Code)
-            {
-                continue;
-            }
-
-            // what keeps a module of a referenced project from loading is named as of its project: it refuses the run as one of the project's own does.
-            var name = definition.Referenced is { } project ? $"{project.Name}.{definition.Module.Name}" : definition.Module.Name;
-            if (defined.CodeErrors.Count > 0)
-            {
-                problems.Add($"{name}: {string.Join("; ", defined.CodeErrors)}");
-            }
-            else if (definition.Referenced is null)
-            {
-                loaded.Add(definition.Module);
-            }
-        }
-
-        var loadTime = stopwatch.Elapsed;
-
-        // the sweep of each module started when it was loaded, and runs in the background: it is over before anything is timed that it could slow down.
-        await provider.Image.Semantics.WhenAllEvaluatedAsync(token);
-        var sweepTime = stopwatch.Elapsed;
-
-        return new LoadedWorkspace(provider, loaded, parseTime, symbolsTime, loadTime, sweepTime, problems, referenced.Libraries);
-    }
-
-    // the modules of a workspace that parse, addressed under root; what keeps one from parsing is a problem, named with the prefix (its project's, for a
-    // referenced one). A module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a
-    // branch of a #If that is excluded, which only the host knows. The parser reads text alone: a form's designer is set on its parse from its text and its
-    // companion file, as the language server sets it. A file of several modules is parsed once, and each of its modules is a part with its own part of the
-    // parse (RDCoreDocument.ParseOf): the file's own module first, then each block's, named as its header writes it. The parts of one name are one module
-    // (ModuleAssembly); a module its parts make invalid is a problem, and none of its parts is defined.
-    private IReadOnlyList<ParsedModule> Parsed(BenchWorkspace workspace, Uri root, List<string> problems, string prefix)
-    {
-        var parts = new List<ModulePart>();
-        foreach (var module in workspace.Modules)
-        {
-            var file = workspace.DocumentOf(module);
-            var parse = new ModuleParser(workspaceOptions: _workspace).Parse(file, module.Source) with
-            {
-                Designer = FormDesigner.Read(module.RelativePath, module.Source, module.Companion, out var designerProblem),
-            };
-            if ((module.CompanionProblem ?? designerProblem) is { } problem)
-            {
-                loggers.CreateLogger<BenchRunner>().LogWarning(problem, "⚠️ The designer of {module} cannot be read.", module.RelativePath);
-            }
-
-            if (parse.SyntaxTree is null)
-            {
-                problems.Add($"{prefix}{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Description))}");
-                continue;
-            }
-
-            parts.AddRange(ModulePart.PartsOf(file, module.Name, module.Type, parse));
-        }
-
-        var (modules, refused) = ParsedModule.Assemble(root, parts);
-        foreach (var invalid in refused)
-        {
-            problems.Add($"{prefix}{invalid.Name}: {string.Join("; ", invalid.Errors.Select(error => error.Description))}");
-        }
-
-        return modules;
-    }
-
-    // what host document each document module is the code of, as the language server has it: its code names the members of its host's class, and they are
-    // not taken for variables it declares by naming them.
-    private static Dictionary<string, DocClassType> HostsOf(BenchWorkspace workspace)
-    {
-        var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
-        foreach (var module in workspace.Modules)
-        {
-            var listed = workspace.Project.Modules
-                .FirstOrDefault(entry => string.Equals(entry.RelativeUri, module.RelativePath, StringComparison.OrdinalIgnoreCase));
-            if (listed?.Super is { } super)
-            {
-                hosts.TryAdd(module.Name, super);
-            }
-        }
-
-        return hosts;
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+    <AssemblyTitle>RDCore Runtime Hosting</AssemblyTitle>
+    <Description>What a host composes an RD-VBA program with, from its files, and makes the machines that run it: the implementation of the SDK's runtime hosting contract.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="rdc" />
+    <InternalsVisibleTo Include="RDCore.Tests" />
+    <InternalsVisibleTo Include="RDCore.Benchmarks" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <!-- a program composed from its files is parsed: this assembly references RDCore.Parsing, which RDCore.Runtime.Support, a built program's closure, does
+       not. -->
+  <ItemGroup>
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
+    <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
+    <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
+    <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
+  </ItemGroup>
+
+</Project>

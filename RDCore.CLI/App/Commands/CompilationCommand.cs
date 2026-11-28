@@ -1,6 +1,7 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.Runtime.Compiled;
+using RDCore.Runtime.Hosting;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Workspace;
@@ -48,10 +49,10 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         var corpus = parsed.Value.Path is null ? BenchCommand.ExtractCorpus(fileSystem) : null;
         try
         {
-            BenchWorkspace workspace;
+            ProgramWorkspace workspace;
             try
             {
-                workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? parsed.Value.Path!, token,
+                workspace = await ProgramWorkspace.LoadAsync(fileSystem, projects, corpus ?? parsed.Value.Path!, token,
                     ansiCodePage: runner.Environment.AnsiCodePage, workspace: runner.Workspace);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
@@ -78,7 +79,7 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         }
     }
 
-    private void Write(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> procedures, BenchWorkspace workspace)
+    private void Write(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> procedures, ProgramWorkspace workspace)
     {
         var sources = workspace.Modules.DistinctBy(module => module.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(module => module.Name, module => module.Source.ReplaceLineEndings("\n").Split('\n'), StringComparer.OrdinalIgnoreCase);

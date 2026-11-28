@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Commands;
+using RDCore.Runtime.Hosting;
 using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Runtime;
@@ -86,8 +87,8 @@ public sealed class BenchCommandTests
         return fileSystem;
     }
 
-    private static Task<BenchWorkspace> Load(MockFileSystem fileSystem, string? path = null)
-        => BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), path ?? Root);
+    private static Task<ProgramWorkspace> Load(MockFileSystem fileSystem, string? path = null)
+        => ProgramWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), path ?? Root);
 
     private static BenchRunner Runner(MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
         => new(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
@@ -114,7 +115,7 @@ public sealed class BenchCommandTests
     {
         var fileSystem = Files(("Backup.bas", "Attribute VB_Name = \"Backup\"\r\nClass Account\r\nEnd Class\r\nModule Helpers\r\nEnd Module\r\n"));
 
-        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None,
+        var workspace = await ProgramWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None,
             workspace: new() { FileLevelStatements = setting });
 
         CollectionAssert.AreEqual(setting ? new[] { "Backup", "Account", "Helpers" } : new[] { "Backup" },
@@ -130,7 +131,7 @@ public sealed class BenchCommandTests
             ("Gauge.ctl", ClassModule("Gauge")), ("notes.txt", "not a module"));
         var supported = SupportedLanguages.Get(language);
 
-        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None, supported);
+        var workspace = await ProgramWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None, supported);
         var synthesized = (await new ProjectFileLoader(fileSystem).LoadOrSynthesizeAsync(Root, supported)).ProjectInfo;
 
         CollectionAssert.AreEquivalent(modules, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());

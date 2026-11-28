@@ -1,4 +1,5 @@
 using RDCore.Parsing;
+using RDCore.Runtime.Hosting;
 using RDCore.SDK.Formatting;
 using System.Diagnostics;
 
@@ -13,7 +14,8 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Parse">How long each parse took.</param>
 /// <param name="Indent">How long making the edits took each time, from the parse.</param>
 /// <param name="Apply">How long applying them took each time.</param>
-internal sealed record class FormattingCase(BenchModule Module, int Lines, int Edits, IReadOnlyList<TimeSpan> Parse, IReadOnlyList<TimeSpan> Indent, IReadOnlyList<TimeSpan> Apply)
+internal sealed record class FormattingCase(
+    ProgramWorkspaceModule Module, int Lines, int Edits, IReadOnlyList<TimeSpan> Parse, IReadOnlyList<TimeSpan> Indent, IReadOnlyList<TimeSpan> Apply)
 {
     /// <summary>The fastest parse.</summary>
     public TimeSpan ParseMin => Parse.Min();
@@ -35,7 +37,7 @@ internal sealed record class FormattingCase(BenchModule Module, int Lines, int E
 internal static class FormattingBench
 {
     /// <summary>Formats each module of the workspace as many times as there are runs.</summary>
-    public static IReadOnlyList<FormattingCase> Run(BenchWorkspace workspace, CodeFormattingOptions options, int runs, CancellationToken token)
+    public static IReadOnlyList<FormattingCase> Run(ProgramWorkspace workspace, CodeFormattingOptions options, int runs, CancellationToken token)
     {
         var cases = new List<FormattingCase>();
         foreach (var module in workspace.Modules)
