@@ -372,6 +372,9 @@
   <data name="JsonValues_KeyNamesMethod_Verbose" xml:space="preserve">
     <value>The key names the method '{0}' of the class '{1}'.</value>
   </data>
+  <data name="JsonValues_KeyNamesIndexedProperty_Verbose" xml:space="preserve">
+    <value>The key names the property '{0}' of the class '{1}', which takes arguments besides its value.</value>
+  </data>
   <data name="JsonValues_KeyNamesReadOnly_Verbose" xml:space="preserve">
     <value>The key names the member '{0}' of the class '{1}', which is read-only.</value>
   </data>

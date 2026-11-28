@@ -826,7 +826,16 @@ namespace RDCore.Runtime {
             get {
                 return ResourceManager.GetString("JsonValues_KeyNamesMethod_Verbose", resourceCulture);
             }
+        }        
+        /// <summary>
+        ///   Looks up a localized string similar to The key names the property &apos;{0}&apos; of the class &apos;{1}&apos;, which takes arguments besides its value..
+        /// </summary>
+        internal static string JsonValues_KeyNamesIndexedProperty_Verbose {
+            get {
+                return ResourceManager.GetString("JsonValues_KeyNamesIndexedProperty_Verbose", resourceCulture);
+            }
         }
+
         
         /// <summary>
         ///   Looks up a localized string similar to The key names the member &apos;{0}&apos; of the class &apos;{1}&apos;, which is read-only..

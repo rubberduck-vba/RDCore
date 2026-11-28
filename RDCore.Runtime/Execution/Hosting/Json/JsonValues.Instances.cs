@@ -116,8 +116,8 @@ internal sealed partial class JsonValues
 
     // the keys, checked before any member is given a value, so that a JSON object refused changes nothing. Two keys that name one member, in different
     // cases, are 457, as a Collection's key given twice is. Where the rules raise, a key that names no member the object can give a value to is the error
-    // CallByName raises for it: 438 for no public member, 450 for a method, 451 for a Property Get with no Let or Set. A member no key names is 449, as a
-    // required argument no call gives is.
+    // CallByName raises for it: 438 for no public member, 450 for a method or a Property Let or Set that takes arguments besides its value, 451 for a
+    // Property Get with no Let or Set. A member no key names is 449, as a required argument no call gives is.
     private void Check(JsonObject record, VBClassModuleSymbol classModule)
     {
         var keys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -143,6 +143,14 @@ internal sealed partial class JsonValues
                 {
                     throw new Refused(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod,
                         Verbose(Exceptions.JsonValues_KeyNamesNoMember_Verbose, key, classModule.Name));
+                }
+            }
+            else if (named.Any(member => member is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol))
+            {
+                if (rules.RaiseUnknown)
+                {
+                    throw new Refused(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment,
+                        Verbose(Exceptions.JsonValues_KeyNamesIndexedProperty_Verbose, named[0].Name, classModule.Name));
                 }
             }
             else if (named.Any(member => member is VBPropertyGetMemberSymbol))

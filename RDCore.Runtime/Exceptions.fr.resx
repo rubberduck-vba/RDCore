@@ -372,6 +372,9 @@
   <data name="JsonValues_KeyNamesMethod_Verbose" xml:space="preserve">
     <value>La clé désigne la méthode '{0}' de la classe '{1}'.</value>
   </data>
+  <data name="JsonValues_KeyNamesIndexedProperty_Verbose" xml:space="preserve">
+    <value>La clé désigne la propriété '{0}' de la classe '{1}', qui prend des arguments en plus de sa valeur.</value>
+  </data>
   <data name="JsonValues_KeyNamesReadOnly_Verbose" xml:space="preserve">
     <value>La clé désigne le membre '{0}' de la classe '{1}', qui est en lecture seule.</value>
   </data>
