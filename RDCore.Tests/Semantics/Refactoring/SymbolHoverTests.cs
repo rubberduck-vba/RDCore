@@ -76,6 +76,8 @@ public sealed class SymbolHoverTests
         "    c.Value = \"x\"",
         "    MsgBox Total",
         "    MsgBox Durée",
+        "    Debug.Print count",
+        "    Debug.Assert count > 0",
         "    Factory.Create",
         "End Sub");
 
@@ -135,6 +137,10 @@ public sealed class SymbolHoverTests
     [DataRow("Program", "Dim count As Long", "Long", "Long", null, DisplayName = "an intrinsic type")]
     [DataRow("Program", "Factory.Create", "Factory", "Factory", null, DisplayName = "the default instance of a class")]
     [DataRow("Program", "MsgBox Durée", "Durée", "Public Durée As Long", "Données", DisplayName = "a variable of a module named with an accent")]
+    [DataRow("Program", "Debug.Print count", "Debug", "Class Debug", null, DisplayName = "the Debug object")]
+    [DataRow("Program", "Debug.Print count", "Print", "Public Sub Print(ParamArray OutputList() As Variant)", "Debug", DisplayName = "Debug.Print")]
+    [DataRow("Program", "Debug.Assert count", "Assert", "Public Sub Assert(ByVal Expression As Boolean)", "Debug", DisplayName = "Debug.Assert")]
+    [DataRow("Program", "Debug.Assert count", "count", "Dim count As Long", "Program.Main", DisplayName = "a name a Debug statement is given")]
     public void AHover_SaysTheDeclaration_AndWhatDeclaresIt(string module, string line, string text, string declaration, string? container)
     {
         var hover = HoverAt(Workspace(), module, line, text);
