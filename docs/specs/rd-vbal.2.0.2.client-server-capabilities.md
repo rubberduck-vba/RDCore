@@ -214,8 +214,11 @@ A module of the client's own cannot be named after the project or a library it r
 matched in one tier (**MS-VBAL §5.6.10**), so the name would match twice, and a name qualified by it, such as `VBA.Len`, would be invalid. Such a run is not found,
 and the result says why.
 
-A workspace whose project file cannot be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
-that opens no folder has no workspace, and what it runs is not found.
+A workspace whose project file cannot be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules.
+
+A client that opens no folder works in the folder the language server was started on (`--workspace`), on every system. When the client opens a folder other
+than that one, the user is warned, and the server's settings and the processes it starts are those of the folder the client opened. A client that opens no
+folder, of a server started on none, has no workspace, and what it runs is not found.
 
 ### Documents and their addresses
 
@@ -226,7 +229,7 @@ A document is addressed by the URI the client gives it (**LSP 3.17** §URI), of 
 |A file of the workspace's folder (`file:`)|A module of the workspace's project, as its project file lists it.|
 |A file outside the workspace's folder|A module of the workspace's project too, while the client has it open: a program a shell loads is one.|
 |A document that is no file (`untitled:Untitled-1`, or any other scheme)|The client's alone: a project of its own, addressed under its own URI ([`SymbolUri.RootOf`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.SymbolUri.html)). It is parsed and gets its syntax diagnostics, its outline, its folding ranges and its completions, which offer nothing of the workspace's modules; it is no module of the workspace, and the environment host has no module of it. It is gone once the client closes it.|
-|Any document of a server started on no folder (`rootUri` of `null`)|A project of its own, as a document that is no file is.|
+|Any document, when the client opens no folder (`rootUri` of `null`) and the server was started on none|A project of its own, as a document that is no file is.|
 
 A URI is the document's however the client spells it: `file:///c%3A/Work/Module1.bas` is the document `file:///C:/Work/Module1.bas` is, and a root of a project given as a URI is the root its path is ([`SymbolUri.Root`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.SymbolUri.html)). A relative path is no URI, and addresses no root.
 

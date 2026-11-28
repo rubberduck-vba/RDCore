@@ -41,7 +41,7 @@ Each diagnostics provider projects its own findings to LSP `Diagnostic`s through
 
 The editor edge of the diagnostics pipeline stays plain LSP throughout. Only the language-server-to-provider hop is an RDCore request.
 
-The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDocumentPayload](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentPayload.html)) as a [PlatformJson](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic.
+The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDocumentPayload](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentPayload.html)) as a [PlatformJson](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic. It also carries the module's kind (`ModuleKind`), as the project and the module's text say: each module of a file of blocks has its own, and a document module is sent as one.
 
 > [!NOTE]
 > **Not implemented.** The `rdcore/diagnostics/document` request does not carry a `SemanticContext` (resolver output). It carries the parse result.
