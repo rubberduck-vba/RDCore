@@ -188,6 +188,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ConstantNotUsed, 1015),
         (RDCoreDiagnosticId.LineLabelNotUsed, 1016),
         (RDCoreDiagnosticId.WriteOnlyProperty, 1017),
+        (RDCoreDiagnosticId.CodeLeftOutByConditionalCompilation, 1026),
         (RDCoreDiagnosticId.SetThroughACallFails, 11012),
         (RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow, 11018),
         (RDCoreDiagnosticId.IgnoredTypeCharacter, 11019),
