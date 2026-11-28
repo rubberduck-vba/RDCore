@@ -31,7 +31,7 @@ var result = await machine.InvokeAsync(new ProgramInvocation("Program", "Total",
 | `ComposedProgramFile.LoadAsync` | Reads the composition. Throws `InvalidDataException` for a file that is not one, or for a composition of another format. |
 | `IComposedProgram.Documents` | The program's files, each with its parse, as they were when the program was composed. |
 | `IComposedProgram.CreateMachineAsync` | Makes a machine: a runtime session of its own, composed from the composition. Machines can be made concurrently, and run at the same time, each on its own thread. |
-| `IProgramMachine.InvokeAsync` | Runs one procedure by name, with its arguments and its result as JSON. A machine runs one invocation at a time. A cancelled invocation ends as `Interrupted`, and an `End` statement as `Halted`. |
+| `IProgramMachine.InvokeAsync` | Runs one procedure by name, with its arguments and its result as JSON. A procedure of a class module runs on a new object of the class: its `Class_Initialize` runs before the procedure, and its `Class_Terminate` before the invocation ends. A machine runs one invocation at a time. A cancelled invocation ends as `Interrupted`, and an `End` statement as `Halted`. |
 | `IProgramMachine.ResetAsync` | Puts the machine's session back in the state the program was composed in. |
 | `IProgramMachine.DisposeAsync` | Releases the machine's session, once any invocation that is running ends. It can be called more than once. |
 
