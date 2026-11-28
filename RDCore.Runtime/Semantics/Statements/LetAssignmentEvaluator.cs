@@ -884,6 +884,16 @@ public sealed class LetAssignmentEvaluator(
             && expressions.DenotesAVariable(session, context, reachedThrough)
             && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBVariantType;
 
+        // a property or a function that takes no argument, declared to return neither an object nor a `Variant`, given some, is error 451: there is nothing to
+        // give them to (`c.Count(1) = 5` of a Collection, whose Count is a function; recorded in Excel).
+        if (read is VBReturningMemberSymbol { ResolvedType: not (VBClassType or VBObjectType or VBVariantType) }
+                and (VBPropertyGetMemberSymbol or VBFunctionMemberSymbol)
+            && parameters.Length == 0 && !indexArguments.IsEmpty && !isSet && !throughAVariant)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                memberAccess.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, name)));
+        }
+
         if (read is null || indexArguments.Length < required || !isProperty && (isSet || indexArguments.IsEmpty || throughAVariant)
             || isSet && indexArguments.IsEmpty && returnsAnObject || throughAVariant && tooMany)
         {
@@ -949,7 +959,8 @@ public sealed class LetAssignmentEvaluator(
     // MS-VBAL §5.6.13: arguments given to a member that declares no parameter apply to what it returns, called with none. An object it returns has its default
     // member assigned with them, as `o.Inner.Item("k") = 5` would. An array has the element they select let, as `a(0) = 5` would be (recorded in Excel), and
     // Set through the object it holds. Called late, on an Object or a Variant, a Set is error 450: IDispatch is asked to Set the default member given the
-    // arguments, which is not a property that can be Set (recorded in Excel); a Let is assigned. What returns neither an object nor an array is error 424.
+    // arguments, which is not a property that can be Set (recorded in Excel); a Let is assigned through an object it returns, and is error 451 of anything
+    // else, as a read is. What returns neither an object nor an array is error 424.
     private RuntimeExecutionOutcome AssignThroughWhatItReturns(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess, VBTypeMemberSymbol reader,
         System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source, VBTypedValue value, bool isSet)
@@ -965,6 +976,13 @@ public sealed class LetAssignmentEvaluator(
         if (!returned.IsSuccess)
         {
             return returned.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(returned.ErrorInfo!);
+        }
+
+        if (Held(returned.Result) is not VBObjectValue && reachedThrough is not null
+            && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                memberAccess.Location, string.Format(Exceptions.VBMemberAccess_TakesNoArguments_Verbose, memberAccess.Member.IdentifierName)));
         }
 
         switch (Held(returned.Result))

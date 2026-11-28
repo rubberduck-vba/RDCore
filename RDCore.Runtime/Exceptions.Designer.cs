@@ -405,6 +405,15 @@ namespace RDCore.Runtime {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The {0} member takes no arguments, and what it returns is not an object whose default member could take them..
+        /// </summary>
+        internal static string VBMemberAccess_TakesNoArguments_Verbose {
+            get {
+                return ResourceManager.GetString("VBMemberAccess_TakesNoArguments_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The object has no member named {0}..
         /// </summary>
         internal static string VBMemberAccess_NoSuchMember_Verbose {
