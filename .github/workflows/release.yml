@@ -433,7 +433,7 @@ jobs:
             --jq '.[] | select(.tag_name == env.TAG) | "\(.id)\t\(if .draft then "draft" else "published" end)\t\(.assets | length)\t\(.prerelease)"')
           count=$(grep -c . <<< "$releases" || true)
           if [ "$count" -eq 0 ]; then
-            echo "$TAG has no release yet: this run creates a draft prerelease."
+            echo "$TAG has no release: this run creates a draft prerelease."
             echo "id=" >> "$GITHUB_OUTPUT"
           elif [ "$count" -gt 1 ]; then
             found=$(awk -F'\t' '{ printf "%s%s release %s with %s asset(s)", (NR > 1 ? ", " : ""), $2, $1, $3 }' <<< "$releases")
@@ -450,7 +450,7 @@ jobs:
               echo "::error::$message"
               exit 1
             fi
-            [ "$prerelease" = true ] || echo "::warning::$TAG's release isn't marked as a pre-release, as the drafts this workflow creates are."
+            [ "$prerelease" = true ] || echo "::warning::$TAG's release is not marked as a pre-release, as the drafts this workflow creates are."
             echo "$TAG has a $kind release with no assets ($id): this run uploads the assets to it, and leaves its title and notes as they are."
             echo "id=$id" >> "$GITHUB_OUTPUT"
           fi

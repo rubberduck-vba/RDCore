@@ -94,7 +94,7 @@ Only people on the bypass list can then create, move or delete a release tag, an
    - **At *Find the tag's release*, saying the tag has more than one release**: it lists each one's id. Keep the one whose notes you want and delete the others, keeping the tag: `gh api -X DELETE repos/rubberduck-vba/RDCore/releases/<id>`. Then re-run.
    - **At *Check the tag still points at the built commit***: the tag was moved after the build. Don't re-run this run: the run the moved tag started builds and publishes it.
    - **Any other step**: re-run.
-1. **Check the draft, then publish it.** Under **Releases**, the draft is marked **Pre-release** and carries every asset (see [What a release is](#what-a-release-is)). Download them, [verify](#verifying-a-release) them, and try each archive on a clean machine of its system. Then edit the draft (its notes too, if needed) and **Publish release**, or `gh release edit <tag> -R rubberduck-vba/RDCore --draft=false`. A release you created and published yourself is already public: check its assets the same way.
+1. **Check the draft, then publish it.** Under **Releases**, the draft is marked **Pre-release** and carries every asset (see [What a release is](#what-a-release-is)). Download them, [verify](#verifying-a-release) them, and try each archive on a clean machine of its system. Then edit the draft (its notes too, if needed) and **Publish release**, or `gh release edit <tag> -R rubberduck-vba/RDCore --draft=false`. A release you created and published yourself is public from the start: check its assets the same way.
 
 ## Dry run
 
