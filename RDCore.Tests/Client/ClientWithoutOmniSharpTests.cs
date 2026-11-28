@@ -235,9 +235,10 @@ public sealed class ClientWithoutOmniSharpTests
     // the module is the workspace's own (Program.bas), as edited: its members are defined under the root, and its code is loaded into the module the
     // environment host composed of the project, which is addressed by the folder as its file URI names it. On Windows the root of a client that opens no
     // folder is the --workspace folder with its drive in the case the command line gives, another spelling of that folder: the module's members are not the
-    // host's module's, its code is loaded into nothing, and Main has no body.
+    // host's module's, its code is loaded into nothing, and Main has no body. It runs everywhere else, where a folder is written one way.
     [TestMethod]
-    [Ignore("Windows: NotImplemented until RDCore.SDK's WorkspaceRootChoice writes the folder the server was started on as a request writes one "
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows,
+        IgnoreMessage = "Windows: NotImplemented until RDCore.SDK's WorkspaceRootChoice writes the folder the server was started on as a request writes one "
         + "(fork branch fix/workspace-root-started-form, next SDK batch)")]
     public async Task AClientThatOpensNoFolder_RunsAModuleOfTheWorkspace()
     {
