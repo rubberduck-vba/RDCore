@@ -72,7 +72,10 @@ internal static class RDFormsControlsMembers
 
                 case "ITEM" or DefaultMember:
                     Takes(collection, member, arguments, 1, 1);
-                    return form.HandleOf(ItemOf(form, arguments[0], culture));
+                    // the name of a control array is the array, as Form1.Command2 is, not its first element: an object with no Name (438), as in VB6.
+                    return arguments[0] is string arrayName && form.ArrayOf(arrayName) is { } array
+                        ? array
+                        : form.HandleOf(ItemOf(form, arguments[0], culture));
 
                 case "ADD":
                     Takes(collection, member, arguments, 2, 3);
