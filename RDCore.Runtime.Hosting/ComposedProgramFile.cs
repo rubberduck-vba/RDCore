@@ -50,7 +50,7 @@ public static class ComposedProgramFile
     /// </summary>
     /// <remarks>
     /// Each machine the program makes (<see cref="IComposedProgram.CreateMachineAsync"/>) has a session of its own, composed from the composition. Machines
-    /// may be made concurrently, and run at the same time, each on a thread of its own. Its <see cref="IComposedProgram.Documents"/> are the program's files
+    /// may be made concurrently, and run at the same time, each on a thread of its own. The program's <see cref="IComposedProgram.Documents"/> are its files
     /// as they were parsed when it was composed.
     /// </remarks>
     /// <param name="path">The composition file.</param>

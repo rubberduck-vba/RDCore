@@ -32,9 +32,10 @@
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
-  <!-- what a deployed host references: RDCore.Runtime.Support and its references, never RDCore.Parsing or ANTLR, whose third-party GPL parts NOTICE's grant
-       does not cover. A test fails when one appears. PrivateAssets="all": the package names no RDCore.Runtime.Support package, which nuget.org doesn't
-       have; the packages of nuget.org the bundled projects reference are referenced here, so that the package names them. -->
+  <!-- what a deployed host references: RDCore.Runtime.Support and its references, never RDCore.Parsing, whose grammars are third-party GPL code that
+       NOTICE's grant does not cover, or ANTLR, which only the parser uses. A test fails when one appears. PrivateAssets="all": the package names no
+       RDCore.Runtime.Support package, which nuget.org does not have; the packages of nuget.org the bundled projects reference are referenced here, so
+       that the package names them. -->
   <ItemGroup>
     <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
     <PackageReference Include="RDCore.Forms" Version="$(RDCoreFormsVersion)" />

@@ -6,7 +6,7 @@
 
 What a host runs an RD-VBA program with: the composition `rdc compose` wrote, loaded with no parser, and the machines that run it. It implements the runtime hosting contract of [RDCore.SDK](https://www.nuget.org/packages/RDCore.SDK) (`RDCore.SDK.Runtime.Hosting`).
 
-**This is a pre-alpha.** The API and the composition format will change, and a platform reads only the compositions of its own format.
+**This is a pre-alpha.** The API and the composition format can change, and a platform reads only the compositions of its own format.
 
 ## Composing a program
 

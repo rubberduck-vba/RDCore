@@ -6,7 +6,7 @@
 
 Ce avec quoi un hôte exécute un programme RD-VBA : la composition que `rdc compose` a écrite, chargée sans analyseur, et les machines qui l'exécutent. Il implémente le contrat d'hébergement de l'environnement d'exécution de [RDCore.SDK](https://www.nuget.org/packages/RDCore.SDK) (`RDCore.SDK.Runtime.Hosting`).
 
-**Ceci est une préalpha.** L'API et le format de la composition changeront, et une plateforme ne lit que les compositions de son propre format.
+**Ceci est une préalpha.** L'API et le format de la composition peuvent changer, et une plateforme ne lit que les compositions de son propre format.
 
 ## Composer un programme
 
@@ -30,7 +30,7 @@ var result = await machine.InvokeAsync(new ProgramInvocation("Program", "Total",
 |---|---|
 | `ComposedProgramFile.LoadAsync` | Lit la composition. Lève `InvalidDataException` pour un fichier qui n'en est pas une, ou pour une composition d'un autre format. |
 | `IComposedProgram.Documents` | Les fichiers du programme, chacun avec son analyse, tels qu'ils étaient quand le programme a été composé. |
-| `IComposedProgram.CreateMachineAsync` | Crée une machine : une session d'exécution qui lui est propre, composée à partir de la composition. Les machines peuvent être créées en parallèle, et s'exécuter en même temps, chacune sur son propre fil. |
+| `IComposedProgram.CreateMachineAsync` | Crée une machine : une session d'exécution qui lui est propre, composée à partir de la composition. Les machines peuvent être créées en parallèle, et s'exécuter en même temps, chacune sur son propre fil d'exécution. |
 | `IProgramMachine.InvokeAsync` | Exécute une procédure par son nom, avec ses arguments et son résultat en JSON. Une machine exécute une invocation à la fois. Une invocation annulée se termine par `Interrupted`, et une instruction `End` par `Halted`. |
 | `IProgramMachine.ResetAsync` | Remet la session de la machine dans l'état où le programme a été composé. |
 | `IProgramMachine.DisposeAsync` | Libère la session de la machine, une fois terminée l'invocation en cours, s'il y en a une. Elle peut être appelée plus d'une fois. |

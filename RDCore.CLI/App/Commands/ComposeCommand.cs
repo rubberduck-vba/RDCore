@@ -67,7 +67,7 @@ internal sealed class ComposeCommand(
         }
         catch (ProgramCompositionException exception)
         {
-            // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): no composition is written of it.
+            // nothing of the project runs while a module of it does not load (RD-VBAL §2.6.1): no composition is written of it.
             foreach (var problem in exception.Problems)
             {
                 _ = Error(problem);
