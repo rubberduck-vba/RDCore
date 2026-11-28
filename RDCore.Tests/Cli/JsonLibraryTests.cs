@@ -22,6 +22,8 @@ public sealed class JsonLibraryTests
             "End Property",
             "Friend Property Let Code(ByVal value As Long)",
             "End Property",
+            "Public Property Let Slot(ByVal index As Long, ByVal value As Long)",
+            "End Property",
             "Public Sub Greet()",
             "End Sub")),
         ("Team", ModuleWorkspace.ClassModule("Team",
@@ -102,7 +104,7 @@ public sealed class JsonLibraryTests
     {
         var printed = await RunAsync(
             "Dim p As Person", "Set p = New Person", "p.Age = 7",
-            $"Set p = JsonValue.Deserialize({Literal("""{"Name":"Bo","Nope":1,"Hidden":1,"Code":1,"Greet":1,"Badge":"x"}""")}, p)",
+            $"Set p = JsonValue.Deserialize({Literal("""{"Name":"Bo","Nope":1,"Hidden":1,"Code":1,"Greet":1,"Slot":1,"Badge":"x"}""")}, p)",
             "Debug.Print p.Name", "Debug.Print p.Age", "Debug.Print p.Badge");
 
         CollectionAssert.AreEqual(new[] { "Bo", "7", "B-Bo" }, printed, Joined(printed));
@@ -126,6 +128,7 @@ public sealed class JsonLibraryTests
     [DataRow("UnknownMembers", """{"Name":"Bo","Code":1}""", 438, DisplayName = "a key that names a Friend member")]
     [DataRow("UnknownMembers", """{"Name":"Bo","Hidden":1}""", 438, DisplayName = "a key that names a Private member")]
     [DataRow("UnknownMembers", """{"Name":"Bo","Greet":1}""", 450, DisplayName = "a key that names a method")]
+    [DataRow("UnknownMembers", """{"Name":"Bo","Slot":1}""", 450, DisplayName = "a key that names a Property Let that takes an index")]
     [DataRow("ReadOnlyMembers", """{"Name":"Bo","Badge":"x"}""", 451, DisplayName = "a key that names a read-only member")]
     [DataRow("MissingMembers", """{"Name":"Bo"}""", 449, DisplayName = "a member no key names")]
     public async Task AnOptionThatRaises_RaisesItsError_BeforeAnyMemberIsGivenAValue(string option, string json, int error)
