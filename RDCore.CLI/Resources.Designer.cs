@@ -2098,6 +2098,33 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted..
+        /// </summary>
+        public static string Compose_PathHelp {
+            get {
+                return ResourceManager.GetString("Compose_PathHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The composition file. bin/&lt;configuration&gt;/&lt;project&gt;.rdcomposition in the workspace when omitted..
+        /// </summary>
+        public static string Compose_OutputHelp {
+            get {
+                return ResourceManager.GetString("Compose_OutputHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Debug or Release..
+        /// </summary>
+        public static string Compose_ConfigurationHelp {
+            get {
+                return ResourceManager.GetString("Compose_ConfigurationHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to --rounds, --runs and --excel-runs must be at least 1, and --excel-rounds between 0 and --rounds..
         /// </summary>
         public static string BenchMsVba_BadCounts {

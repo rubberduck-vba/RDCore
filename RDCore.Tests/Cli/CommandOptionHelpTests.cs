@@ -8,8 +8,8 @@ using RDCore.CLI.App.Commands;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// What <c>rdc build --help</c> and <c>rdc run --help</c> say of each option is a string of rdc's resources, in English and in French: none is written in the
-/// code.
+/// What <c>rdc compose --help</c>, <c>rdc build --help</c> and <c>rdc run --help</c> say of each option is a string of rdc's resources, in English and in
+/// French: none is written in the code.
 /// </summary>
 [TestClass]
 public sealed class CommandOptionHelpTests
@@ -17,6 +17,7 @@ public sealed class CommandOptionHelpTests
     // each command, with its options and the help CommandLineParser writes for its --help.
     private static readonly Dictionary<string, (Type Options, Func<string> Help)> Helped = new()
     {
+        ["compose"] = (typeof(ComposeCommandOptions), Help<ComposeCommandOptions>),
         ["build"] = (typeof(BuildCommandOptions), Help<BuildCommandOptions>),
         ["run"] = (typeof(RunCommandOptions), Help<RunCommandOptions>),
     };

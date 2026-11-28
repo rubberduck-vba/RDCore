@@ -937,6 +937,15 @@
   <data name="Run_UnattendedHelp" xml:space="preserve">
     <value>Personne ne répond aux boîtes de dialogue : un MsgBox ou un InputBox fait échouer l'exécution.</value>
   </data>
+  <data name="Compose_PathHelp" xml:space="preserve">
+    <value>Un dossier d'espace de travail (avec ou sans .rdproj), ou un fichier de module. Le dossier courant s'il est omis.</value>
+  </data>
+  <data name="Compose_OutputHelp" xml:space="preserve">
+    <value>Le fichier de la composition. bin/&lt;configuration&gt;/&lt;project&gt;.rdcomposition dans l'espace de travail s'il est omis.</value>
+  </data>
+  <data name="Compose_ConfigurationHelp" xml:space="preserve">
+    <value>Debug ou Release.</value>
+  </data>
   <data name="BenchMsVba_BadCounts" xml:space="preserve">
     <value>--rounds, --runs et --excel-runs doivent valoir au moins 1, et --excel-rounds entre 0 et --rounds.</value>
   </data>

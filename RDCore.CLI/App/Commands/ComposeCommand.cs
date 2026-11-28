@@ -17,14 +17,14 @@ namespace RDCore.CLI.App.Commands;
 
 internal sealed class ComposeCommandOptions
 {
-    [Value(0, MetaName = "path", Required = false,
-        HelpText = "A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted.")]
+    [Value(0, MetaName = "path", Required = false, HelpText = nameof(Resources.Compose_PathHelp), ResourceType = typeof(Resources))]
     public string? Path { get; set; }
 
-    [Option('o', "output", Required = false, HelpText = "The composition file. bin/<configuration>/<project>.rdcomposition in the workspace when omitted.")]
+    [Option('o', "output", Required = false, HelpText = nameof(Resources.Compose_OutputHelp), ResourceType = typeof(Resources))]
     public string? Output { get; set; }
 
-    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = "Debug or Release.")]
+    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = nameof(Resources.Compose_ConfigurationHelp),
+        ResourceType = typeof(Resources))]
     public VBBuildConfiguration Configuration { get; set; }
 }
 
