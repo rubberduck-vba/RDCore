@@ -1340,7 +1340,7 @@ public static class StatementStaticSemanticsEvaluator
     // MS-VBAL §5.4.3.8: a Let through the argument list of an object's member that takes none and returns neither a Variant nor an object is refused as a Let
     // of the member itself is, before its arguments are counted: `b.Counts(0) = 99` of a Property Get Counts() As Long() and no Property Let is "Can't
     // assign to read-only property", as `b.Counts = …` is, and of a Function "Function call on left-hand side of assignment must return Variant or Object"
-    // (MS-VBA, observed in Excel, of a class of the workspace). A read of it, and a Set, are the member's own argument list.
+    // (MS-VBA, observed in Excel, of a class of the workspace). A read of it, and a Set, give the arguments to the member, which takes none (450).
     private static VBCompileErrorInfo? LetThroughArgumentsOfAMemberThatTakesNone(StaticEvaluationContext context, AssignmentStatementNode assignment)
     {
         if (assignment.Kind is not (AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet)

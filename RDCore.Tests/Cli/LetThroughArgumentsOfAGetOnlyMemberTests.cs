@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// A Let through the argument list of a member that takes no arguments and returns neither a <c>Variant</c> nor an object, through an object declared as
 /// its class, is refused as a Let of the member itself is, whatever the arguments: a <c>Property Get</c> with no <c>Property Let</c> is a read-only
 /// property, and a <c>Function</c> must return a <c>Variant</c> or an object (<strong>MS-VBAL §5.4.3.8</strong>; observed in Excel). A read of it, a
-/// <c>Set</c> through it and a member of what it returns are the member's own argument list, and refused as one.
+/// <c>Set</c> through it and a member of what it returns give the arguments to the member, which takes none: compile error 450.
 /// </summary>
 [TestClass]
 public sealed class LetThroughArgumentsOfAGetOnlyMemberTests
