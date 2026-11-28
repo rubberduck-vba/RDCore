@@ -1,10 +1,17 @@
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
 
 // a field of a record of the activation: the slot of the record's holder - the cell its frame holds the record in - and the field's
-// position in declaration order at each level, a record's field that is a record itself first.
-internal sealed record class FieldPath(int Holder, ImmutableArray<int> Indexes);
+// position in declaration order at each level, a record's field that is a record itself first. Root is the type the holder's record is declared as.
+internal sealed record class FieldPath(int Holder, ImmutableArray<int> Indexes, VBUserDefinedType Root)
+{
+    // the field's place in the holder's record, which a field of a record it nests is read and written at in the same block, with no view made of the
+    // records between (VBUserDefinedTypeValue.TryReadBytesField); -1 for a path that names no field of Root.
+    public int Place => RecordShape.Of(Root).PlaceOf(Indexes.AsSpan());
+}
 
 // a field of a record of a scalar type, read where the record holds it (RecordOperations).
 internal sealed record class FieldNode(FieldPath Field, ScalarKind Kind) : PayloadNode(Kind);

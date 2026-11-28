@@ -151,7 +151,8 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
 
     /// <summary>
     /// Let-assigns a value to a variable by the plan of its let-coercion (<see cref="PlanExecutor.TryConvert"/>), if the value and the declared type of the
-    /// variable are ones the plan can be executed for.
+    /// variable are ones the plan can be executed for. A record let to a variable of its type that holds one is written from the source where the
+    /// variable's record is (<see cref="SymbolAddressTable.TryLetRecordInPlace"/>), which takes a copy of it without the one its let-coercion makes.
     /// </summary>
     /// <param name="session">The session the assignment is evaluated in.</param>
     /// <param name="target">The variable assigned: a <see cref="VBSymbolDescValue"/>.</param>
@@ -159,11 +160,25 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     /// <returns>The value assigned, as it was let-coerced and stored - or <see langword="null"/> when the assignment is to be evaluated the way it always
     /// is, which is also how a coercion that fails raises its error.</returns>
     internal RuntimeSemanticsEvaluationResult? TryAssignPlanned(IRuntimeSession session, VBTypedValue target, VBTypedValue source)
-        => target is VBSymbolDescValue { Symbol: var symbol }
-            && target.GetTargetType() is var declared and not VBUnknownType
-            && PlanExecutor.TryConvert(source, declared, out var coerced)
-                ? Store(session.Symbols.Resolver, symbol, coerced)
+    {
+        if (target is not VBSymbolDescValue { Symbol: var symbol } || target.GetTargetType() is not { } declared || declared is VBUnknownType)
+        {
+            return null;
+        }
+
+        if (source is VBUserDefinedTypeValue record)
+        {
+            return Equals(record.TypeInfo, declared) && TryLetRecordInPlace(session.Symbols.Resolver, symbol, record)
+                ? RuntimeSemanticsEvaluationResult.Success(record)
                 : null;
+        }
+
+        return PlanExecutor.TryConvert(source, declared, out var coerced) ? Store(session.Symbols.Resolver, symbol, coerced) : null;
+    }
+
+    private static bool TryLetRecordInPlace(IRuntimeSymbolResolver resolver, Symbol target, VBUserDefinedTypeValue record)
+        => resolver.GetValue(target) is var handle && handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue)
+            && SymbolAddressTable.TryLetRecordInPlace(handle, record);
 
     private static RuntimeSemanticsEvaluationResult Store(IRuntimeSymbolResolver resolver, Symbol target, VBTypedValue value)
     {

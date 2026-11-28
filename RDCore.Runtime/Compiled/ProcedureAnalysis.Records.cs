@@ -67,14 +67,14 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        (int Holder, ImmutableArray<int> Indexes, VBUserDefinedType Type) record;
+        (int Holder, ImmutableArray<int> Indexes, VBUserDefinedType Type, VBUserDefinedType Root) record;
         switch (owner)
         {
             case BoundVariable { Variable: ITypedSymbol { ResolvedType: VBUserDefinedType declared } } variable when RecordSlotOf(variable) is { } slot:
-                record = (slot, [], declared);
+                record = (slot, [], declared, declared);
                 break;
             case BoundMember when RecordFieldOf(owner) is ({ } outer, VBUserDefinedType inner):
-                record = (outer.Holder, outer.Indexes, inner);
+                record = (outer.Holder, outer.Indexes, inner, outer.Root);
                 break;
             default:
                 return null;
@@ -87,7 +87,7 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return (new FieldPath(record.Holder, record.Indexes.Add(index)), type);
+        return (new FieldPath(record.Holder, record.Indexes.Add(index), record.Root), type);
     }
 
     // a field read on payloads: one of a scalar type is its payload; one of any other type is not compiled code's to read.
