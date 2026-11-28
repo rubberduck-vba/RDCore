@@ -200,9 +200,11 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
-    // a client that opens no folder has no workspace to run anything in: what it runs is not found, and is no internal error of the language server.
+    // a client that opens no folder has the one the server was started on (--workspace) as its workspace, and a program it runs, runs there. A server
+    // started on no folder at all can't be: an IDE starts it on its workspace (RDCoreLanguageServerLaunch takes one, and refuses what is not a folder). The
+    // session's module is named as no module of the workspace is: the subject is the folder, not a session module that shares a workspace module's name.
     [TestMethod]
-    public async Task AClientThatOpensNoFolder_IsToldThereIsNoWorkspaceToRunIn()
+    public async Task AClientThatOpensNoFolder_RunsInTheFolderTheServerWasStartedOn()
     {
         await using var platform = await Platform.StartAsync();
         var rpc = platform.Rpc;
@@ -214,16 +216,19 @@ public sealed class ClientWithoutOmniSharpTests
 
         var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
         {
-            ["source"] = "Public Sub Main()\r\n    Debug.Print 1 + 1\r\nEnd Sub\r\n",
-            ["moduleName"] = "Program",
+            ["source"] = "Public Sub Main()\r\n    Debug.Print 1 + 1\r\n    Debug.Print CurDir\r\nEnd Sub\r\n",
+            ["moduleName"] = "Scratch",
             ["entryPoint"] = "Main",
             ["sessionModule"] = true,
         });
 
         var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", rpc.Logged)}\n{LogOf(platform.Root)}";
         Assert.IsNull(executed["error"], told);
-        Assert.AreEqual((int)ExecutionOutcome.NotFound, executed["result"]!["outcome"]!.GetValue<int>(), told);
-        StringAssert.Contains(executed["result"]!["errorMessage"]!.GetValue<string>(), "no workspace", told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        // CurDir is the workspace's real path: on macOS the temporary folder is under /var, a link to /private/var.
+        var root = RDCore.SDK.Platform.PlatformRootConfinement.RealPath(new Uri(platform.Workspace).LocalPath);
+        CollectionAssert.AreEqual(new[] { "2", RDCore.SDK.Workspace.WorkspacePaths.Normalized(root) },
+            executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
         await platform.ShutdownAsync(4);
     }
 
